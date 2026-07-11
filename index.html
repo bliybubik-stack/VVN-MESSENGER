@@ -1,140 +1,85 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
-    <title>VVN · VaultNet Messenger</title>
+    <title>VVN · secure messenger</title>
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
     <div id="app">
-        <!-- Loading Screen -->
         <div id="loadingOverlay">
-            <div class="loader-container">
-                <div class="loader-icon">🔒</div>
-                <div class="loader-bar"><div class="fill" id="loaderFill"></div></div>
-                <p id="loadingStatus">Securing connection...</p>
-            </div>
+            <p>LOADING SECURE CONNECTION...</p>
+            <div class="loader-bar"><div class="fill" id="loaderFill"></div></div>
+            <p style="font-size:0.7rem;color:#555;" id="loadingStatus">Initializing encryption...</p>
         </div>
 
-        <!-- Auth Screen -->
         <div id="authScreen">
-            <div class="auth-container">
-                <div class="auth-header">
-                    <div class="auth-logo">
-                        <div class="logo-icon">VVN</div>
-                        <span class="logo-sub">VAULTNET</span>
-                    </div>
+            <div class="auth-box">
+                <h1>VVN <small>· secure</small></h1>
+                <p>🔒 end‑to‑end encrypted</p>
+                <input class="auth-input" id="authUsername" placeholder="Username" autocomplete="username" />
+                <input class="auth-input" id="authEmail" placeholder="Email (optional)" autocomplete="email" />
+                <input class="auth-input" id="authPassword" type="password" placeholder="Password" autocomplete="current-password" />
+                <div class="auth-actions">
+                    <button class="btn btn-primary" id="loginBtn">Login</button>
+                    <button class="btn btn-secondary" id="signupBtn">Sign Up</button>
                 </div>
-                <div class="auth-box">
-                    <div class="auth-toggle">
-                        <button class="toggle-btn active" id="signinTab">Sign in</button>
-                        <button class="toggle-btn" id="signupTab">Create account</button>
-                    </div>
-                    <form id="authForm">
-                        <div class="form-group">
-                            <label>USERNAME</label>
-                            <input type="text" id="authUsername" placeholder="your_handle" autocomplete="username" />
-                        </div>
-                        <div class="form-group" id="displayNameGroup" style="display:none;">
-                            <label>DISPLAY NAME (OPTIONAL)</label>
-                            <input type="text" id="authDisplayName" placeholder="How friends see you" maxlength="40" />
-                        </div>
-                        <div class="form-group">
-                            <label>PASSWORD</label>
-                            <input type="password" id="authPassword" placeholder="********" autocomplete="current-password" />
-                        </div>
-                        <button type="submit" class="auth-btn" id="authBtn">Enter VNN</button>
-                        <div class="auth-footer">
-                            <span>🔒 PRIVATE BY DESIGN</span>
-                        </div>
-                    </form>
-                    <div id="authError" class="auth-error"></div>
-                </div>
+                <div id="authError" class="auth-error"></div>
+                <div class="auth-extra"><span>🔐 5-layer encryption</span></div>
             </div>
         </div>
 
-        <!-- Messenger -->
         <div id="messenger">
-            <!-- Status Bar -->
             <div id="statusBar">
-                <div class="status-left">
-                    <span class="status-dot" id="syncDot"></span>
-                    <span id="syncStatus">Connecting...</span>
-                </div>
-                <div class="status-right">
-                    <button class="status-btn" id="settingsBtn">⚙️</button>
-                    <button class="status-btn" id="syncBtn">⟳</button>
+                <span><span class="status-dot" id="syncDot"></span><span id="syncStatus">Initializing...</span></span>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="manual-sync-btn" id="settingsBtn">⚙️</button>
+                    <button class="manual-sync-btn" id="manualSyncBtn">⟳ Sync</button>
                 </div>
             </div>
-
             <div class="messenger-layout">
-                <!-- Sidebar -->
-                <aside class="sidebar" id="sidebar">
+                <div class="sidebar" id="sidebar">
                     <div class="sidebar-header">
-                        <div class="sidebar-top">
-                            <div class="vvn-brand">
-                                <span class="brand-icon">VVN</span>
-                                <span class="brand-sub">VAULTNET</span>
-                            </div>
-                            <div class="online-count">
-                                <span class="online-dot"></span>
-                                <span id="onlineCount">0</span>
-                                <span class="online-label">online</span>
+                        <div class="logo-bar">
+                            <h2>VVN</h2>
+                            <div class="user-badge" id="userBadge" style="cursor:pointer;">
+                                <span class="status-dot"></span>
+                                <span id="sidebarUsername">user</span>
                             </div>
                         </div>
-                        <div class="user-profile-mini" id="userProfileMini">
-                            <div class="user-avatar" id="userAvatar">👤</div>
-                            <div class="user-info">
-                                <div class="user-name" id="sidebarUsername">username</div>
-                                <div class="user-status">Online · @<span id="sidebarUserHandle">handle</span></div>
-                            </div>
-                        </div>
-                        <div class="search-container">
-                            <input type="text" id="searchInput" placeholder="Search users..." />
+                        <div class="search-wrap">
+                            <input id="searchInput" placeholder="Search users..." autocomplete="off" />
+                            <div id="searchResults" class="search-results"></div>
                         </div>
                     </div>
-                    <div class="chat-list" id="chatList">
-                        <div class="empty-chats">
-                            <div class="empty-icon">🔒</div>
-                            <div class="empty-title">Your chats will appear here</div>
-                            <div class="empty-desc">Search a user above to start a private chat.</div>
-                        </div>
-                    </div>
-                    <div class="sidebar-footer">
-                        <span>🔒 Encrypted in transit</span>
-                    </div>
-                </aside>
+                    <div class="chat-list" id="chatList"></div>
+                </div>
 
-                <!-- Chat Area -->
-                <section class="chat-area" id="chatArea">
-                    <div class="chat-placeholder" id="chatPlaceholder">
-                        <div class="placeholder-content">
-                            <div class="placeholder-icon">VVN</div>
-                            <h2>Welcome to VVN</h2>
-                            <p>Select a chat or search for a user to start a private conversation. Messages sync in real time across your devices.</p>
-                        </div>
-                    </div>
-                    <div class="chat-active" id="chatActive" style="display:none;">
-                        <div class="chat-header" id="chatHeader">
+                <div class="chat-area" id="chatArea">
+                    <div id="chatPlaceholder" class="chat-placeholder">✨ Your chats will appear here</div>
+                    <div id="chatActive" style="display:flex; flex-direction:column; height:100%; min-height:0;">
+                        <div class="chat-header" id="chatHeader" style="display:none;">
                             <button class="back-btn" id="backBtn">‹</button>
-                            <div class="chat-user-avatar" id="chatAvatar">👤</div>
-                            <div class="chat-user-info">
-                                <div class="chat-username" id="chatPartnerName">username</div>
-                                <div class="chat-user-status" id="chatPartnerStatus">Online</div>
+                            <div class="avatar" id="chatAvatar">👤</div>
+                            <div style="flex:1; min-width:0;">
+                                <div class="chatuser" id="chatPartnerName"></div>
+                                <div class="status" id="chatPartnerStatus">offline</div>
                             </div>
-                            <button class="chat-action-btn" id="chatSettingsBtn">⚙️</button>
+                            <div style="display:flex;gap:4px;">
+                                <button class="chat-action-btn" id="selectMsgBtn" title="Select messages">☑</button>
+                                <button class="chat-action-btn" id="reactBtn" title="React to message">😊</button>
+                                <button class="chat-action-btn" id="deleteSelectedBtn" title="Delete selected" style="display:none;">🗑</button>
+                            </div>
                         </div>
                         <div class="chat-messages" id="chatMessages"></div>
-                        <div class="chat-input-container">
-                            <div class="chat-input-wrapper">
-                                <button class="input-action-btn" id="attachBtn">📎</button>
-                                <input type="text" id="messageInput" placeholder="Message…" />
-                                <button class="send-btn" id="sendBtn">➤</button>
-                            </div>
+                        <div class="chat-input-bar" id="chatInputBar" style="display:none;">
+                            <input id="messageInput" placeholder="Type a message..." autocomplete="off" />
+                            <button id="sendBtn">Send</button>
                         </div>
                     </div>
-                </section>
+                </div>
             </div>
         </div>
     </div>
@@ -143,47 +88,43 @@
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Settings</h2>
+                <h2>Account Settings</h2>
                 <button class="modal-close" id="closeSettings">×</button>
             </div>
             <div class="modal-body">
                 <div class="settings-section">
                     <h3>Profile</h3>
-                    <div class="setting-group">
-                        <label>Display Name</label>
-                        <input type="text" id="setDisplayName" placeholder="How friends see you" />
+                    <div class="setting-item">
+                        <label>Profile Picture URL</label>
+                        <input id="setProfilePic" placeholder="https://example.com/avatar.jpg" />
                     </div>
-                    <div class="setting-group">
+                    <div class="setting-item">
+                        <label>Display Name</label>
+                        <input id="setDisplayName" placeholder="Your display name" />
+                    </div>
+                    <div class="setting-item">
                         <label>Bio</label>
                         <textarea id="setBio" placeholder="Tell people about yourself..." rows="2"></textarea>
-                    </div>
-                    <div class="setting-group">
-                        <label>Profile Picture</label>
-                        <input type="text" id="setAvatar" placeholder="Image URL" />
                     </div>
                 </div>
                 <div class="settings-section">
                     <h3>Account</h3>
-                    <div class="setting-group">
+                    <div class="setting-item">
                         <label>Username</label>
-                        <input type="text" id="setUsername" placeholder="your_handle" />
+                        <input id="setUsername" placeholder="Username" />
                     </div>
-                    <div class="setting-group">
+                    <div class="setting-item">
                         <label>Email</label>
-                        <input type="email" id="setEmail" placeholder="email@example.com" />
+                        <input id="setEmail" placeholder="Email" type="email" />
+                    </div>
+                    <div class="setting-item">
+                        <label>New Password</label>
+                        <input id="setPassword" placeholder="New password" type="password" />
                     </div>
                 </div>
                 <div class="settings-section">
-                    <h3>Security</h3>
-                    <div class="setting-group">
-                        <label>Encryption Level</label>
-                        <select id="setEncryption">
-                            <option value="5">5-layer (Maximum)</option>
-                            <option value="3">3-layer (Standard)</option>
-                            <option value="1">1-layer (Fast)</option>
-                        </select>
-                    </div>
-                    <div class="setting-group">
+                    <h3>Privacy & Security</h3>
+                    <div class="setting-item">
                         <label>Last Seen</label>
                         <select id="setLastSeen">
                             <option value="everyone">Everyone</option>
@@ -191,17 +132,25 @@
                             <option value="none">Nobody</option>
                         </select>
                     </div>
-                    <div class="setting-group">
+                    <div class="setting-item">
                         <label>Read Receipts</label>
                         <select id="setReadReceipts">
                             <option value="on">On</option>
                             <option value="off">Off</option>
                         </select>
                     </div>
+                    <div class="setting-item">
+                        <label>Encryption Level</label>
+                        <select id="setEncryption">
+                            <option value="5">5-layer (Maximum)</option>
+                            <option value="3">3-layer (Standard)</option>
+                            <option value="1">1-layer (Fast)</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="settings-section">
                     <h3>Appearance</h3>
-                    <div class="setting-group">
+                    <div class="setting-item">
                         <label>Theme</label>
                         <select id="setTheme">
                             <option value="dark">Dark</option>
@@ -209,47 +158,105 @@
                             <option value="amoled">AMOLED Black</option>
                         </select>
                     </div>
-                    <div class="setting-group">
+                    <div class="setting-item">
+                        <label>Message Size</label>
+                        <select id="setMsgSize">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Show Timestamps</label>
+                        <select id="setTimestamps">
+                            <option value="on" selected>On</option>
+                            <option value="off">Off</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="settings-section">
+                    <h3>Chat Settings</h3>
+                    <div class="setting-item">
                         <label>Message Animation</label>
                         <select id="setAnimation">
-                            <option value="slide">Slide In</option>
+                            <option value="slide" selected>Slide In</option>
                             <option value="fade">Fade In</option>
                             <option value="bounce">Bounce</option>
                             <option value="none">None</option>
                         </select>
                     </div>
+                    <div class="setting-item">
+                        <label>Enter to Send</label>
+                        <select id="setEnterSend">
+                            <option value="on" selected>On</option>
+                            <option value="off">Off</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Typing Indicators</label>
+                        <select id="setTyping">
+                            <option value="on" selected>On</option>
+                            <option value="off">Off</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="settings-section">
                     <h3>Danger Zone</h3>
-                    <button class="btn-danger" id="logoutBtn">Logout</button>
+                    <button class="btn btn-danger" id="deleteAccountBtn">Delete Account</button>
+                    <button class="btn btn-danger" id="logoutBtn">Logout</button>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn-save" id="saveSettings">Save Settings</button>
+                <button class="btn btn-primary" id="saveSettings">Save Settings</button>
             </div>
         </div>
     </div>
 
-    <!-- Profile Modal -->
-    <div id="profileModal" class="modal">
-        <div class="modal-content profile-modal">
+    <!-- Reaction Modal -->
+    <div id="reactionModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:400px;">
             <div class="modal-header">
-                <h2>Profile</h2>
-                <button class="modal-close" id="closeProfile">×</button>
+                <h2>React to Message</h2>
+                <button class="modal-close" id="closeReaction">×</button>
             </div>
-            <div class="modal-body profile-body">
-                <div class="profile-avatar-large" id="profileAvatar">👤</div>
-                <div class="profile-name" id="profileDisplayName">Display Name</div>
-                <div class="profile-username" id="profileUsername">@username</div>
-                <div class="profile-status" id="profileStatus">Online</div>
-                <div class="profile-bio" id="profileBio">No bio yet.</div>
-                <button class="profile-message-btn" id="profileMessageBtn">✉️ Send message</button>
+            <div class="modal-body" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;padding:20px;">
+                <button class="reaction-emoji" data-emoji="👍">👍</button>
+                <button class="reaction-emoji" data-emoji="❤️">❤️</button>
+                <button class="reaction-emoji" data-emoji="😂">😂</button>
+                <button class="reaction-emoji" data-emoji="😮">😮</button>
+                <button class="reaction-emoji" data-emoji="😢">😢</button>
+                <button class="reaction-emoji" data-emoji="😡">😡</button>
+                <button class="reaction-emoji" data-emoji="👏">👏</button>
+                <button class="reaction-emoji" data-emoji="🔥">🔥</button>
+                <button class="reaction-emoji" data-emoji="💯">💯</button>
+                <button class="reaction-emoji" data-emoji="🤣">🤣</button>
+                <button class="reaction-emoji" data-emoji="💀">💀</button>
+                <button class="reaction-emoji" data-emoji="👀">👀</button>
+                <button class="reaction-emoji" data-emoji="🤔">🤔</button>
+                <button class="reaction-emoji" data-emoji="🥰">🥰</button>
+                <button class="reaction-emoji" data-emoji="😎">😎</button>
+                <button class="reaction-emoji" data-emoji="🎉">🎉</button>
             </div>
         </div>
     </div>
 
-    <script src="js/crypto.js"></script>
-    <script src="js/database.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Delete Options Modal -->
+    <div id="deleteModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>Delete Messages</h2>
+                <button class="modal-close" id="closeDelete">×</button>
+            </div>
+            <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:10px;">
+                <button class="btn btn-danger" id="deleteForMe">Delete for me</button>
+                <button class="btn btn-danger" id="deleteForEveryone">Delete for everyone</button>
+                <button class="btn btn-secondary" id="cancelDelete">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="crypto.js"></script>
+    <script src="database.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
