@@ -1,1294 +1,809 @@
-// app.js - Main application logic
+// app.js - VVN Main Application
 
-const App = {
-    currentUser: null,
-    currentChatPartner: null,
-    currentChatId: null,
-    isMobile: window.innerWidth < 768,
-    messages: [],
-    polls: {},
-    votes: {},
-    replyTo: null,
-    selectedMessages: new Set(),
-    selectMode: false,
-    reactingToMessage: null,
-    isRecording: false,
-    mediaRecorder: null,
-    audioChunks: [],
-    recordingTimer: null,
-    recordingSeconds: 0,
-    syncInterval: null,
+class VVNApp {
+    constructor() {
+        this.db = window.vvnDB;
+        this.crypto = window.vvnCrypto;
+        this.currentUser = null;
+        this.currentChat = null;
+        this.currentChatPartner = null;
+        this.isMobile = window.innerWidth < 768;
+        this.settings = {
+            encryption_level: 5,
+            last_seen_visibility: 'everyone',
+            read_receipts: 'on',
+            theme: 'dark',
+            message_animation: 'slide'
+        };
+        this.pendingMessages = [];
+        this.replyTo = null;
+        this.selectedMessages = [];
+        this.isSelectMode = false;
+        this.reactionEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
+    }
 
-    settings: {
-        theme: 'dark',
-        msgSize: 'medium',
-        timestamps: 'on',
-        animation: 'slide',
-        enterSend: 'on',
-        typing: 'on',
-        lastSeen: 'everyone',
-        readReceipts: 'on',
-        encryption: '5'
-    },
+    // ---------- INITIALIZATION ----------
+    async init() {
+        // Show loading
+        this.showLoading(true);
+        this.updateLoadingStatus('Initializing secure connection...');
 
-    init() {
-        this.loadSettings();
-        this.bindEvents();
-        this.loadDatabase();
-    },
+        // Initialize database
+        await this.db.init();
+        this.updateLoadingStatus('Loading secure data...');
 
-    loadSettings() {
-        const saved = localStorage.getItem('vvn_settings');
-        if (saved) {
-            try {
-                this.settings = JSON.parse(saved);
-            } catch {}
-        }
-        this.applySettings();
-    },
-
-    saveSettings() {
-        localStorage.setItem('vvn_settings', JSON.stringify(this.settings));
-        this.applySettings();
-    },
-
-    applySettings() {
-        // Apply theme
-        if (this.settings.theme === 'light') {
-            document.body.style.background = '#f0f0f0';
-            document.querySelector('#app').style.background = '#ffffff';
-        } else {
-            document.body.style.background = '#0b0b0b';
-            document.querySelector('#app').style.background = '#141414';
-        }
-    },
-
-    async loadDatabase() {
-        await Database.load();
-        const session = Database.getSession();
+        // Check for session
+        const session = localStorage.getItem('vvn_session');
         if (session) {
-            const users = Database.getUsers();
-            const user = users.find(u => u.username === session.username);
-            if (user) {
-                this.currentUser = user;
-                this.renderMessenger();
-                this.startAutoSync();
-                this.hideLoading();
+            try {
+                const userData = JSON.parse(session);
+                const user = this.db.getUserById(userData.id);
+                if (user) {
+                    this.currentUser = user;
+                    this.updateLoadingStatus('Welcome back!');
+                    this.showAuth(false);
+                    this.showMessenger(true);
+                    this.loadChats();
+                    this.setupAutoRefresh();
+                    this.hideLoading();
+                    return;
+                }
+            } catch (e) {
+                console.warn('Session invalid');
+            }
+        }
+
+        // Show auth screen
+        this.updateLoadingStatus('Ready');
+        this.showAuth(true);
+        this.showMessenger(false);
+        this.hideLoading();
+        this.setupAuthListeners();
+    }
+
+    // ---------- LOADING ----------
+    showLoading(show) {
+        const overlay = document.getElementById('loadingOverlay');
+        if (show) {
+            overlay.classList.remove('hidden');
+        } else {
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+        }
+    }
+
+    updateLoadingStatus(text) {
+        document.getElementById('loadingStatus').textContent = text;
+        const fill = document.getElementById('loaderFill');
+        const progress = Math.min(100, (text.length / 50) * 100 + 20);
+        fill.style.width = Math.min(progress, 100) + '%';
+    }
+
+    hideLoading() {
+        this.showLoading(false);
+    }
+
+    // ---------- AUTH ----------
+    showAuth(show) {
+        document.getElementById('authScreen').style.display = show ? 'flex' : 'none';
+    }
+
+    showMessenger(show) {
+        document.getElementById('messenger').style.display = show ? 'flex' : 'none';
+    }
+
+    setupAuthListeners() {
+        // Tab switching
+        document.getElementById('signinTab').addEventListener('click', () => {
+            document.getElementById('signinTab').classList.add('active');
+            document.getElementById('signupTab').classList.remove('active');
+            document.getElementById('displayNameGroup').style.display = 'none';
+            document.getElementById('authBtn').textContent = 'Enter VNN';
+        });
+
+        document.getElementById('signupTab').addEventListener('click', () => {
+            document.getElementById('signupTab').classList.add('active');
+            document.getElementById('signinTab').classList.remove('active');
+            document.getElementById('displayNameGroup').style.display = 'block';
+            document.getElementById('authBtn').textContent = 'Create account';
+        });
+
+        // Form submit
+        document.getElementById('authForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('authUsername').value.trim();
+            const password = document.getElementById('authPassword').value;
+            const isSignup = document.getElementById('signupTab').classList.contains('active');
+
+            if (!username || !password) {
+                this.showAuthError('Please fill in all fields');
+                return;
+            }
+
+            try {
+                document.getElementById('authBtn').disabled = true;
+                document.getElementById('authBtn').textContent = 'Please wait...';
+
+                if (isSignup) {
+                    const displayName = document.getElementById('authDisplayName').value.trim() || username;
+                    await this.db.createUser(username, password, displayName);
+                    const user = this.db.getUserByUsername(username);
+                    this.currentUser = user;
+                    localStorage.setItem('vvn_session', JSON.stringify({ id: user.id }));
+                    this.showAuthError('');
+                    this.showAuth(false);
+                    this.showMessenger(true);
+                    this.loadChats();
+                    this.setupAutoRefresh();
+                } else {
+                    const user = await this.db.loginUser(username, password);
+                    this.currentUser = user;
+                    localStorage.setItem('vvn_session', JSON.stringify({ id: user.id }));
+                    this.showAuthError('');
+                    this.showAuth(false);
+                    this.showMessenger(true);
+                    this.loadChats();
+                    this.setupAutoRefresh();
+                }
+            } catch (error) {
+                this.showAuthError(error.message);
+            } finally {
+                document.getElementById('authBtn').disabled = false;
+                document.getElementById('authBtn').textContent = isSignup ? 'Create account' : 'Enter VNN';
+            }
+        });
+
+        // Enter key submit
+        document.getElementById('authPassword').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('authForm').dispatchEvent(new Event('submit'));
+            }
+        });
+    }
+
+    showAuthError(msg) {
+        const errorEl = document.getElementById('authError');
+        if (msg) {
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+        } else {
+            errorEl.style.display = 'none';
+        }
+    }
+
+    // ---------- SYNC STATUS ----------
+    setupAutoRefresh() {
+        // Update online status
+        this.updateOnlineStatus();
+
+        // Sync every 3 seconds
+        setInterval(() => {
+            this.db.syncWithRemote();
+        }, 3000);
+
+        // Refresh UI on sync
+        window.refreshUI = () => {
+            if (this.currentUser) {
+                this.loadChats();
+                if (this.currentChat) {
+                    this.loadMessages(this.currentChat);
+                }
+            }
+        };
+
+        window.updateSyncStatus = (text, color) => {
+            const dot = document.getElementById('syncDot');
+            const status = document.getElementById('syncStatus');
+            dot.className = 'status-dot ' + color;
+            status.textContent = text;
+        };
+    }
+
+    updateOnlineStatus() {
+        // Update user status periodically
+        setInterval(() => {
+            if (this.currentUser) {
+                this.db.updateUser(this.currentUser.id, {
+                    last_seen: new Date().toISOString()
+                });
+            }
+        }, 30000);
+
+        // Update online count
+        setInterval(() => {
+            const users = this.db.localCache.users || [];
+            const online = users.filter(u => {
+                const lastSeen = new Date(u.last_seen);
+                return Date.now() - lastSeen.getTime() < 60000;
+            });
+            document.getElementById('onlineCount').textContent = online.length;
+        }, 15000);
+    }
+
+    // ---------- CHATS ----------
+    async loadChats() {
+        if (!this.currentUser) return;
+
+        const chats = this.db.getChats(this.currentUser.id);
+        const chatList = document.getElementById('chatList');
+
+        if (chats.length === 0) {
+            chatList.innerHTML = `
+                <div class="empty-chats">
+                    <div class="empty-icon">🔒</div>
+                    <div class="empty-title">Your chats will appear here</div>
+                    <div class="empty-desc">Search a user above to start a private chat.</div>
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        for (const chat of chats) {
+            const messages = this.db.getMessages(chat.id);
+            const lastMsg = messages.length > 0 ? messages[messages.length - 1] : null;
+            const isActive = this.currentChat && this.currentChat.id === chat.id;
+
+            html += `
+                <div class="chat-item ${isActive ? 'active' : ''}" data-chat-id="${chat.id}" data-user-id="${chat.otherUser.id}">
+                    <div class="avatar">${this.getInitials(chat.otherUser.display_name || chat.otherUser.username)}</div>
+                    <div class="info">
+                        <div class="name">${chat.otherUser.display_name || chat.otherUser.username}</div>
+                        <div class="preview">${lastMsg ? lastMsg.content : 'No messages yet'}</div>
+                    </div>
+                    <div class="time">${lastMsg ? this.formatTime(lastMsg.created_at) : ''}</div>
+                </div>
+            `;
+        }
+
+        chatList.innerHTML = html;
+
+        // Add click listeners
+        chatList.querySelectorAll('.chat-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const chatId = el.dataset.chatId;
+                const userId = el.dataset.userId;
+                const chat = this.db.localCache.chats[Object.keys(this.db.localCache.chats).find(
+                    key => this.db.localCache.chats[key].id === chatId
+                )];
+                if (chat) {
+                    this.openChat(chat, userId);
+                }
+            });
+        });
+
+        // Update user profile
+        this.updateUserProfile();
+    }
+
+    async openChat(chat, partnerId) {
+        this.currentChat = chat;
+        this.currentChatPartner = this.db.getUserById(partnerId);
+        
+        // Show chat area
+        document.getElementById('chatPlaceholder').style.display = 'none';
+        document.getElementById('chatActive').style.display = 'flex';
+        document.getElementById('chatHeader').style.display = 'flex';
+        document.getElementById('chatInputBar')?.classList.remove('hidden');
+
+        // Update header
+        const partner = this.currentChatPartner;
+        document.getElementById('chatPartnerName').textContent = partner.display_name || partner.username;
+        document.getElementById('chatPartnerStatus').textContent = this.isUserOnline(partner) ? 'Online' : 'Offline';
+        document.getElementById('chatAvatar').textContent = this.getInitials(partner.display_name || partner.username);
+
+        // Load messages
+        this.loadMessages(chat.id);
+
+        // Mark as read
+        this.db.markAsRead(chat.id, this.currentUser.id);
+
+        // Mobile view
+        if (this.isMobile) {
+            document.getElementById('sidebar').classList.add('hide-mobile');
+            document.getElementById('chatArea').classList.add('active-mobile');
+        }
+
+        // Update chat list
+        this.loadChats();
+    }
+
+    loadMessages(chatId) {
+        const messages = this.db.getMessages(chatId);
+        const container = document.getElementById('chatMessages');
+        
+        if (messages.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center;color:var(--text-secondary);padding:40px 20px;font-size:0.85rem;">
+                    No messages yet.<br>Say hello!
+                </div>
+            `;
+            return;
+        }
+
+        let html = '';
+        let lastDate = '';
+
+        for (const msg of messages) {
+            const msgDate = new Date(msg.created_at).toDateString();
+            if (msgDate !== lastDate) {
+                html += `<div class="message-date-divider">${new Date(msg.created_at).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>`;
+                lastDate = msgDate;
+            }
+
+            const isMine = msg.sender_id === this.currentUser.id;
+            const sender = isMine ? this.currentUser : this.currentChatPartner;
+            const reactions = msg.reactions || {};
+            const reactionList = Object.values(reactions);
+
+            html += `
+                <div class="message ${isMine ? 'outgoing' : 'incoming'}" data-msg-id="${msg.id}" data-chat-id="${chatId}">
+                    ${msg.reply_to_id ? `<div class="msg-reply">↩️ ${this.getMessageContent(msg.reply_to_id, chatId)}</div>` : ''}
+                    ${msg.type === 'poll' ? this.renderPoll(msg) : msg.content}
+                    <div class="msg-time">${this.formatTime(msg.created_at)}</div>
+                    ${reactionList.length > 0 ? `<div style="display:flex;gap:4px;margin-top:4px;flex-wrap:wrap;">${reactionList.map(r => `<span style="background:var(--bg-input);padding:0 6px;border-radius:12px;font-size:0.8rem;">${r}</span>`).join('')}</div>` : ''}
+                </div>
+            `;
+        }
+
+        container.innerHTML = html;
+        this.scrollToBottom();
+
+        // Add message click listeners for selection
+        if (this.isSelectMode) {
+            container.querySelectorAll('.message').forEach(el => {
+                el.addEventListener('click', () => {
+                    const msgId = el.dataset.msgId;
+                    this.toggleMessageSelection(msgId);
+                });
+            });
+        }
+
+        // Add reaction buttons (hover)
+        container.querySelectorAll('.message').forEach(el => {
+            el.addEventListener('dblclick', () => {
+                const msgId = el.dataset.msgId;
+                this.showReactionPicker(msgId);
+            });
+        });
+    }
+
+    getMessageContent(msgId, chatId) {
+        const messages = this.db.getMessages(chatId);
+        const msg = messages.find(m => m.id === msgId);
+        return msg ? msg.content : 'Message not found';
+    }
+
+    renderPoll(msg) {
+        const poll = this.db.localCache.polls ? this.db.localCache.polls[msg.poll_id] : null;
+        if (!poll) return msg.content;
+
+        const votes = this.db.localCache.poll_votes ? this.db.localCache.poll_votes[poll.id] || [] : [];
+        const total = votes.length;
+        const userVote = votes.find(v => v.voter_id === this.currentUser.id);
+
+        let html = `<div style="background:var(--bg-input);padding:12px;border-radius:12px;margin:4px 0;">`;
+        html += `<div style="font-weight:600;margin-bottom:8px;">📊 ${poll.question}</div>`;
+        
+        for (let i = 0; i < poll.options.length; i++) {
+            const count = votes.filter(v => v.option_index === i).length;
+            const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+            const isVoted = userVote && userVote.option_index === i;
+            
+            html += `
+                <div style="margin-bottom:6px;cursor:pointer;" onclick="vvnApp.voteOnPoll('${poll.id}', ${i})">
+                    <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:2px;">
+                        <span>${poll.options[i]} ${isVoted ? '✓' : ''}</span>
+                        <span style="color:var(--text-secondary);">${count} (${pct}%)</span>
+                    </div>
+                    <div style="background:var(--bg-primary);height:4px;border-radius:4px;overflow:hidden;">
+                        <div style="background:${isVoted ? 'var(--online)' : 'var(--text-secondary)'};height:100%;width:${pct}%;transition:width 0.3s;"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += `<div style="font-size:0.7rem;color:var(--text-secondary);margin-top:8px;">${total} vote${total !== 1 ? 's' : ''}</div>`;
+        html += `</div>`;
+        
+        return html;
+    }
+
+    async voteOnPoll(pollId, optionIndex) {
+        await this.db.voteOnPoll(pollId, this.currentUser.id, optionIndex);
+        if (this.currentChat) {
+            this.loadMessages(this.currentChat.id);
+        }
+    }
+
+    // ---------- MESSAGE ACTIONS ----------
+    async sendMessage() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        if (!text || !this.currentChat) return;
+
+        const replyToId = this.replyTo ? this.replyTo.id : null;
+        
+        // Check for poll command
+        if (text.toLowerCase().startsWith('/poll')) {
+            const pollData = this.parsePollCommand(text);
+            if (pollData) {
+                await this.db.createPoll(this.currentChat.id, this.currentUser.id, pollData.question, pollData.options);
+                input.value = '';
+                this.replyTo = null;
+                this.loadMessages(this.currentChat.id);
                 return;
             }
         }
-        document.getElementById('authScreen').style.display = 'flex';
-        document.getElementById('messenger').style.display = 'none';
-        this.hideLoading();
-    },
 
-    hideLoading() {
-        document.getElementById('loadingOverlay').classList.add('hidden');
-    },
+        // Send message
+        const msg = await this.db.sendMessage(
+            this.currentChat.id,
+            this.currentUser.id,
+            text,
+            replyToId
+        );
 
-    startAutoSync() {
-        if (this.syncInterval) clearInterval(this.syncInterval);
-        this.syncInterval = setInterval(() => {
-            this.syncWithRemote();
+        input.value = '';
+        this.replyTo = null;
+        this.loadMessages(this.currentChat.id);
+        this.loadChats();
+        this.scrollToBottom();
+    }
+
+    parsePollCommand(text) {
+        // Format: /poll / QUE: Question / ANS1: Option 1 / ANS2: Option 2 / ANS3: Option 3
+        const parts = text.split('/').map(s => s.trim()).filter(Boolean);
+        let question = '';
+        const options = [];
+        
+        for (const part of parts) {
+            const match = part.match(/^(QUE|ANS[1-5])\s*:\s*(.+)$/i);
+            if (match) {
+                const key = match[1].toUpperCase();
+                const value = match[2].trim();
+                if (key === 'QUE') {
+                    question = value;
+                } else if (/^ANS[1-5]$/.test(key) && value) {
+                    options.push(value);
+                }
+            }
+        }
+
+        if (question && options.length >= 2) {
+            return { question, options: options.slice(0, 5) };
+        }
+        return null;
+    }
+
+    async deleteMessage(msgId, chatId, forEveryone = false) {
+        await this.db.deleteMessage(msgId, chatId, forEveryone);
+        this.loadMessages(chatId);
+        this.loadChats();
+    }
+
+    async togglePinMessage(msgId, chatId) {
+        await this.db.pinMessage(msgId, chatId);
+        this.loadMessages(chatId);
+    }
+
+    async reactToMessage(msgId, chatId, emoji) {
+        await this.db.reactToMessage(msgId, chatId, emoji, this.currentUser.id);
+        this.loadMessages(chatId);
+    }
+
+    showReactionPicker(msgId) {
+        // Simple implementation - show emoji buttons
+        const picker = document.createElement('div');
+        picker.style.cssText = `
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 8px 12px;
+            display: flex;
+            gap: 6px;
+            z-index: 1000;
+            box-shadow: var(--shadow);
+        `;
+
+        const chatId = this.currentChat.id;
+        for (const emoji of this.reactionEmojis) {
+            const btn = document.createElement('button');
+            btn.textContent = emoji;
+            btn.style.cssText = `
+                background: transparent;
+                border: none;
+                font-size: 1.5rem;
+                padding: 4px 8px;
+                cursor: pointer;
+                border-radius: 8px;
+                transition: background 0.2s;
+            `;
+            btn.onmouseover = () => btn.style.background = 'var(--bg-hover)';
+            btn.onmouseout = () => btn.style.background = 'transparent';
+            btn.onclick = () => {
+                this.reactToMessage(msgId, chatId, emoji);
+                picker.remove();
+            };
+            picker.appendChild(btn);
+        }
+
+        document.body.appendChild(picker);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (picker.parentNode) picker.remove();
         }, 5000);
-    },
+    }
 
-    bindEvents() {
-        // Auth
-        document.querySelectorAll('.auth-tab').forEach(tab => {
-            tab.addEventListener('click', () => this.switchAuthTab(tab));
+    toggleMessageSelection(msgId) {
+        const index = this.selectedMessages.indexOf(msgId);
+        if (index > -1) {
+            this.selectedMessages.splice(index, 1);
+        } else {
+            this.selectedMessages.push(msgId);
+        }
+        
+        // Update UI - highlight selected messages
+        document.querySelectorAll('.message').forEach(el => {
+            if (el.dataset.msgId === msgId) {
+                el.style.border = this.selectedMessages.includes(msgId) ? '2px solid var(--online)' : '';
+                el.style.opacity = this.selectedMessages.includes(msgId) ? '0.8' : '1';
+            }
         });
-        document.getElementById('authForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleAuth();
-        });
+    }
 
-        // Navigation
-        document.getElementById('backBtn').addEventListener('click', () => this.goBack());
-        document.getElementById('sidebarProfile').addEventListener('click', () => {
-            if (this.currentUser) this.showProfile(this.currentUser);
-        });
+    // ---------- SETTINGS ----------
+    showSettings() {
+        const modal = document.getElementById('settingsModal');
+        modal.classList.add('active');
+        
+        // Load current settings
+        if (this.currentUser) {
+            document.getElementById('setDisplayName').value = this.currentUser.display_name || '';
+            document.getElementById('setBio').value = this.currentUser.bio || '';
+            document.getElementById('setAvatar').value = this.currentUser.avatar_url || '';
+            document.getElementById('setUsername').value = this.currentUser.username || '';
+            document.getElementById('setEmail').value = this.currentUser.email || '';
+            
+            const settings = this.currentUser.settings || {};
+            document.getElementById('setEncryption').value = settings.encryption_level || 5;
+            document.getElementById('setLastSeen').value = settings.last_seen_visibility || 'everyone';
+            document.getElementById('setReadReceipts').value = settings.read_receipts || 'on';
+            document.getElementById('setTheme').value = settings.theme || 'dark';
+            document.getElementById('setAnimation').value = settings.message_animation || 'slide';
+        }
+    }
 
-        // Chat
+    async saveSettings() {
+        if (!this.currentUser) return;
+
+        const updates = {
+            display_name: document.getElementById('setDisplayName').value.trim() || this.currentUser.username,
+            bio: document.getElementById('setBio').value.trim(),
+            avatar_url: document.getElementById('setAvatar').value.trim(),
+            username: document.getElementById('setUsername').value.trim(),
+            email: document.getElementById('setEmail').value.trim(),
+            settings: {
+                encryption_level: parseInt(document.getElementById('setEncryption').value),
+                last_seen_visibility: document.getElementById('setLastSeen').value,
+                read_receipts: document.getElementById('setReadReceipts').value,
+                theme: document.getElementById('setTheme').value,
+                message_animation: document.getElementById('setAnimation').value
+            }
+        };
+
+        try {
+            await this.db.updateUser(this.currentUser.id, updates);
+            this.currentUser = this.db.getUserById(this.currentUser.id);
+            localStorage.setItem('vvn_session', JSON.stringify({ id: this.currentUser.id }));
+            this.updateUserProfile();
+            this.loadChats();
+            document.getElementById('settingsModal').classList.remove('active');
+        } catch (e) {
+            alert('Failed to save settings: ' + e.message);
+        }
+    }
+
+    // ---------- USER PROFILE ----------
+    updateUserProfile() {
+        if (!this.currentUser) return;
+        document.getElementById('sidebarUsername').textContent = this.currentUser.display_name || this.currentUser.username;
+        document.getElementById('sidebarUserHandle').textContent = this.currentUser.username;
+        document.getElementById('userAvatar').textContent = this.getInitials(this.currentUser.display_name || this.currentUser.username);
+    }
+
+    showUserProfile(user) {
+        const modal = document.getElementById('profileModal');
+        modal.classList.add('active');
+        
+        document.getElementById('profileDisplayName').textContent = user.display_name || user.username;
+        document.getElementById('profileUsername').textContent = '@' + user.username;
+        document.getElementById('profileStatus').textContent = this.isUserOnline(user) ? 'Online' : 'Offline';
+        document.getElementById('profileBio').textContent = user.bio || 'No bio yet.';
+        document.getElementById('profileAvatar').textContent = this.getInitials(user.display_name || user.username);
+        
+        // Message button
+        const msgBtn = document.getElementById('profileMessageBtn');
+        if (user.id === this.currentUser.id) {
+            msgBtn.style.display = 'none';
+        } else {
+            msgBtn.style.display = 'block';
+            msgBtn.onclick = () => {
+                modal.classList.remove('active');
+                this.findOrCreateChat(user.id);
+            };
+        }
+    }
+
+    async findOrCreateChat(userId) {
+        const chat = await this.db.getOrCreateChat(this.currentUser.id, userId);
+        this.currentChat = chat;
+        this.currentChatPartner = this.db.getUserById(userId);
+        this.openChat(chat, userId);
+    }
+
+    // ---------- UTILITY ----------
+    getInitials(name) {
+        return name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+    }
+
+    formatTime(iso) {
+        const d = new Date(iso);
+        const now = new Date();
+        if (d.toDateString() === now.toDateString()) {
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    }
+
+    isUserOnline(user) {
+        const lastSeen = new Date(user.last_seen);
+        return Date.now() - lastSeen.getTime() < 60000;
+    }
+
+    scrollToBottom() {
+        const container = document.getElementById('chatMessages');
+        setTimeout(() => {
+            container.scrollTop = container.scrollHeight;
+        }, 50);
+    }
+
+    // ---------- EVENT SETUP ----------
+    setupEventListeners() {
+        // Send message
         document.getElementById('sendBtn').addEventListener('click', () => this.sendMessage());
         document.getElementById('messageInput').addEventListener('keydown', (e) => {
-            if (this.settings.enterSend === 'on' && e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 this.sendMessage();
             }
         });
 
         // Search
         document.getElementById('searchInput').addEventListener('input', (e) => {
-            this.searchUsers(e.target.value);
+            const query = e.target.value.trim();
+            if (query.length > 0) {
+                this.searchUsers(query);
+            } else {
+                document.getElementById('searchResults').style.display = 'none';
+            }
         });
 
         // Settings
-        document.getElementById('settingsBtn').addEventListener('click', () => this.openSettings());
-        document.getElementById('closeSettings').addEventListener('click', () => this.closeSettings());
-        document.getElementById('saveSettings').addEventListener('click', () => this.saveSettingsData());
-        document.getElementById('logoutBtn').addEventListener('click', () => this.logout());
-        document.getElementById('deleteAccountBtn').addEventListener('click', () => this.deleteAccount());
-
-        // Chat settings
-        document.getElementById('chatSettingsBtn').addEventListener('click', () => this.openChatSettings());
-
-        // Attach
-        document.getElementById('attachBtn').addEventListener('click', () => {
-            const menu = document.getElementById('attachMenu');
-            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        document.getElementById('settingsBtn').addEventListener('click', () => this.showSettings());
+        document.getElementById('closeSettings').addEventListener('click', () => {
+            document.getElementById('settingsModal').classList.remove('active');
         });
-        document.querySelectorAll('.attach-option').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.getElementById('attachMenu').style.display = 'none';
-                this.handleAttach(btn.dataset.type);
+        document.getElementById('saveSettings').addEventListener('click', () => this.saveSettings());
+
+        // Profile
+        document.getElementById('userProfileMini').addEventListener('click', () => {
+            if (this.currentUser) {
+                this.showUserProfile(this.currentUser);
+            }
+        });
+        document.getElementById('closeProfile').addEventListener('click', () => {
+            document.getElementById('profileModal').classList.remove('active');
+        });
+
+        // Back button
+        document.getElementById('backBtn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.remove('hide-mobile');
+            document.getElementById('chatArea').classList.remove('active-mobile');
+        });
+
+        // Sync button
+        document.getElementById('syncBtn').addEventListener('click', async () => {
+            document.getElementById('syncStatus').textContent = 'Syncing...';
+            await this.db.forceSync();
+            this.loadChats();
+            if (this.currentChat) {
+                this.loadMessages(this.currentChat.id);
+            }
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('vvn_session');
+                this.currentUser = null;
+                this.currentChat = null;
+                document.getElementById('settingsModal').classList.remove('active');
+                this.showAuth(true);
+                this.showMessenger(false);
+            }
+        });
+
+        // Click outside modals
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('active');
+                }
             });
         });
 
-        // Profile modal
-        document.getElementById('closeProfile').addEventListener('click', () => this.closeProfile());
-        document.getElementById('profileModalMessage').addEventListener('click', () => {
-            const username = document.getElementById('profileModalUsername').textContent.replace('@', '');
-            const users = Database.getUsers();
-            const user = users.find(u => u.username === username);
-            if (user) {
-                this.closeProfile();
-                this.openChat(user);
+        // Resize handler
+        window.addEventListener('resize', () => {
+            this.isMobile = window.innerWidth < 768;
+            if (!this.isMobile) {
+                document.getElementById('sidebar').classList.remove('hide-mobile');
+                document.getElementById('chatArea').classList.remove('active-mobile');
             }
         });
+    }
 
-        // Reactions
-        document.getElementById('reactBtn').addEventListener('click', () => this.openReactionModal());
-        document.getElementById('closeReaction').addEventListener('click', () => this.closeReactionModal());
-        document.querySelectorAll('.reaction-emoji').forEach(el => {
-            el.addEventListener('click', () => {
-                this.addReaction(el.dataset.emoji);
-            });
-        });
-
-        // Delete modal
-        document.getElementById('closeDelete').addEventListener('click', () => this.closeDeleteModal());
-        document.getElementById('cancelDelete').addEventListener('click', () => this.closeDeleteModal());
-        document.getElementById('deleteForMe').addEventListener('click', () => this.deleteSelectedMessages('me'));
-        document.getElementById('deleteForEveryone').addEventListener('click', () => this.deleteSelectedMessages('everyone'));
-
-        // Poll
-        document.getElementById('closePoll').addEventListener('click', () => this.closePollModal());
-        document.getElementById('createPollBtn').addEventListener('click', () => this.createPoll());
-
-        // Voice
-        document.getElementById('closeVoice').addEventListener('click', () => this.closeVoiceRecorder());
-        document.getElementById('startRecordingBtn').addEventListener('click', () => this.startRecording());
-        document.getElementById('stopRecordingBtn').addEventListener('click', () => this.stopRecording());
-        document.getElementById('sendVoiceBtn').addEventListener('click', () => this.sendVoiceMessage());
-
-        // Cancel reply
-        document.getElementById('cancelReply').addEventListener('click', () => {
-            this.replyTo = null;
-            document.getElementById('replyBar').style.display = 'none';
-        });
-
-        // Window resize
-        window.addEventListener('resize', () => this.adjustMobileView());
-
-        // Click outside attach menu
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.attach-btn') && !e.target.closest('#attachMenu')) {
-                document.getElementById('attachMenu').style.display = 'none';
-            }
-        });
-    },
-
-    switchAuthTab(tab) {
-        document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const mode = tab.dataset.mode;
-        document.getElementById('displayNameField').style.display = mode === 'signup' ? 'block' : 'none';
-        document.getElementById('authSubmit').textContent = mode === 'signin' ? 'Enter VVN' : 'Create account';
-    },
-
-    async handleAuth() {
-        const mode = document.querySelector('.auth-tab.active').dataset.mode;
-        const username = document.getElementById('authUsername').value.trim();
-        const password = document.getElementById('authPassword').value.trim();
-        const displayName = document.getElementById('authDisplayName').value.trim();
-
-        if (!username || !password) {
-            this.showAuthError('Please fill in all required fields');
-            return;
-        }
-
-        if (mode === 'signup' && username.length < 3) {
-            this.showAuthError('Username must be at least 3 characters');
-            return;
-        }
-
-        const submitBtn = document.getElementById('authSubmit');
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Please wait…';
-
-        try {
-            if (mode === 'signup') {
-                await this.signup(username, password, displayName);
-            } else {
-                await this.login(username, password);
-            }
-        } catch (error) {
-            this.showAuthError(error.message);
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = mode === 'signin' ? 'Enter VVN' : 'Create account';
-        }
-    },
-
-    showAuthError(msg) {
-        const error = document.getElementById('authError');
-        error.style.display = 'block';
-        error.textContent = msg;
-        setTimeout(() => error.style.display = 'none', 5000);
-    },
-
-    async login(username, password) {
-        const users = Database.getUsers();
-        const user = users.find(u => u.username === username && u.password === password);
-        if (!user) throw new Error('Invalid username or password');
+    // ---------- SEARCH ----------
+    async searchUsers(query) {
+        const results = this.db.searchUsers(query, this.currentUser.id);
+        const container = document.getElementById('searchResults');
         
-        Database.setSession({ username: user.username });
-        this.currentUser = user;
-        this.renderMessenger();
-        this.startAutoSync();
-    },
-
-    async signup(username, password, displayName) {
-        const users = Database.getUsers();
-        if (users.find(u => u.username === username)) {
-            throw new Error('Username already taken');
+        if (results.length === 0) {
+            container.innerHTML = `<div style="padding:12px 16px;color:var(--text-secondary);">No users found</div>`;
+            container.style.display = 'block';
+            return;
         }
-
-        const newUser = {
-            username,
-            password,
-            displayName: displayName || username,
-            email: '',
-            bio: '',
-            avatar: '',
-            online: true,
-            created: Date.now()
-        };
-
-        users.push(newUser);
-        Database.setUsers(users);
-        await Database.save();
-
-        Database.setSession({ username: newUser.username });
-        this.currentUser = newUser;
-        this.renderMessenger();
-        this.startAutoSync();
-    },
-
-    renderMessenger() {
-        document.getElementById('authScreen').style.display = 'none';
-        document.getElementById('messenger').style.display = 'block';
-        document.getElementById('profileName').textContent = this.currentUser.displayName || this.currentUser.username;
-        document.getElementById('profileUsername').textContent = '@' + this.currentUser.username;
-        this.updateOnlineCount();
-        this.renderChatList();
-        this.adjustMobileView();
-    },
-
-    updateOnlineCount() {
-        const users = Database.getUsers();
-        const online = users.filter(u => u.online !== false).length;
-        document.getElementById('onlineCount').textContent = online;
-    },
-
-    renderChatList() {
-        if (!this.currentUser) return;
-        const chats = Database.getChats();
-        const messages = Database.getMessages();
-        const chatKeys = Object.keys(chats).filter(k => k.includes(this.currentUser.username));
 
         let html = '';
-        if (chatKeys.length === 0) {
-            html = `
-                <div class="empty-chats">
-                    <div class="empty-icon">🔒</div>
-                    <div class="empty-title">Your chats will appear here</div>
-                    <div class="empty-sub">Search a user above to start a private chat.</div>
-                </div>
-            `;
-        } else {
-            const sorted = chatKeys.sort((a, b) => {
-                const ma = messages[a] || [];
-                const mb = messages[b] || [];
-                const ta = ma.length ? ma[ma.length - 1].timestamp : 0;
-                const tb = mb.length ? mb[mb.length - 1].timestamp : 0;
-                return tb - ta;
-            });
-            for (const key of sorted) {
-                const parts = key.split('_');
-                const partner = parts[0] === this.currentUser.username ? parts[1] : parts[0];
-                const msgs = messages[key] || [];
-                const last = msgs.length ? msgs[msgs.length - 1] : null;
-                const preview = last ? last.text : 'No messages yet';
-                const time = last ? this.formatTime(last.timestamp) : '';
-                const users = Database.getUsers();
-                const pUser = users.find(u => u.username === partner);
-                const online = pUser ? pUser.online !== false : false;
-                const isActive = this.currentChatId === key;
-
-                html += `
-                    <div class="chat-item ${isActive ? 'active' : ''}" data-chatkey="${key}">
-                        <div class="avatar">
-                            ${pUser?.avatar ? `<img src="${pUser.avatar}" />` : (pUser?.displayName || partner).charAt(0).toUpperCase()}
-                            ${online ? '<span class="online-dot"></span>' : ''}
-                        </div>
-                        <div class="chat-info">
-                            <div class="chat-name">
-                                <span class="name">${pUser?.displayName || partner}</span>
-                                <span class="time">${time}</span>
-                            </div>
-                            <div class="chat-preview">${preview}</div>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-        document.getElementById('chatList').innerHTML = html;
-        document.querySelectorAll('.chat-item').forEach(el => {
-            el.addEventListener('click', () => {
-                const key = el.dataset.chatkey;
-                const parts = key.split('_');
-                const partner = parts[0] === this.currentUser.username ? parts[1] : parts[0];
-                const users = Database.getUsers();
-                const user = users.find(u => u.username === partner);
-                if (user) this.openChat(user);
-            });
-        });
-    },
-
-    async openChat(user) {
-        if (!this.currentUser) return;
-        this.currentChatPartner = user;
-        
-        // Get or create conversation
-        const [a, b] = this.currentUser.username < user.username ? [this.currentUser.username, user.username] : [user.username, this.currentUser.username];
-        const chatKey = `${a}_${b}`;
-        this.currentChatId = chatKey;
-
-        const chats = Database.getChats();
-        if (!chats[chatKey]) {
-            chats[chatKey] = { participants: [a, b], created: Date.now() };
-            Database.setChats(chats);
-            await Database.save();
-        }
-
-        // Load messages
-        const messages = Database.getMessages();
-        this.messages = messages[chatKey] || [];
-        this.renderMessages();
-        this.renderChatList();
-
-        // Show chat
-        document.getElementById('chatWelcome').style.display = 'none';
-        document.getElementById('chatActive').style.display = 'flex';
-        document.getElementById('chatPartnerName').textContent = user.displayName || user.username;
-        document.getElementById('chatPartnerStatus').textContent = user.online !== false ? 'Online' : 'Offline';
-        document.getElementById('chatPartnerStatus').className = 'chat-header-status' + (user.online !== false ? ' online' : '');
-        document.getElementById('chatAvatar').textContent = (user.displayName || user.username).charAt(0).toUpperCase();
-        
-        if (this.isMobile) {
-            document.getElementById('sidebar').classList.add('hidden');
-            document.getElementById('chatArea').classList.add('active');
-        }
-
-        this.scrollToBottom();
-    },
-
-    renderMessages() {
-        const container = document.getElementById('chatMessages');
-        container.innerHTML = '';
-
-        if (!this.messages || this.messages.length === 0) {
-            container.innerHTML = `
-                <div style="margin:20px auto;max-width:400px;border:2px solid var(--foreground);background:var(--card);padding:20px;text-align:center;">
-                    <div style="font-size:0.625rem;text-transform:uppercase;letter-spacing:0.2em;color:var(--muted-foreground);">Start messaging</div>
-                    <div style="margin-top:4px;font-size:1rem;font-weight:600;">@${this.currentChatPartner?.username}</div>
-                    <div style="margin-top:8px;font-size:0.75rem;color:var(--muted-foreground);">Say hello — your first message stays encrypted in transit.</div>
-                </div>
-            `;
-            return;
-        }
-
-        // Add date separator for first message
-        let lastDate = '';
-        this.messages.forEach((msg, index) => {
-            const msgDate = new Date(msg.timestamp).toLocaleDateString();
-            if (msgDate !== lastDate) {
-                lastDate = msgDate;
-                const dateDiv = document.createElement('div');
-                dateDiv.className = 'msg-date';
-                dateDiv.textContent = msgDate;
-                container.appendChild(dateDiv);
-            }
-
-            const mine = msg.sender === this.currentUser.username;
-            const div = document.createElement('div');
-            div.className = `message ${mine ? 'outgoing' : 'incoming'}`;
-            div.dataset.messageId = msg.id || Date.now() + Math.random().toString(36);
-
-            // Reply indicator
-            if (msg.replyTo) {
-                const replyDiv = document.createElement('div');
-                replyDiv.className = 'msg-reply';
-                const users = Database.getUsers();
-                const replySender = users.find(u => u.username === msg.replyTo.sender);
-                replyDiv.innerHTML = `
-                    <span class="reply-sender">${replySender?.displayName || replySender?.username || 'User'}</span>
-                    <span>: ${msg.replyTo.text}</span>
-                `;
-                div.appendChild(replyDiv);
-            }
-
-            // Message content
-            if (msg.type === 'poll' && msg.pollId) {
-                const pollData = this.polls[msg.pollId];
-                if (pollData) {
-                    const pollDiv = document.createElement('div');
-                    pollDiv.className = 'msg-poll';
-                    pollDiv.innerHTML = this.renderPoll(pollData);
-                    div.appendChild(pollDiv);
-                } else {
-                    const content = document.createElement('span');
-                    content.textContent = msg.text;
-                    div.appendChild(content);
-                }
-            } else if (msg.type === 'image' && msg.imageUrl) {
-                const imgDiv = document.createElement('div');
-                imgDiv.className = 'msg-image';
-                imgDiv.innerHTML = `<img src="${msg.imageUrl}" alt="Image" loading="lazy" />`;
-                imgDiv.addEventListener('click', () => this.viewMedia(msg.imageUrl, 'image'));
-                div.appendChild(imgDiv);
-            } else if (msg.type === 'video' && msg.videoUrl) {
-                const videoDiv = document.createElement('div');
-                videoDiv.className = 'msg-video';
-                videoDiv.innerHTML = `
-                    <video src="${msg.videoUrl}" preload="metadata"></video>
-                    <div class="video-overlay">▶</div>
-                `;
-                videoDiv.addEventListener('click', () => {
-                    const video = videoDiv.querySelector('video');
-                    if (video.paused) {
-                        video.play();
-                        videoDiv.querySelector('.video-overlay').style.display = 'none';
-                    } else {
-                        video.pause();
-                        videoDiv.querySelector('.video-overlay').style.display = 'block';
-                    }
-                });
-                div.appendChild(videoDiv);
-            } else if (msg.type === 'voice' && msg.voiceUrl) {
-                const voiceDiv = document.createElement('div');
-                voiceDiv.className = 'msg-voice';
-                voiceDiv.innerHTML = `
-                    <span class="voice-play">▶</span>
-                    <div class="voice-progress"><div class="fill"></div></div>
-                    <span class="voice-time">${msg.voiceDuration || '0:00'}</span>
-                `;
-                let audio = null;
-                let isPlaying = false;
-                voiceDiv.addEventListener('click', () => {
-                    if (!audio) {
-                        audio = new Audio(msg.voiceUrl);
-                        audio.addEventListener('timeupdate', () => {
-                            const progress = voiceDiv.querySelector('.voice-progress .fill');
-                            if (audio.duration) {
-                                progress.style.width = (audio.currentTime / audio.duration * 100) + '%';
-                            }
-                        });
-                        audio.addEventListener('ended', () => {
-                            voiceDiv.querySelector('.voice-play').textContent = '▶';
-                            voiceDiv.querySelector('.voice-progress .fill').style.width = '0%';
-                            isPlaying = false;
-                        });
-                    }
-                    if (isPlaying) {
-                        audio.pause();
-                        voiceDiv.querySelector('.voice-play').textContent = '▶';
-                        isPlaying = false;
-                    } else {
-                        audio.play();
-                        voiceDiv.querySelector('.voice-play').textContent = '⏸';
-                        isPlaying = true;
-                    }
-                });
-                div.appendChild(voiceDiv);
-            } else if (msg.type === 'file' && msg.fileData) {
-                const fileDiv = document.createElement('div');
-                fileDiv.className = 'msg-file';
-                fileDiv.innerHTML = `
-                    <div class="file-name">📄 ${msg.fileData.name}</div>
-                    <div class="file-details">${msg.fileData.size} · ${msg.fileData.type}</div>
-                    <div class="file-expire">Expires: ${msg.fileData.expires || 'Never'}</div>
-                `;
-                fileDiv.addEventListener('click', () => {
-                    if (msg.fileData.data) {
-                        const link = document.createElement('a');
-                        link.href = msg.fileData.data;
-                        link.download = msg.fileData.name;
-                        link.click();
-                    }
-                });
-                div.appendChild(fileDiv);
-            } else {
-                const content = document.createElement('span');
-                content.textContent = msg.text;
-                div.appendChild(content);
-            }
-
-            // Timestamp and status
-            const timeDiv = document.createElement('div');
-            timeDiv.className = 'msg-time';
-            const timeText = document.createElement('span');
-            timeText.textContent = this.formatTime(msg.timestamp);
-            timeDiv.appendChild(timeText);
-
-            if (mine) {
-                const statusSpan = document.createElement('span');
-                statusSpan.className = 'msg-status';
-                if (msg.read) {
-                    statusSpan.textContent = '✓✓';
-                    statusSpan.classList.add('read');
-                } else if (msg.sent) {
-                    statusSpan.textContent = '✓✓';
-                    statusSpan.classList.add('sent');
-                } else if (msg.sending) {
-                    statusSpan.textContent = '⌛';
-                } else {
-                    statusSpan.textContent = '✓';
-                }
-                timeDiv.appendChild(statusSpan);
-            }
-            div.appendChild(timeDiv);
-
-            // Reactions
-            if (msg.reactions && Object.keys(msg.reactions).length > 0) {
-                const reactionsDiv = document.createElement('div');
-                reactionsDiv.className = 'msg-reactions';
-                for (const [emoji, users] of Object.entries(msg.reactions)) {
-                    const badge = document.createElement('span');
-                    badge.className = 'reaction-badge';
-                    badge.textContent = `${emoji} ${users.length}`;
-                    badge.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        this.toggleReaction(div.dataset.messageId, emoji);
-                    });
-                    reactionsDiv.appendChild(badge);
-                }
-                div.appendChild(reactionsDiv);
-            }
-
-            container.appendChild(div);
-        });
-
-        this.scrollToBottom();
-    },
-
-    renderPoll(poll) {
-        const votes = this.votes[poll.id] || [];
-        const total = votes.length;
-        const myVote = votes.find(v => v.voter === this.currentUser.username);
-        let html = `
-            <div class="poll-question">${poll.question}</div>
-        `;
-        poll.options.forEach((opt, i) => {
-            const count = votes.filter(v => v.option === i).length;
-            const pct = total ? Math.round((count / total) * 100) : 0;
-            const chosen = myVote && myVote.option === i;
+        for (const user of results) {
             html += `
-                <div class="poll-option ${chosen ? 'voted' : ''}" data-poll="${poll.id}" data-option="${i}">
-                    <div class="poll-bar" style="width:${pct}%;"></div>
-                    <span class="poll-text">${opt}</span>
-                    <span class="poll-count">${count} · ${pct}%</span>
-                </div>
-            `;
-        });
-        html += `<div class="poll-total">${total} vote${total === 1 ? '' : 's'}</div>`;
-        return html;
-    },
-
-    formatTime(ts) {
-        const d = new Date(ts);
-        const now = new Date();
-        const sameDay = d.toDateString() === now.toDateString();
-        return sameDay
-            ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    },
-
-    scrollToBottom() {
-        setTimeout(() => {
-            const container = document.getElementById('chatMessages');
-            if (container) container.scrollTop = container.scrollHeight;
-        }, 50);
-    },
-
-    adjustMobileView() {
-        this.isMobile = window.innerWidth < 768;
-        if (!this.isMobile) {
-            document.getElementById('sidebar').classList.remove('hidden');
-            document.getElementById('chatArea').classList.remove('active');
-        }
-    },
-
-    // Search
-    async searchUsers(query) {
-        if (!query.trim()) {
-            document.getElementById('searchResults').style.display = 'none';
-            return;
-        }
-        const users = Database.getUsers();
-        const q = query.toLowerCase();
-        const found = users.filter(u =>
-            u.username !== this.currentUser.username &&
-            (u.username.toLowerCase().includes(q) ||
-            (u.displayName && u.displayName.toLowerCase().includes(q)) ||
-            (u.email && u.email.toLowerCase().includes(q)))
-        );
-
-        // We'll render search results directly in the chat list
-        const chatList = document.getElementById('chatList');
-        if (found.length === 0) {
-            chatList.innerHTML = `
-                <div class="empty-chats">
-                    <div class="empty-icon">🔍</div>
-                    <div class="empty-title">No users found</div>
-                    <div class="empty-sub">Try a different search term</div>
-                </div>
-            `;
-            return;
-        }
-
-        let html = `<div style="padding:4px 0;"><div style="padding:4px 12px 8px;font-size:0.6875rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted-foreground);">Users</div>`;
-        for (const u of found) {
-            html += `
-                <div class="chat-item" data-username="${u.username}">
-                    <div class="avatar">${(u.displayName || u.username).charAt(0).toUpperCase()}</div>
-                    <div class="chat-info">
-                        <div class="chat-name">
-                            <span class="name">${u.displayName || u.username}</span>
-                        </div>
-                        <div class="chat-preview">@${u.username}</div>
+                <div class="search-result-item" data-user-id="${user.id}">
+                    <div class="avatar">${this.getInitials(user.display_name || user.username)}</div>
+                    <div class="info">
+                        <div class="uname">${user.display_name || user.username}</div>
+                        <div class="email">@${user.username}</div>
                     </div>
                 </div>
             `;
         }
-        html += '</div>';
-        chatList.innerHTML = html;
 
-        document.querySelectorAll('.chat-item[data-username]').forEach(el => {
+        container.innerHTML = html;
+        container.style.display = 'block';
+
+        container.querySelectorAll('.search-result-item').forEach(el => {
             el.addEventListener('click', () => {
-                const username = el.dataset.username;
-                const users = Database.getUsers();
-                const user = users.find(u => u.username === username);
+                const userId = el.dataset.userId;
+                const user = this.db.getUserById(userId);
                 if (user) {
+                    this.findOrCreateChat(userId);
                     document.getElementById('searchInput').value = '';
-                    this.openChat(user);
+                    container.style.display = 'none';
                 }
             });
         });
-    },
-
-    // Send message
-    async sendMessage() {
-        if (!this.currentUser || !this.currentChatPartner || !this.currentChatId) return;
-        const input = document.getElementById('messageInput');
-        const text = input.value.trim();
-        if (!text) return;
-
-        input.value = '';
-        const replyTo = this.replyTo;
-        this.replyTo = null;
-        document.getElementById('replyBar').style.display = 'none';
-
-        // Check for poll command
-        const poll = this.parsePollCommand(text);
-        if (poll) {
-            await this.createPollMessage(poll);
-            return;
-        }
-
-        // Normal message
-        const message = {
-            id: Date.now() + Math.random().toString(36),
-            sender: this.currentUser.username,
-            text: text,
-            timestamp: Date.now(),
-            sending: true,
-            sent: false,
-            read: false,
-            type: 'text',
-            replyTo: replyTo ? { sender: replyTo.sender, text: replyTo.text } : null,
-            reactions: {}
-        };
-
-        this.messages.push(message);
-        this.saveMessages();
-        this.renderMessages();
-        this.renderChatList();
-
-        // Simulate send success
-        setTimeout(() => {
-            message.sending = false;
-            message.sent = true;
-            this.saveMessages();
-            this.renderMessages();
-        }, 500);
-
-        // Simulate read receipt        setTimeout(() => {
-            message.read = true;
-            this.saveMessages();
-            this.renderMessages();
-        }, 2000);
-    },
-
-    parsePollCommand(text) {
-        if (!text.toLowerCase().startsWith('/poll')) return null;
-        const body = text.slice(text.toLowerCase().indexOf('/poll') + 5);
-        const parts = body.split('/').map(s => s.trim()).filter(Boolean);
-        let question = '';
-        const options = [];
-        for (const p of parts) {
-            const m = /^([A-Za-z0-9]+)\s*:\s*(.+)$/.exec(p);
-            if (!m) continue;
-            const key = m[1].toUpperCase();
-            const val = m[2].trim();
-            if (key === 'QUE') question = val;
-            else if (/^ANS[1-5]$/.test(key)) options.push(val);
-        }
-        if (!question || options.length < 2) return null;
-        return { question, options: options.slice(0, 5) };
-    },
-
-    async createPollMessage(poll) {
-        const pollId = Date.now() + Math.random().toString(36);
-        const message = {
-            id: Date.now() + Math.random().toString(36),
-            sender: this.currentUser.username,
-            text: poll.question,
-            timestamp: Date.now(),
-            sending: true,
-            sent: false,
-            read: false,
-            type: 'poll',
-            pollId: pollId,
-            reactions: {}
-        };
-
-        this.polls[pollId] = {
-            id: pollId,
-            question: poll.question,
-            options: poll.options,
-            creator: this.currentUser.username
-        };
-        this.votes[pollId] = [];
-
-        this.messages.push(message);
-        this.saveMessages();
-        this.renderMessages();
-        this.renderChatList();
-
-        setTimeout(() => {
-            message.sending = false;
-            message.sent = true;
-            this.saveMessages();
-            this.renderMessages();
-        }, 500);
-    },
-
-    saveMessages() {
-        const messages = Database.getMessages();
-        messages[this.currentChatId] = this.messages;
-        Database.setMessages(messages);
-        Database.save();
-    },
-
-    // Poll voting
-    async votePoll(pollId, optionIndex) {
-        const votes = this.votes[pollId] || [];
-        const existing = votes.find(v => v.voter === this.currentUser.username);
-        if (existing) {
-            if (existing.option === optionIndex) {
-                // Remove vote
-                this.votes[pollId] = votes.filter(v => v.voter !== this.currentUser.username);
-            } else {
-                // Change vote
-                existing.option = optionIndex;
-            }
-        } else {
-            votes.push({ voter: this.currentUser.username, option: optionIndex });
-            this.votes[pollId] = votes;
-        }
-        this.renderMessages();
-    },
-
-    // Reactions
-    openReactionModal() {
-        if (this.messages.length === 0) return;
-        const lastMsg = this.messages[this.messages.length - 1];
-        this.reactingToMessage = lastMsg.id;
-        document.getElementById('reactionModal').classList.add('show');
-    },
-
-    closeReactionModal() {
-        document.getElementById('reactionModal').classList.remove('show');
-        this.reactingToMessage = null;
-    },
-
-    async addReaction(emoji) {
-        if (!this.reactingToMessage) return;
-        const msg = this.messages.find(m => m.id === this.reactingToMessage);
-        if (!msg) return;
-
-        if (!msg.reactions) msg.reactions = {};
-        if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
-
-        const userIndex = msg.reactions[emoji].indexOf(this.currentUser.username);
-        if (userIndex !== -1) {
-            msg.reactions[emoji].splice(userIndex, 1);
-            if (msg.reactions[emoji].length === 0) {
-                delete msg.reactions[emoji];
-            }
-        } else {
-            msg.reactions[emoji].push(this.currentUser.username);
-        }
-
-        this.saveMessages();
-        this.renderMessages();
-        this.closeReactionModal();
-    },
-
-    toggleReaction(messageId, emoji) {
-        const msg = this.messages.find(m => m.id === messageId);
-        if (!msg) return;
-
-        if (!msg.reactions) msg.reactions = {};
-        if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
-
-        const userIndex = msg.reactions[emoji].indexOf(this.currentUser.username);
-        if (userIndex !== -1) {
-            msg.reactions[emoji].splice(userIndex, 1);
-            if (msg.reactions[emoji].length === 0) {
-                delete msg.reactions[emoji];
-            }
-        } else {
-            msg.reactions[emoji].push(this.currentUser.username);
-        }
-
-        this.saveMessages();
-        this.renderMessages();
-    },
-
-    // Attachments
-    handleAttach(type) {
-        switch(type) {
-            case 'photo':
-            case 'video':
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = type === 'photo' ? 'image/*' : 'video/*';
-                input.onchange = (e) => {
-                    const file = e.target.files[0];
-                    if (file) this.sendMedia(file, type);
-                };
-                input.click();
-                break;
-            case 'voice':
-                this.openVoiceRecorder();
-                break;
-            case 'file':
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.onchange = (e) => {
-                    const file = e.target.files[0];
-                    if (file) this.sendFile(file);
-                };
-                fileInput.click();
-                break;
-        }
-    },
-
-    sendMedia(file, type) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const dataUrl = e.target.result;
-            const message = {
-                id: Date.now() + Math.random().toString(36),
-                sender: this.currentUser.username,
-                text: type === 'image' ? '📷 Photo' : '🎬 Video',
-                timestamp: Date.now(),
-                sending: true,
-                sent: false,
-                read: false,
-                type: type,
-                [type === 'image' ? 'imageUrl' : 'videoUrl']: dataUrl,
-                reactions: {}
-            };
-            this.messages.push(message);
-            this.saveMessages();
-            this.renderMessages();
-            this.renderChatList();
-
-            setTimeout(() => {
-                message.sending = false;
-                message.sent = true;
-                this.saveMessages();
-                this.renderMessages();
-            }, 800);
-        };
-        reader.readAsDataURL(file);
-    },
-
-    sendFile(file) {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const message = {
-                id: Date.now() + Math.random().toString(36),
-                sender: this.currentUser.username,
-                text: `📄 ${file.name}`,
-                timestamp: Date.now(),
-                sending: true,
-                sent: false,
-                read: false,
-                type: 'file',
-                fileData: {
-                    name: file.name,
-                    type: file.type || 'Unknown',
-                    size: this.formatFileSize(file.size),
-                    data: e.target.result,
-                    expires: '24 hours'
-                },
-                reactions: {}
-            };
-            this.messages.push(message);
-            this.saveMessages();
-            this.renderMessages();
-            this.renderChatList();
-
-            setTimeout(() => {
-                message.sending = false;
-                message.sent = true;
-                this.saveMessages();
-                this.renderMessages();
-            }, 800);
-        };
-        reader.readAsDataURL(file);
-    },
-
-    formatFileSize(bytes) {
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
-        if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
-        return (bytes / 1073741824).toFixed(1) + ' GB';
-    },
-
-    // Voice recorder
-    openVoiceRecorder() {
-        document.getElementById('voiceRecorder').classList.add('show');
-        document.getElementById('recordingTimer').textContent = '00:00';
-        document.getElementById('startRecordingBtn').style.display = 'block';
-        document.getElementById('stopRecordingBtn').style.display = 'none';
-        document.getElementById('sendVoiceBtn').style.display = 'none';
-        this.recordingSeconds = 0;
-        this.audioChunks = [];
-    },
-
-    closeVoiceRecorder() {
-        document.getElementById('voiceRecorder').classList.remove('show');
-        if (this.mediaRecorder && this.isRecording) {
-            this.mediaRecorder.stop();
-            this.isRecording = false;
-        }
-        if (this.recordingTimer) {
-            clearInterval(this.recordingTimer);
-            this.recordingTimer = null;
-        }
-    },
-
-    async startRecording() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(stream);
-            this.audioChunks = [];
-            this.isRecording = true;
-
-            this.mediaRecorder.ondataavailable = (e) => {
-                if (e.data.size > 0) this.audioChunks.push(e.data);
-            };
-
-            this.mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    this.voiceData = e.target.result;
-                    document.getElementById('sendVoiceBtn').style.display = 'block';
-                };
-                reader.readAsDataURL(audioBlob);
-                this.isRecording = false;
-            };
-
-            this.mediaRecorder.start();
-            document.getElementById('startRecordingBtn').style.display = 'none';
-            document.getElementById('stopRecordingBtn').style.display = 'block';
-
-            this.recordingSeconds = 0;
-            this.recordingTimer = setInterval(() => {
-                this.recordingSeconds++;
-                const mins = String(Math.floor(this.recordingSeconds / 60)).padStart(2, '0');
-                const secs = String(this.recordingSeconds % 60).padStart(2, '0');
-                document.getElementById('recordingTimer').textContent = `${mins}:${secs}`;
-            }, 1000);
-        } catch (error) {
-            alert('Microphone access denied. Please allow microphone permissions.');
-        }
-    },
-
-    stopRecording() {
-        if (this.mediaRecorder && this.isRecording) {
-            this.mediaRecorder.stop();
-            document.getElementById('stopRecordingBtn').style.display = 'none';
-            if (this.recordingTimer) {
-                clearInterval(this.recordingTimer);
-                this.recordingTimer = null;
-            }
-        }
-    },
-
-    sendVoiceMessage() {
-        if (!this.voiceData) return;
-        const duration = this.recordingSeconds;
-        const message = {
-            id: Date.now() + Math.random().toString(36),
-            sender: this.currentUser.username,
-            text: '🎤 Voice message',
-            timestamp: Date.now(),
-            sending: true,
-            sent: false,
-            read: false,
-            type: 'voice',
-            voiceUrl: this.voiceData,
-            voiceDuration: `${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`,
-            reactions: {}
-        };
-        this.messages.push(message);
-        this.saveMessages();
-        this.renderMessages();
-        this.renderChatList();
-        this.closeVoiceRecorder();
-
-        setTimeout(() => {
-            message.sending = false;
-            message.sent = true;
-            this.saveMessages();
-            this.renderMessages();
-        }, 800);
-    },
-
-    // Profile
-    showProfile(user) {
-        const avatar = document.getElementById('profileModalAvatar');
-        avatar.textContent = (user.displayName || user.username).charAt(0).toUpperCase();
-        if (user.avatar) {
-            avatar.innerHTML = `<img src="${user.avatar}" />`;
-        }
-        document.getElementById('profileModalName').textContent = user.displayName || user.username;
-        document.getElementById('profileModalUsername').textContent = '@' + user.username;
-        document.getElementById('profileModalStatus').textContent = user.online !== false ? 'Online now' : 'Last seen recently';
-        document.getElementById('profileModalBio').textContent = user.bio || 'No bio yet.';
-        document.getElementById('profileModalMessage').style.display = user.username === this.currentUser.username ? 'none' : 'block';
-        document.getElementById('profileModal').classList.add('show');
-    },
-
-    closeProfile() {
-        document.getElementById('profileModal').classList.remove('show');
-    },
-
-    // Settings
-    openSettings() {
-        if (!this.currentUser) return;
-        const user = Database.getUsers().find(u => u.username === this.currentUser.username);
-        if (!user) return;
-
-        document.getElementById('setDisplayName').value = user.displayName || '';
-        document.getElementById('setBio').value = user.bio || '';
-        document.getElementById('setUsername').value = user.username;
-        document.getElementById('setEmail').value = user.email || '';
-        document.getElementById('setLastSeen').value = this.settings.lastSeen || 'everyone';
-        document.getElementById('setReadReceipts').value = this.settings.readReceipts || 'on';
-        document.getElementById('setTheme').value = this.settings.theme || 'dark';
-        document.getElementById('setMsgSize').value = this.settings.msgSize || 'medium';
-        document.getElementById('settingsModal').classList.add('show');
-    },
-
-    closeSettings() {
-        document.getElementById('settingsModal').classList.remove('show');
-    },
-
-    async saveSettingsData() {
-        const users = Database.getUsers();
-        const userIndex = users.findIndex(u => u.username === this.currentUser.username);
-        if (userIndex === -1) return;
-
-        const username = document.getElementById('setUsername').value.trim();
-        const existingUser = users.find(u => u.username === username && u.username !== this.currentUser.username);
-        if (existingUser) {
-            alert('Username already taken');
-            return;
-        }
-
-        const newPassword = document.getElementById('setPassword').value.trim();
-
-        users[userIndex] = {
-            ...users[userIndex],
-            username: username,
-            email: document.getElementById('setEmail').value.trim(),
-            displayName: document.getElementById('setDisplayName').value.trim() || username,
-            bio: document.getElementById('setBio').value.trim(),
-            password: newPassword || users[userIndex].password
-        };
-
-        this.settings = {
-            ...this.settings,
-            lastSeen: document.getElementById('setLastSeen').value,
-            readReceipts: document.getElementById('setReadReceipts').value,
-            theme: document.getElementById('setTheme').value,
-            msgSize: document.getElementById('setMsgSize').value
-        };
-
-        Database.setUsers(users);
-        this.currentUser = users[userIndex];
-        if (username !== this.currentUser.username) {
-            Database.setSession({ username });
-        }
-        this.saveSettings();
-        await Database.save();
-
-        // Update UI
-        document.getElementById('profileName').textContent = this.currentUser.displayName || this.currentUser.username;
-        document.getElementById('profileUsername').textContent = '@' + this.currentUser.username;
-        if (this.currentChatPartner) {
-            document.getElementById('chatPartnerName').textContent = this.currentChatPartner.displayName || this.currentChatPartner.username;
-        }
-        this.renderChatList();
-        this.closeSettings();
-        alert('Settings saved successfully!');
-    },
-
-    openChatSettings() {
-        // Simple chat settings menu
-        const options = ['View Profile', 'Pin Messages', 'Clear Chat'];
-        // We'll implement these in a dropdown menu
-        const user = this.currentChatPartner;
-        if (user) this.showProfile(user);
-    },
-
-    async deleteAccount() {
-        if (!confirm('Are you sure you want to delete your account? This cannot be undone!')) return;
-        if (!confirm('All your messages and data will be permanently deleted. Continue?')) return;
-
-        const users = Database.getUsers();
-        const filtered = users.filter(u => u.username !== this.currentUser.username);
-        Database.setUsers(filtered);
-
-        // Delete all chats and messages
-        const chats = Database.getChats();
-        const messages = Database.getMessages();
-        const chatKeys = Object.keys(chats).filter(k => k.includes(this.currentUser.username));
-        for (const key of chatKeys) {
-            delete chats[key];
-            delete messages[key];
-        }
-        Database.setChats(chats);
-        Database.setMessages(messages);
-        await Database.save();
-
-        this.logout();
-    },
-
-    async logout() {
-        Database.clearSession();
-        this.currentUser = null;
-        this.currentChatPartner = null;
-        this.currentChatId = null;
-        if (this.syncInterval) clearInterval(this.syncInterval);
-        document.getElementById('authScreen').style.display = 'flex';
-        document.getElementById('messenger').style.display = 'none';
-        document.getElementById('settingsModal').classList.remove('show');
-        document.getElementById('profileModal').classList.remove('show');
-    },
-
-    // Sync
-    async syncWithRemote() {
-        await Database.load();
-        const session = Database.getSession();
-        if (!session || !this.currentUser) return;
-
-        const users = Database.getUsers();
-        const user = users.find(u => u.username === this.currentUser.username);
-        if (user) {
-            this.currentUser = user;
-        }
-
-        // Update online count
-        this.updateOnlineCount();
-
-        // Refresh chat list
-        this.renderChatList();
-
-        // Refresh messages if chat is open
-        if (this.currentChatId) {
-            const messages = Database.getMessages();
-            const newMessages = messages[this.currentChatId] || [];
-            if (newMessages.length !== this.messages.length) {
-                this.messages = newMessages;
-                this.renderMessages();
-            }
-        }
-    },
-
-    goBack() {
-        if (this.isMobile) {
-            document.getElementById('sidebar').classList.remove('hidden');
-            document.getElementById('chatArea').classList.remove('active');
-        }
-        this.currentChatPartner = null;
-        this.currentChatId = null;
-        document.getElementById('chatWelcome').style.display = 'flex';
-        document.getElementById('chatActive').style.display = 'none';
-    },
-
-    viewMedia(url, type) {
-        const modal = document.getElementById('mediaViewer');
-        const content = document.getElementById('mediaContent');
-        if (type === 'image') {
-            content.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:80vh;border-radius:12px;" />`;
-        } else {
-            content.innerHTML = `<video src="${url}" controls style="max-width:90vw;max-height:80vh;border-radius:12px;" autoplay></video>`;
-        }
-        modal.classList.add('show');
-        document.getElementById('closeMedia').onclick = () => {
-            modal.classList.remove('show');
-            content.innerHTML = '';
-        };
-        modal.onclick = (e) => {
-            if (e.target === modal) {
-                modal.classList.remove('show');
-                content.innerHTML = '';
-            }
-        };
     }
-};
+}
 
-// Initialize when page loads
+// Initialize app
+const vvnApp = new VVNApp();
+window.vvnApp = vvnApp;
+
+// Start when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    App.init();
+    vvnApp.init();
+    vvnApp.setupEventListeners();
 });
