@@ -17,7 +17,7 @@
 
         <div id="authScreen">
             <div class="auth-box">
-                <h1>VVN <small>· secure</small></h1>
+                <h1>VVN <span style="font-weight:300;font-size:1rem;color:#888;">· secure</span></h1>
                 <p>🔒 end‑to‑end encrypted</p>
                 <input class="auth-input" id="authUsername" placeholder="Username" autocomplete="username" />
                 <input class="auth-input" id="authEmail" placeholder="Email (optional)" autocomplete="email" />
@@ -58,12 +58,18 @@
                 </div>
 
                 <div class="chat-area" id="chatArea">
-                    <div id="chatPlaceholder" class="chat-placeholder">✨ Your chats will appear here</div>
+                    <div id="chatPlaceholder" class="chat-placeholder">
+                        <div class="placeholder-box">
+                            <div class="placeholder-icon">💬</div>
+                            <div class="placeholder-text">Your chats will appear here</div>
+                            <div class="placeholder-sub">Select a conversation or search for users</div>
+                        </div>
+                    </div>
                     <div id="chatActive" style="display:flex; flex-direction:column; height:100%; min-height:0;">
                         <div class="chat-header" id="chatHeader" style="display:none;">
                             <button class="back-btn" id="backBtn">‹</button>
-                            <div class="avatar" id="chatAvatar">👤</div>
-                            <div style="flex:1; min-width:0;">
+                            <div class="avatar" id="chatAvatar" style="cursor:pointer;">👤</div>
+                            <div style="flex:1; min-width:0;cursor:pointer;" id="chatHeaderClick">
                                 <div class="chatuser" id="chatPartnerName"></div>
                                 <div class="status" id="chatPartnerStatus">offline</div>
                             </div>
@@ -71,10 +77,21 @@
                                 <button class="chat-action-btn" id="selectMsgBtn" title="Select messages">☑</button>
                                 <button class="chat-action-btn" id="reactBtn" title="React to message">😊</button>
                                 <button class="chat-action-btn" id="deleteSelectedBtn" title="Delete selected" style="display:none;">🗑</button>
+                                <button class="chat-action-btn" id="chatSettingsBtn" title="Chat settings">⚙</button>
                             </div>
                         </div>
                         <div class="chat-messages" id="chatMessages"></div>
                         <div class="chat-input-bar" id="chatInputBar" style="display:none;">
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <button class="attach-btn" id="attachBtn">📎</button>
+                                <div id="attachMenu" style="display:none;position:absolute;bottom:70px;background:#1e1e1e;border:1px solid #333;border-radius:12px;padding:8px;z-index:100;">
+                                    <button class="attach-option" data-type="photo">🖼 Photo</button>
+                                    <button class="attach-option" data-type="video">🎬 Video</button>
+                                    <button class="attach-option" data-type="voice">🎤 Voice</button>
+                                    <button class="attach-option" data-type="file">📄 File</button>
+                                    <button class="attach-option" data-type="note">📝 Note</button>
+                                </div>
+                            </div>
                             <input id="messageInput" placeholder="Type a message..." autocomplete="off" />
                             <button id="sendBtn">Send</button>
                         </div>
@@ -84,8 +101,68 @@
         </div>
     </div>
 
+    <!-- Profile View Modal -->
+    <div id="profileModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:450px;">
+            <div class="modal-header">
+                <h2>Profile</h2>
+                <button class="modal-close" id="closeProfile">×</button>
+            </div>
+            <div class="modal-body" style="text-align:center;padding:30px;">
+                <div id="profileAvatar" style="width:100px;height:100px;border-radius:50%;background:#2a2a2a;margin:0 auto 16px;display:flex;align-items:center;justify-content:center;font-size:40px;border:3px solid #444;"></div>
+                <h3 id="profileDisplayName" style="font-size:1.2rem;margin-bottom:4px;">Display Name</h3>
+                <p id="profileUsername" style="color:#888;font-size:0.9rem;margin-bottom:8px;">@username</p>
+                <p id="profileBio" style="color:#aaa;font-size:0.95rem;margin-bottom:16px;">Bio goes here</p>
+                <div style="display:flex;gap:8px;justify-content:center;">
+                    <span id="profileStatus" style="font-size:0.85rem;color:#44c767;">● Online</span>
+                    <span id="profileLastSeen" style="font-size:0.85rem;color:#666;">Last seen: now</span>
+                </div>
+                <div style="margin-top:16px;padding-top:16px;border-top:1px solid #2a2a2a;">
+                    <p style="color:#666;font-size:0.8rem;">Joined: <span id="profileJoined">Today</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Poll Modal -->
+    <div id="pollModal" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:500px;">
+            <div class="modal-header">
+                <h2>Create Poll</h2>
+                <button class="modal-close" id="closePoll">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-item">
+                    <label>Question</label>
+                    <input id="pollQuestion" placeholder="What would you like to know?" />
+                </div>
+                <div class="setting-item">
+                    <label>Option 1</label>
+                    <input id="pollOpt1" placeholder="Option 1" />
+                </div>
+                <div class="setting-item">
+                    <label>Option 2</label>
+                    <input id="pollOpt2" placeholder="Option 2" />
+                </div>
+                <div class="setting-item">
+                    <label>Option 3 (optional)</label>
+                    <input id="pollOpt3" placeholder="Option 3" />
+                </div>
+                <div class="setting-item">
+                    <label>Option 4 (optional)</label>
+                    <input id="pollOpt4" placeholder="Option 4" />
+                </div>
+                <div class="setting-item">
+                    <label>Option 5 (optional)</label>
+                    <input id="pollOpt5" placeholder="Option 5" />
+                </div>
+                <button class="btn btn-primary" id="createPollBtn" style="width:100%;margin-top:10px;">Create Poll</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Settings Modal -->
-    <div id="settingsModal" class="modal">
+    <div id="settingsModal" class="modal" style="display:none;">
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Account Settings</h2>
@@ -95,8 +172,12 @@
                 <div class="settings-section">
                     <h3>Profile</h3>
                     <div class="setting-item">
-                        <label>Profile Picture URL</label>
-                        <input id="setProfilePic" placeholder="https://example.com/avatar.jpg" />
+                        <label>Profile Picture</label>
+                        <input type="file" id="profilePicInput" accept="image/*" style="padding:8px;background:#282828;border:1px solid #3a3a3a;border-radius:12px;color:white;width:100%;" />
+                        <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+                            <div id="profilePicPreview" style="width:60px;height:60px;border-radius:50%;background:#2a2a2a;display:flex;align-items:center;justify-content:center;font-size:24px;border:2px solid #444;"></div>
+                            <button class="btn btn-secondary" id="clearProfilePic" style="flex:0;">Clear</button>
+                        </div>
                     </div>
                     <div class="setting-item">
                         <label>Display Name</label>
@@ -255,8 +336,35 @@
         </div>
     </div>
 
+    <!-- Voice Recorder -->
+    <div id="voiceRecorder" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h2>Record Voice Message</h2>
+                <button class="modal-close" id="closeVoice">×</button>
+            </div>
+            <div class="modal-body" style="padding:30px;text-align:center;">
+                <div style="font-size:48px;margin-bottom:16px;">🎤</div>
+                <div id="recordingTimer" style="font-size:1.2rem;color:#aaa;margin-bottom:16px;">00:00</div>
+                <div style="display:flex;gap:12px;justify-content:center;">
+                    <button class="btn btn-primary" id="startRecordingBtn">Start Recording</button>
+                    <button class="btn btn-danger" id="stopRecordingBtn" style="display:none;">Stop</button>
+                    <button class="btn btn-secondary" id="sendVoiceBtn" style="display:none;">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image/Video Viewer -->
+    <div id="mediaViewer" class="modal" style="display:none;">
+        <div class="modal-content" style="max-width:90vw;max-height:90vh;background:transparent;border:none;box-shadow:none;">
+            <button class="modal-close" id="closeMedia" style="position:absolute;top:20px;right:20px;z-index:100;background:rgba(0,0,0,0.7);border-radius:50%;width:40px;height:40px;font-size:1.5rem;color:white;">×</button>
+            <div id="mediaContent" style="display:flex;align-items:center;justify-content:center;min-height:50vh;"></div>
+        </div>
+    </div>
+
     <script src="crypto.js"></script>
     <script src="database.js"></script>
     <script src="app.js"></script>
 </body>
-                  </html>
+</html>
