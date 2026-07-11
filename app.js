@@ -6,6 +6,9 @@ const App = {
     selectMode: false,
     selectedMessages: new Set(),
     reactingToMessage: null,
+    recordingTimer: null,
+    recordingSeconds: 0,
+    audioBlob: null,
     settings: {
         theme: 'dark',
         msgSize: 'medium',
@@ -40,7 +43,6 @@ const App = {
     },
 
     applySettings() {
-        // Apply theme
         if (this.settings.theme === 'light') {
             document.body.style.background = '#f0f0f0';
             document.querySelector('#app').style.background = '#ffffff';
@@ -51,21 +53,6 @@ const App = {
             document.body.style.background = '#0b0b0b';
             document.querySelector('#app').style.background = '#141414';
         }
-
-        // Apply message size
-        const messages = document.querySelectorAll('.message');
-        messages.forEach(msg => {
-            if (this.settings.msgSize === 'small') {
-                msg.style.fontSize = '0.8rem';
-                msg.style.padding = '6px 10px';
-            } else if (this.settings.msgSize === 'large') {
-                msg.style.fontSize = '1.1rem';
-                msg.style.padding = '12px 18px';
-            } else {
-                msg.style.fontSize = '0.9rem';
-                msg.style.padding = '8px 14px';
-            }
-        });
     },
 
     async loadDatabase() {
@@ -77,7 +64,6 @@ const App = {
             if (user) {
                 this.currentUser = user;
                 this.renderMessenger();
-                // Start auto-sync
                 setInterval(() => this.syncWithRemote(), 5000);
                 this.hideLoading();
                 return;
@@ -137,6 +123,22 @@ const App = {
         // Back button
         document.getElementById('backBtn').addEventListener('click', () => this.goBack());
 
+        // Profile click
+        document.getElementById('chatHeaderClick').addEventListener('click', () => {
+            if (this.currentChatPartner) {
+                this.viewProfile(this.currentChatPartner);
+            }
+        });
+        document.getElementById('chatAvatar').addEventListener('click', () => {
+            if (this.currentChatPartner) {
+                this.viewProfile(this.currentChatPartner);
+            }
+        });
+        document.getElementById('closeProfile').addEventListener('click', () => this.closeProfile());
+
+        // Chat settings
+        document.getElementById('chatSettingsBtn').addEventListener('click', () => this.openChatSettings());
+
         // Message selection
         document.getElementById('selectMsgBtn').addEventListener('click', () => this.toggleSelectMode());
         document.getElementById('deleteSelectedBtn').addEventListener('click', () => this.showDeleteModal());
@@ -162,6 +164,47 @@ const App = {
             el.addEventListener('click', () => {
                 const emoji = el.dataset.emoji;
                 this.addReaction(emoji);
+            });
+        });
+
+        // Attach menu
+        document.getElementById('attachBtn').addEventListener('click', () => {
+            const menu = document.getElementById('attachMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        });
+        document.querySelectorAll('.attach-option').forEach(el => {
+            el.addEventListener('click', () => {
+                document.getElementById('attachMenu').style.display = 'none';
+                const type = el.dataset.type;
+                this.handleAttach(type);
+            });
+        });
+
+        // Poll
+        document.getElementById('closePoll').addEventListener('click', () => this.closePollModal());
+        document.getElementById('createPollBtn').addEventListener('click', () => this.createPoll());
+
+        // Voice recorder
+        document.getElementById('closeVoice').addEventListener('click', () => this.closeVoiceRecorder());
+        document.getElementById('startRecordingBtn').addEventListener('click', () => this.startRecording());
+        document.getElementById('stopRecordingBtn').addEventListener('click', () => this.stopRecording());
+        document.getElementById('sendVoiceBtn').addEventListener('click', () => this.sendVoiceMessage());
+
+        // Media viewer
+        document.getElementById('closeMedia').addEventListener('click', () => this.closeMediaViewer());
+
+        // Profile pic upload
+        document.getElementById('profilePicInput').addEventListener('change', (e) => {
+            this.handleProfilePicUpload(e);
+        });
+        document.getElementById('clearProfilePic').addEventListener('click', () => this.clearProfilePic());
+
+        // Close modals on outside click
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.remove('show');
+                }
             });
         });
     },
@@ -265,14 +308,17 @@ const App = {
                 const partner = parts[0] === this.currentUser.username ? parts[1] : parts[0];
                 const msgs = messages[key] || [];
                 const last = msgs.length ? msgs[msgs.length - 1] : null;
-                const preview = last ? last.text : 'Start chatting';
+                let preview = last ? (last.text || 'Media message') : 'Start chatting';
                 const time = last ? this.formatTime(last.timestamp) : '';
                 const users = Database.getUsers();
                 const pUser = users.find(u => u.username === partner);
                 const online = pUser ? pUser.online : false;
+                const displayName = pUser ? (pUser.displayName || partner) : partner;
                 html += `<div class="chat-item ${partner === this.currentChatPartner ? 'active' : ''}" data-partner="${partner}">
-                    <div class="avatar">${partner.charAt(0).toUpperCase()}</div>
-                    <div class="chat-info"><div class="cname">${partner} ${online ? '🟢' : ''}</div><div class="preview">${preview}</div></div>
+                    <div class="avatar" style="${pUser?.profilePic ? `background-image:url(${pUser.profilePic});background-size:cover;` : ''}">
+                        ${pUser?.profilePic ? '' : displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="chat-info"><div class="cname">${displayName} ${online ? '●' : ''}</div><div class="preview">${preview}</div></div>
                     <div class="time">${time}</div>
                 </div>`;
             }
@@ -294,9 +340,18 @@ const App = {
 
         const header = document.getElementById('chatHeader');
         header.style.display = 'flex';
-        document.getElementById('chatPartnerName').textContent = partner.displayName || partner.username;
+        const displayName = partner.displayName || partner.username;
+        document.getElementById('chatPartnerName').textContent = displayName;
         document.getElementById('chatPartnerStatus').textContent = partner.online ? 'Online' : 'Offline';
-        document.getElementById('chatAvatar').textContent = partner.displayName ? partner.displayName.charAt(0).toUpperCase() : partner.username.charAt(0).toUpperCase();
+        const avatar = document.getElementById('chatAvatar');
+        if (partner.profilePic) {
+            avatar.style.backgroundImage = `url(${partner.profilePic})`;
+            avatar.style.backgroundSize = 'cover';
+            avatar.textContent = '';
+        } else {
+            avatar.style.backgroundImage = '';
+            avatar.textContent = displayName.charAt(0).toUpperCase();
+        }
         document.getElementById('chatPlaceholder').style.display = 'none';
         document.getElementById('chatInputBar').style.display = 'flex';
         document.getElementById('deleteSelectedBtn').style.display = 'none';
@@ -324,12 +379,15 @@ const App = {
         const container = document.getElementById('chatMessages');
         container.innerHTML = '';
         if (!msgs.length) {
-            container.innerHTML = '<div style="color:#444; text-align:center; padding:20px;">No messages yet</div>';
+            const emptyBox = document.createElement('div');
+            emptyBox.className = 'empty-chat-box';
+            emptyBox.textContent = `Start messaging ${this.currentChatPartner ? (Database.getUsers().find(u => u.username === this.currentChatPartner)?.displayName || this.currentChatPartner) : ''}`;
+            container.appendChild(emptyBox);
             return;
         }
 
-        // Group messages by date
         let currentDate = '';
+        let isFirstMessage = true;
         for (const msg of msgs) {
             const msgDate = new Date(msg.timestamp).toLocaleDateString();
             if (msgDate !== currentDate) {
@@ -340,32 +398,67 @@ const App = {
                 container.appendChild(dateDiv);
             }
 
+            if (isFirstMessage && msgs.length > 0) {
+                const startDiv = document.createElement('div');
+                startDiv.style.cssText = 'text-align:center;color:#555;font-size:0.7rem;padding:8px 0;font-style:italic;';
+                startDiv.textContent = 'This is the start of your legendary conversation.';
+                container.appendChild(startDiv);
+                isFirstMessage = false;
+            }
+
             const div = document.createElement('div');
             const isOutgoing = msg.sender === this.currentUser.username;
             div.className = `message ${isOutgoing ? 'outgoing' : 'incoming'}`;
             div.dataset.messageId = msg.id || Date.now() + Math.random().toString(36);
             div.dataset.sender = msg.sender;
 
-            // Select circle
             const circle = document.createElement('span');
             circle.className = 'select-circle';
             circle.dataset.messageId = div.dataset.messageId;
             div.appendChild(circle);
 
-            // Message content
             const content = document.createElement('span');
-            content.textContent = msg.text;
+            content.className = 'message-content';
+            
+            if (msg.type === 'poll') {
+                content.innerHTML = this.renderPoll(msg);
+            } else if (msg.type === 'file') {
+                content.innerHTML = this.renderFile(msg);
+            } else if (msg.type === 'voice') {
+                content.innerHTML = this.renderVoice(msg);
+            } else if (msg.type === 'image') {
+                content.innerHTML = this.renderImage(msg);
+            } else if (msg.type === 'video') {
+                content.innerHTML = this.renderVideo(msg);
+            } else if (msg.type === 'note') {
+                content.innerHTML = `<div style="background:#1a1a1a;border-radius:8px;padding:8px 12px;border-left:3px solid #4a7aff;">📝 ${msg.text}</div>`;
+            } else {
+                content.textContent = msg.text || 'Media message';
+            }
+            
             div.appendChild(content);
 
-            // Timestamp
             if (this.settings.timestamps === 'on') {
                 const time = document.createElement('div');
                 time.className = 'time';
+                const statusIcon = document.createElement('span');
+                statusIcon.className = 'status-icon';
+                if (isOutgoing) {
+                    if (msg.read) {
+                        statusIcon.textContent = '✓✓';
+                        statusIcon.classList.add('read');
+                    } else if (msg.delivered) {
+                        statusIcon.textContent = '✓✓';
+                        statusIcon.classList.add('sent');
+                    } else {
+                        statusIcon.textContent = '✓';
+                    }
+                }
                 time.textContent = this.formatTime(msg.timestamp);
+                time.prepend(statusIcon);
                 div.appendChild(time);
             }
 
-            // Reactions
             if (msg.reactions && Object.keys(msg.reactions).length > 0) {
                 const reactionsDiv = document.createElement('div');
                 reactionsDiv.className = 'reactions';
@@ -382,13 +475,11 @@ const App = {
                 div.appendChild(reactionsDiv);
             }
 
-            // Animation class
             const animClass = this.settings.animation;
             if (animClass !== 'none') {
                 div.classList.add('anim-' + animClass);
             }
 
-            // Select mode
             if (this.selectMode) {
                 div.classList.add('select-mode');
                 if (this.selectedMessages.has(div.dataset.messageId)) {
@@ -408,6 +499,55 @@ const App = {
 
         this.applySettings();
         this.scrollToBottom();
+    },
+
+    renderPoll(msg) {
+        const totalVotes = Object.values(msg.pollResults || {}).reduce((a, b) => a + b, 0);
+        let html = `<div class="poll-container"><div class="poll-question">${msg.pollQuestion || msg.text}</div>`;
+        const options = msg.pollOptions || [];
+        options.forEach((option, index) => {
+            const votes = msg.pollResults?.[index] || 0;
+            const percentage = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+            const hasVoted = msg.pollVoters?.[this.currentUser?.username] === index;
+            html += `<div class="poll-option ${hasVoted ? 'voted' : ''}" data-index="${index}" style="cursor:pointer;">
+                <span>${option}</span>
+                <span>${votes} votes (${percentage}%)</span>
+                <div class="poll-bar" style="width:${percentage}%;"></div>
+            </div>`;
+        });
+        html += `<div style="font-size:0.75rem;color:#666;margin-top:6px;">${totalVotes} total votes</div></div>`;
+        return html;
+    },
+
+    renderFile(msg) {
+        const timeLeft = msg.expireTime ? Math.max(0, Math.floor((msg.expireTime - Date.now()) / 60000)) : 'Never';
+        return `<div class="file-container" data-file="${msg.fileData || ''}">
+            <div class="file-name">📄 ${msg.fileName || 'File'}</div>
+            <div class="file-details">${msg.fileType || 'Unknown'} · ${msg.fileSize || '0 KB'}</div>
+            <div class="file-details">${msg.fileDescription || ''}</div>
+            <div class="file-expire">⏱ Expires in: ${typeof timeLeft === 'number' ? timeLeft + ' minutes' : timeLeft}</div>
+        </div>`;
+    },
+
+    renderVoice(msg) {
+        return `<div class="voice-container" data-voice="${msg.voiceData || ''}">
+            <span class="voice-play">▶</span>
+            <div class="voice-progress"><div class="fill"></div></div>
+            <span class="voice-time">${msg.voiceDuration || '0:00'}</span>
+        </div>`;
+    },
+
+    renderImage(msg) {
+        return `<div class="image-container" data-image="${msg.imageData || ''}">
+            <img src="${msg.imageData || ''}" alt="Image" loading="lazy" />
+        </div>`;
+    },
+
+    renderVideo(msg) {
+        return `<div class="video-container" data-video="${msg.videoData || ''}">
+            <video src="${msg.videoData || ''}" preload="metadata"></video>
+            <div class="video-play-overlay">▶</div>
+        </div>`;
     },
 
     toggleSelectMessage(messageId) {
@@ -471,24 +611,17 @@ const App = {
         const messages = Database.getMessages();
         const msgs = messages[chatKey] || [];
 
-        if (type === 'me') {
-            // Delete for me - just remove from local display but keep in DB
-            const filtered = msgs.filter(msg => {
-                const msgId = msg.id || Date.now() + Math.random().toString(36);
-                return !this.selectedMessages.has(msgId);
-            });
-            messages[chatKey] = filtered;
-        } else {
-            // Delete for everyone - mark as deleted for all
-            const filtered = msgs.filter(msg => {
-                const msgId = msg.id || Date.now() + Math.random().toString(36);
-                if (this.selectedMessages.has(msgId)) {
+        const filtered = msgs.filter(msg => {
+            const msgId = msg.id || Date.now() + Math.random().toString(36);
+            if (this.selectedMessages.has(msgId)) {
+                if (type === 'everyone') {
                     return false;
                 }
-                return true;
-            });
-            messages[chatKey] = filtered;
-        }
+                return false; // For 'me', we just remove from display
+            }
+            return true;
+        });
+        messages[chatKey] = filtered;
 
         Database.setMessages(messages);
         await Database.save();
@@ -502,7 +635,6 @@ const App = {
     },
 
     openReactionModal() {
-        // Find the last message to react to
         const messages = document.querySelectorAll('.message');
         if (messages.length === 0) return;
         const lastMsg = messages[messages.length - 1];
@@ -532,13 +664,11 @@ const App = {
             
             const userIndex = msgs[msgIndex].reactions[emoji].indexOf(this.currentUser.username);
             if (userIndex !== -1) {
-                // Remove reaction
                 msgs[msgIndex].reactions[emoji].splice(userIndex, 1);
                 if (msgs[msgIndex].reactions[emoji].length === 0) {
                     delete msgs[msgIndex].reactions[emoji];
                 }
             } else {
-                // Add reaction
                 msgs[msgIndex].reactions[emoji].push(this.currentUser.username);
             }
 
@@ -580,18 +710,18 @@ const App = {
         }
     },
 
-    // Send message with encryption
     async sendMessage() {
         if (!this.currentUser || !this.currentChatPartner) return;
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
         if (!text) return;
 
-        // Simulate 5-layer encryption
-        let encrypted = text;
-        // In production, use actual encryption
-        // For demo, we'll simulate with a simple obfuscation
-        encrypted = btoa(encodeURIComponent(text));
+        // Check for poll command
+        if (text.startsWith('/poll')) {
+            this.openPollModal();
+            input.value = '';
+            return;
+        }
 
         const chatKey = this.getChatKey(this.currentUser.username, this.currentChatPartner);
         const messages = Database.getMessages();
@@ -600,77 +730,247 @@ const App = {
         const newMsg = {
             id: Date.now() + Math.random().toString(36),
             sender: this.currentUser.username,
-            text: text, // Store plaintext for demo, but in production store encrypted
-            encrypted: encrypted,
+            text: text,
             timestamp: Date.now(),
-            reactions: {}
+            reactions: {},
+            delivered: false,
+            read: false,
+            type: 'text'
         };
 
         messages[chatKey].push(newMsg);
         Database.setMessages(messages);
         await Database.save();
 
+        // Mark as delivered after sync
+        setTimeout(() => {
+            const msgs = Database.getMessages()[chatKey] || [];
+            const msg = msgs.find(m => m.id === newMsg.id);
+            if (msg) {
+                msg.delivered = true;
+                Database.setMessages(Database.getMessages());
+                Database.save();
+                this.renderMessages(msgs);
+            }
+        }, 1000);
+
         this.renderMessages(messages[chatKey]);
         this.renderChatList();
         input.value = '';
         this.scrollToBottom();
-
-        // Send notification to other device
-        this.sendNotification(this.currentUser.username, text);
     },
 
-    sendNotification(username, message) {
-        // Broadcast notification to other devices via sync
-        if (Notification.permission === 'granted') {
-            new Notification('VVN - New Message', {
-                body: `${username}: ${message}`,
-                icon: '📱'
-            });
-        }
-    },
-
-    // Search users
-    searchUsers(query) {
-        if (!query.trim()) {
-            document.getElementById('searchResults').style.display = 'none';
-            return;
-        }
-        const users = Database.getUsers();
-        const q = query.toLowerCase();
-        const found = users.filter(u =>
-            u.username !== this.currentUser.username &&
-            (u.username.toLowerCase().includes(q) ||
-                (u.email && u.email.toLowerCase().includes(q)) ||
-                (u.displayName && u.displayName.toLowerCase().includes(q)))
-        );
-
-        const container = document.getElementById('searchResults');
-        if (found.length === 0) {
-            container.innerHTML =
-                `<div style="padding:10px 14px;color:#666;font-size:0.85rem;">No users found. Try creating an account with that username first.</div>`;
-            container.style.display = 'block';
+    async handleAttach(type) {
+        if (type === 'poll') {
+            this.openPollModal();
             return;
         }
 
-        let html = '';
-        for (const u of found) {
-            html += `<div class="search-result-item" data-username="${u.username}">
-                <div class="avatar">${(u.displayName || u.username).charAt(0).toUpperCase()}</div>
-                <div class="info">
-                    <div class="uname">${u.displayName || u.username}</div>
-                    <div class="email">@${u.username} ${u.email ? '· ' + u.email : ''}</div>
-                </div>
-            </div>`;
+        if (type === 'voice') {
+            this.openVoiceRecorder();
+            return;
         }
-        container.innerHTML = html;
-        container.style.display = 'block';
-        container.querySelectorAll('.search-result-item').forEach(el => {
-            el.addEventListener('click', () => {
-                this.openChat(el.dataset.username);
-                container.style.display = 'none';
-                document.getElementById('searchInput').value = '';
-            });
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        if (type === 'photo') input.accept = 'image/*';
+        else if (type === 'video') input.accept = 'video/*';
+        else if (type === 'file') input.accept = '*/*';
+        else if (type === 'note') {
+            const note = prompt('Enter your note:');
+            if (note) {
+                await this.sendMediaMessage('note', { text: note });
+            }
+            return;
+        }
+
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const data = event.target.result;
+                if (type === 'photo') {
+                    await this.sendMediaMessage('image', { imageData: data, text: '📷 Photo' });
+                } else if (type === 'video') {
+                    await this.sendMediaMessage('video', { videoData: data, text: '🎬 Video' });
+                } else if (type === 'file') {
+                    const fileSize = (file.size / 1024).toFixed(1) + ' KB';
+                    await this.sendMediaMessage('file', {
+                        fileName: file.name,
+                        fileType: file.type || 'Unknown',
+                        fileSize: fileSize,
+                        fileData: data,
+                        fileDescription: prompt('File description:', ''),
+                        expireTime: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+                    });
+                }
+            };
+            reader.readAsDataURL(file);
+        };
+        input.click();
+    },
+
+    async sendMediaMessage(type, data) {
+        if (!this.currentUser || !this.currentChatPartner) return;
+        const chatKey = this.getChatKey(this.currentUser.username, this.currentChatPartner);
+        const messages = Database.getMessages();
+        if (!messages[chatKey]) messages[chatKey] = [];
+
+        const newMsg = {
+            id: Date.now() + Math.random().toString(36),
+            sender: this.currentUser.username,
+            timestamp: Date.now(),
+            reactions: {},
+            delivered: false,
+            read: false,
+            type: type,
+            ...data
+        };
+
+        messages[chatKey].push(newMsg);
+        Database.setMessages(messages);
+        await Database.save();
+        this.renderMessages(messages[chatKey]);
+        this.renderChatList();
+        this.scrollToBottom();
+    },
+
+    openPollModal() {
+        document.getElementById('pollModal').classList.add('show');
+        document.getElementById('pollQuestion').value = '';
+        document.getElementById('pollOpt1').value = '';
+        document.getElementById('pollOpt2').value = '';
+        document.getElementById('pollOpt3').value = '';
+        document.getElementById('pollOpt4').value = '';
+        document.getElementById('pollOpt5').value = '';
+    },
+
+    closePollModal() {
+        document.getElementById('pollModal').classList.remove('show');
+    },
+
+    async createPoll() {
+        const question = document.getElementById('pollQuestion').value.trim();
+        const options = [];
+        for (let i = 1; i <= 5; i++) {
+            const opt = document.getElementById(`pollOpt${i}`).value.trim();
+            if (opt) options.push(opt);
+        }
+        if (!question || options.length < 2) {
+            alert('Please enter a question and at least 2 options');
+            return;
+        }
+
+        await this.sendMediaMessage('poll', {
+            pollQuestion: question,
+            pollOptions: options,
+            pollResults: {},
+            pollVoters: {},
+            text: question
         });
+        this.closePollModal();
+    },
+
+    openVoiceRecorder() {
+        document.getElementById('voiceRecorder').classList.add('show');
+        this.recordingSeconds = 0;
+        document.getElementById('recordingTimer').textContent = '00:00';
+        document.getElementById('startRecordingBtn').style.display = 'inline-block';
+        document.getElementById('stopRecordingBtn').style.display = 'none';
+        document.getElementById('sendVoiceBtn').style.display = 'none';
+    },
+
+    closeVoiceRecorder() {
+        document.getElementById('voiceRecorder').classList.remove('show');
+        if (this.recordingTimer) {
+            clearInterval(this.recordingTimer);
+            this.recordingTimer = null;
+        }
+    },
+
+    startRecording() {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+            this.mediaRecorder = new MediaRecorder(stream);
+            const chunks = [];
+            this.mediaRecorder.ondataavailable = e => chunks.push(e.data);
+            this.mediaRecorder.onstop = () => {
+                this.audioBlob = new Blob(chunks, { type: 'audio/webm' });
+                document.getElementById('sendVoiceBtn').style.display = 'inline-block';
+                document.getElementById('stopRecordingBtn').style.display = 'none';
+            };
+            this.mediaRecorder.start();
+            document.getElementById('startRecordingBtn').style.display = 'none';
+            document.getElementById('stopRecordingBtn').style.display = 'inline-block';
+            
+            this.recordingSeconds = 0;
+            this.recordingTimer = setInterval(() => {
+                this.recordingSeconds++;
+                const mins = String(Math.floor(this.recordingSeconds / 60)).padStart(2, '0');
+                const secs = String(this.recordingSeconds % 60).padStart(2, '0');
+                document.getElementById('recordingTimer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }).catch(() => {
+            alert('Unable to access microphone. Please allow microphone access.');
+        });
+    },
+
+    stopRecording() {
+        if (this.mediaRecorder) {
+            this.mediaRecorder.stop();
+            this.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            clearInterval(this.recordingTimer);
+            this.recordingTimer = null;
+        }
+    },
+
+    async sendVoiceMessage() {
+        if (!this.audioBlob) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const data = e.target.result;
+            const duration = this.recordingSeconds;
+            const mins = String(Math.floor(duration / 60)).padStart(2, '0');
+            const secs = String(duration % 60).padStart(2, '0');
+            await this.sendMediaMessage('voice', {
+                voiceData: data,
+                voiceDuration: `${mins}:${secs}`,
+                text: '🎤 Voice message'
+            });
+            this.closeVoiceRecorder();
+        };
+        reader.readAsDataURL(this.audioBlob);
+    },
+
+    viewProfile(username) {
+        const users = Database.getUsers();
+        const user = users.find(u => u.username === username);
+        if (!user) return;
+
+        const displayName = user.displayName || user.username;
+        const avatar = document.getElementById('profileAvatar');
+        if (user.profilePic) {
+            avatar.innerHTML = `<img src="${user.profilePic}" alt="${displayName}" />`;
+        } else {
+            avatar.innerHTML = displayName.charAt(0).toUpperCase();
+            avatar.style.background = '#2a2a2a';
+        }
+        document.getElementById('profileDisplayName').textContent = displayName;
+        document.getElementById('profileUsername').textContent = '@' + user.username;
+        document.getElementById('profileBio').textContent = user.bio || 'No bio yet';
+        document.getElementById('profileStatus').textContent = user.online ? '● Online' : '○ Offline';
+        document.getElementById('profileJoined').textContent = new Date(user.created || Date.now()).toLocaleDateString();
+        document.getElementById('profileModal').classList.add('show');
+    },
+
+    closeProfile() {
+        document.getElementById('profileModal').classList.remove('show');
+    },
+
+    openChatSettings() {
+        // Quick chat settings - pin/reply options
+        alert('Chat settings:\n- Pin important messages (long press on message)\n- Reply to messages (double click message)\n- Report user\n- Clear chat history');
     },
 
     // Settings
@@ -679,7 +979,6 @@ const App = {
         const user = Database.getUsers().find(u => u.username === this.currentUser.username);
         if (!user) return;
 
-        document.getElementById('setProfilePic').value = user.profilePic || '';
         document.getElementById('setDisplayName').value = user.displayName || '';
         document.getElementById('setBio').value = user.bio || '';
         document.getElementById('setUsername').value = user.username;
@@ -693,6 +992,15 @@ const App = {
         document.getElementById('setAnimation').value = this.settings.animation || 'slide';
         document.getElementById('setEnterSend').value = this.settings.enterSend || 'on';
         document.getElementById('setTyping').value = this.settings.typing || 'on';
+
+        // Profile pic preview
+        const preview = document.getElementById('profilePicPreview');
+        if (user.profilePic) {
+            preview.innerHTML = `<img src="${user.profilePic}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+        } else {
+            preview.textContent = '👤';
+            preview.style.background = '#2a2a2a';
+        }
 
         document.getElementById('settingsModal').classList.add('show');
     },
@@ -721,8 +1029,8 @@ const App = {
             email: document.getElementById('setEmail').value.trim(),
             displayName: document.getElementById('setDisplayName').value.trim() || username,
             bio: document.getElementById('setBio').value.trim(),
-            profilePic: document.getElementById('setProfilePic').value.trim(),
-            password: newPassword || users[userIndex].password
+            password: newPassword || users[userIndex].password,
+            profilePic: users[userIndex].profilePic || ''
         };
 
         this.settings = {
@@ -746,7 +1054,6 @@ const App = {
         this.saveSettings();
         await Database.save();
 
-        // Update UI
         document.getElementById('sidebarUsername').textContent = this.currentUser.displayName || this.currentUser.username;
         if (this.currentChatPartner) {
             const partner = users.find(u => u.username === this.currentChatPartner);
@@ -759,6 +1066,58 @@ const App = {
         alert('Settings saved successfully!');
     },
 
+    handleProfilePicUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const data = event.target.result;
+            const preview = document.getElementById('profilePicPreview');
+            preview.innerHTML = `<img src="${data}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+            
+            // Save to user profile
+            const users = Database.getUsers();
+            const userIndex = users.findIndex(u => u.username === this.currentUser.username);
+            if (userIndex !== -1) {
+                users[userIndex].profilePic = data;
+                Database.setUsers(users);
+                Database.save();
+                this.currentUser = users[userIndex];
+                
+                // Update avatar
+                const avatar = document.getElementById('chatAvatar');
+                if (avatar) {
+                    avatar.style.backgroundImage = `url(${data})`;
+                    avatar.style.backgroundSize = 'cover';
+                    avatar.textContent = '';
+                }
+            }
+        };
+        reader.readAsDataURL(file);
+    },
+
+    clearProfilePic() {
+        const users = Database.getUsers();
+        const userIndex = users.findIndex(u => u.username === this.currentUser.username);
+        if (userIndex !== -1) {
+            users[userIndex].profilePic = '';
+            Database.setUsers(users);
+            Database.save();
+            this.currentUser = users[userIndex];
+            
+            const preview = document.getElementById('profilePicPreview');
+            preview.textContent = '👤';
+            preview.style.background = '#2a2a2a';
+            
+            const avatar = document.getElementById('chatAvatar');
+            if (avatar) {
+                avatar.style.backgroundImage = '';
+                avatar.textContent = (this.currentUser.displayName || this.currentUser.username).charAt(0).toUpperCase();
+            }
+        }
+    },
+
     async deleteAccount() {
         if (!confirm('Are you sure you want to delete your account? This cannot be undone!')) return;
         if (!confirm('All your messages and data will be permanently deleted. Continue?')) return;
@@ -767,7 +1126,6 @@ const App = {
         const filtered = users.filter(u => u.username !== this.currentUser.username);
         Database.setUsers(filtered);
 
-        // Delete all chats and messages
         const chats = Database.getChats();
         const messages = Database.getMessages();
         const chatKeys = Object.keys(chats).filter(k => k.includes(this.currentUser.username));
@@ -789,13 +1147,13 @@ const App = {
         document.getElementById('authScreen').style.display = 'flex';
         document.getElementById('messenger').style.display = 'none';
         document.getElementById('settingsModal').classList.remove('show');
+        document.getElementById('profileModal').classList.remove('show');
     },
 
     // Sync
     async syncWithRemote() {
         const remote = await Database.fetchFromBin();
         if (remote) {
-            // Check for new messages
             const localMessages = Database.localCache.messages || {};
             const remoteMessages = remote.messages || {};
             let hasNewMessages = false;
@@ -806,10 +1164,9 @@ const App = {
                     for (const msg of newMsgs) {
                         if (msg.sender !== this.currentUser?.username && this.currentUser) {
                             hasNewMessages = true;
-                            // Send notification
                             const partner = key.split('_').find(u => u !== this.currentUser?.username);
                             if (partner) {
-                                this.sendNotification(partner, msg.text);
+                                this.sendNotification(partner, msg.text || 'Media message');
                             }
                         }
                     }
@@ -829,6 +1186,15 @@ const App = {
                 this.renderChatList();
             }
             this.setStatus('Synced', 'green');
+        }
+    },
+
+    sendNotification(username, message) {
+        if (Notification.permission === 'granted') {
+            new Notification('VVN - New Message', {
+                body: `${username}: ${message}`,
+                icon: '📱'
+            });
         }
     },
 
@@ -889,6 +1255,11 @@ const App = {
     setStatus(text, color) {
         document.getElementById('syncStatus').textContent = text;
         document.getElementById('syncDot').className = 'status-dot ' + color;
+    },
+
+    closeMediaViewer() {
+        document.getElementById('mediaViewer').classList.remove('show');
+        document.getElementById('mediaContent').innerHTML = '';
     }
 };
 
