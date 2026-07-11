@@ -1,4 +1,5 @@
 // database.js - JSONBin database with encryption
+
 const Database = {
     BIN_ID: '6a5222dbda38895dfe4ef18e',
     MASTER_KEY: '$2a$10$xpnzNbyjOgRS6s..YVAMhOqwuj/FOPnU15M2J9uSwHBsRJAygi1Lu',
@@ -7,6 +8,7 @@ const Database = {
     localCache: { users: [], chats: {}, messages: {} },
     currentUser: null,
     sessionKey: null,
+    listeners: [],
 
     async fetchFromBin() {
         try {
@@ -66,7 +68,22 @@ const Database = {
 
     async save() {
         localStorage.setItem('vvn_cache', JSON.stringify(this.localCache));
-        await this.updateBin(this.localCache);
+        const success = await this.updateBin(this.localCache);
+        if (success) {
+            this.notifyListeners();
+        }
+        return success;
+    },
+
+    addListener(callback) {
+        this.listeners.push(callback);
+        return () => {
+            this.listeners = this.listeners.filter(l => l !== callback);
+        };
+    },
+
+    notifyListeners() {
+        this.listeners.forEach(callback => callback(this.localCache));
     },
 
     getUsers() { return this.localCache.users || []; },
