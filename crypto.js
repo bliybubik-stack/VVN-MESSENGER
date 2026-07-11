@@ -1,4 +1,5 @@
 // crypto.js - 5-layer encryption system
+
 const Crypto = {
     // Layer 1: End-to-End Encryption (E2EE)
     async e2eeEncrypt(text, publicKey) {
@@ -88,22 +89,38 @@ const Crypto = {
     // Encrypt message with all 5 layers
     async encryptMessage(text, publicKey, password, sessionKey) {
         let encrypted = text;
+        
+        // Layer 1: E2EE
         encrypted = await this.e2eeEncrypt(encrypted, publicKey);
+        
+        // Layer 2: Add MAC
         const mac = await this.generateMAC(encrypted, password);
         encrypted = `${encrypted}|${mac}`;
+        
+        // Layer 3: Session key encryption
         const sessionEncrypted = await this.e2eeEncrypt(encrypted, sessionKey);
+        
+        // Layer 4: Password protection
         const passwordProtected = await this.encryptStorage(sessionEncrypted, password);
+        
         return passwordProtected;
     },
 
     async decryptMessage(encrypted, privateKey, password, sessionKey) {
         try {
+            // Layer 4: Password decryption
             const passwordDecrypted = await this.decryptStorage(encrypted, password);
             if (!passwordDecrypted) return null;
+            
+            // Layer 3: Session key decryption
             const sessionDecrypted = await this.e2eeDecrypt(passwordDecrypted, sessionKey);
+            
+            // Layer 2: MAC verification
             const [message, mac] = sessionDecrypted.split('|');
             const verifyMac = await this.generateMAC(message, password);
-            if (mac !== verifyMac) return null;
+            if (mac !== verifyMac) return null; // Tampered message
+            
+            // Layer 1: E2EE decryption
             return await this.e2eeDecrypt(message, privateKey);
         } catch {
             return null;
