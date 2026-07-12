@@ -22,7 +22,9 @@
             theme: 'dark'
         },
         loadingComplete: false,
-        deviceType: 'pc'
+        deviceType: 'pc',
+        typingTimeout: null,
+        isTyping: false
     };
 
     // Get CONFIG from window
@@ -166,7 +168,8 @@
     let chatSettings = {
         bubbleStyle: 'rounded',
         background: 'default',
-        bgImage: null
+        bgImage: null,
+        chatTheme: ''
     };
     let pendingFiles = [];
     let autoLockTimeout = null;
@@ -195,11 +198,11 @@
 
     function getUserTags(username) {
         const tags = [];
-        if (CONFIG.OWNERS && CONFIG.OWNERS.includes(username)) tags.push({ label: 'OWNER', class: 'tag-owner' });
-        if (CONFIG.DEVS && CONFIG.DEVS.includes(username)) tags.push({ label: 'DEV', class: 'tag-dev' });
-        if (CONFIG.ADMINS && CONFIG.ADMINS.includes(username)) tags.push({ label: 'ADMIN', class: 'tag-admin' });
-        if (CONFIG.MODS && CONFIG.MODS.includes(username)) tags.push({ label: 'MOD', class: 'tag-mod' });
-        if (CONFIG.STAFF && CONFIG.STAFF.includes(username)) tags.push({ label: 'STAFF', class: 'tag-staff' });
+        if (CONFIG.OWNERS && CONFIG.OWNERS.includes(username.toLowerCase())) tags.push({ label: 'OWNER', class: 'tag-owner' });
+        if (CONFIG.DEVS && CONFIG.DEVS.includes(username.toLowerCase())) tags.push({ label: 'DEV', class: 'tag-dev' });
+        if (CONFIG.ADMINS && CONFIG.ADMINS.includes(username.toLowerCase())) tags.push({ label: 'ADMIN', class: 'tag-admin' });
+        if (CONFIG.MODS && CONFIG.MODS.includes(username.toLowerCase())) tags.push({ label: 'MOD', class: 'tag-mod' });
+        if (CONFIG.STAFF && CONFIG.STAFF.includes(username.toLowerCase())) tags.push({ label: 'STAFF', class: 'tag-staff' });
         if (tags.length === 0) {
             const user = getUserByUsername(username);
             if (user && user.created) {
@@ -449,7 +452,258 @@
             case 'logout':
                 logout();
                 break;
+            case 'reaction':
+                // Show reaction sub-dropdown
+                break;
+            case 'schedule':
+                scheduleMessage();
+                break;
+            case 'quickreply':
+                showQuickReplies();
+                break;
+            case 'quickreply-add':
+                addQuickReply();
+                break;
+            case 'stats':
+                showMessageStats();
+                break;
+            case 'rps':
+                playRPS();
+                break;
+            case 'rainbow':
+                toggleRainbowName();
+                break;
+            case 'chattheme':
+                changeChatTheme();
+                break;
         }
+    }
+
+    // ---------- FUN FEATURES ----------
+
+    // 1. Message Reactions
+    function addReaction(messageId, reaction) {
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        const msgIndex = messages.findIndex((m, i) => m.timestamp + '-' + i === messageId);
+        if (msgIndex === -1) return;
+        
+        if (!messages[msgIndex].reactions) messages[msgIndex].reactions = [];
+        const existing = messages[msgIndex].reactions.find(r => r.user === state.currentUser.username);
+        if (existing) {
+            existing.emoji = reaction;
+        } else {
+            messages[msgIndex].reactions.push({ user: state.currentUser.username, emoji: reaction });
+        }
+        
+        state.localCache.messages[chatKey] = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages);
+    }
+
+    // 2. Schedule Message
+    function scheduleMessage() {
+        const text = prompt('Enter your message:');
+        if (!text) return;
+        const time = prompt('Enter time (HH:MM in 24h format):');
+        if (!time) return;
+        const parts = time.split(':');
+        const hours = parseInt(parts[0]);
+        const minutes = parseInt(parts[1]);
+        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+            alert('Invalid time format. Use HH:MM');
+            return;
+        }
+        
+        const now = new Date();
+        const scheduled = new Date(now);
+        scheduled.setHours(hours, minutes, 0, 0);
+        if (scheduled <= now) scheduled.setDate(scheduled.getDate() + 1);
+        
+        const delay = scheduled - now;
+        if (delay > 86400000) {
+            alert('Cannot schedule more than 24 hours in advance.');
+            return;
+        }
+        
+        setTimeout(() => {
+            const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+            const messages = state.localCache.messages;
+            if (!messages[chatKey]) messages[chatKey] = [];
+            messages[chatKey].push({
+                sender: state.currentUser.username,
+                timestamp: Date.now(),
+                text: '📅 ' + text + ' (Scheduled)'
+            });
+            state.localCache.messages = messages;
+            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+            pushToRemote();
+            renderMessages(messages[chatKey]);
+            renderChatList();
+            scrollToBottom();
+        }, delay);
+        
+        alert('✅ Message scheduled for ' + time);
+        closeDropdown();
+    }
+
+    // 3. Quick Replies
+    function addQuickReply() {
+        const text = prompt('Enter quick reply text:');
+        if (!text) return;
+        const replies = JSON.parse(localStorage.getItem('vvn_quick_replies') || '[]');
+        replies.push(text);
+        localStorage.setItem('vvn_quick_replies', JSON.stringify(replies));
+        alert('✅ Quick reply added!');
+        closeDropdown();
+    }
+
+    function showQuickReplies() {
+        const replies = JSON.parse(localStorage.getItem('vvn_quick_replies') || '[]');
+        if (!replies.length) { alert('No quick replies saved.'); return; }
+        let msg = '📋 Quick Replies:\n\n';
+        replies.forEach((r, i) => {
+            msg += (i+1) + '. ' + r + '\n';
+        });
+        msg += '\nEnter number to use, or cancel:';
+        const selection = prompt(msg);
+        if (selection === null) return;
+        const index = parseInt(selection) - 1;
+        if (index >= 0 && index < replies.length) {
+            DOM.messageInput.value = replies[index];
+            DOM.messageInput.focus();
+        }
+        closeDropdown();
+    }
+
+    // 4. Message Stats
+    function showMessageStats() {
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        const sent = messages.filter(m => m.sender === state.currentUser.username).length;
+        const received = messages.filter(m => m.sender !== state.currentUser.username).length;
+        const total = messages.length;
+        const partner = getDisplayName(state.currentChatPartner);
+        alert('📊 Message Stats with ' + partner + '\n\n' +
+              'Sent: ' + sent + '\n' +
+              'Received: ' + received + '\n' +
+              'Total: ' + total);
+        closeDropdown();
+    }
+
+    // 5. Rock Paper Scissors
+    function playRPS() {
+        const choices = ['🪨 Rock', '📄 Paper', '✂️ Scissors'];
+        const playerChoice = prompt('🎮 Rock Paper Scissors\n\n1. 🪨 Rock\n2. 📄 Paper\n3. ✂️ Scissors');
+        if (!playerChoice) return;
+        const playerIndex = parseInt(playerChoice) - 1;
+        if (playerIndex < 0 || playerIndex > 2) { alert('Invalid choice'); return; }
+        
+        const botIndex = Math.floor(Math.random() * 3);
+        const result = (playerIndex - botIndex + 3) % 3;
+        let msg = '🎮 Rock Paper Scissors\n\n';
+        msg += 'You: ' + choices[playerIndex] + '\n';
+        msg += 'Bot: ' + choices[botIndex] + '\n\n';
+        if (result === 0) msg += '🤝 Draw!';
+        else if (result === 1) msg += '🎉 You win!';
+        else msg += '😔 You lose!';
+        
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages;
+        if (!messages[chatKey]) messages[chatKey] = [];
+        messages[chatKey].push({
+            sender: state.currentUser.username,
+            timestamp: Date.now(),
+            text: msg
+        });
+        state.localCache.messages = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages[chatKey]);
+        renderChatList();
+        scrollToBottom();
+        closeDropdown();
+    }
+
+    // 6. Rainbow Name
+    function toggleRainbowName() {
+        const user = state.currentUser;
+        if (!user) return;
+        user.rainbow = !user.rainbow;
+        const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
+        if (userIndex !== -1) {
+            state.localCache.users[userIndex] = user;
+            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+            pushToRemote();
+            renderChatList();
+            if (DOM.chatPartnerName) {
+                if (user.rainbow) {
+                    DOM.chatPartnerName.classList.add('rainbow-name');
+                } else {
+                    DOM.chatPartnerName.classList.remove('rainbow-name');
+                }
+            }
+            alert(user.rainbow ? '🌈 Rainbow name enabled!' : 'Rainbow name disabled.');
+        }
+        closeDropdown();
+    }
+
+    // 7. Chat Theme
+    function changeChatTheme() {
+        const themes = [
+            'Default', 'Gradient 1', 'Gradient 2', 'Gradient 3',
+            'Gradient 4', 'Gradient 5', 'Pattern 1', 'Pattern 2'
+        ];
+        let msg = '🎨 Chat Themes\n\n';
+        themes.forEach((t, i) => {
+            msg += (i+1) + '. ' + t + '\n';
+        });
+        const selection = prompt(msg);
+        if (!selection) return;
+        const index = parseInt(selection) - 1;
+        if (index < 0 || index >= themes.length) return;
+        
+        const themeClasses = [
+            '', 'chat-theme-gradient-1', 'chat-theme-gradient-2',
+            'chat-theme-gradient-3', 'chat-theme-gradient-4',
+            'chat-theme-gradient-5', 'chat-theme-pattern-1',
+            'chat-theme-pattern-2'
+        ];
+        
+        chatSettings.chatTheme = themeClasses[index] || '';
+        localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+        if (DOM.chatMessages) {
+            DOM.chatMessages.className = 'chat-messages ' + chatSettings.chatTheme;
+        }
+        alert('✅ Theme changed to: ' + themes[index]);
+        closeDropdown();
+    }
+
+    // 8. Typing Indicator
+    function showTypingIndicator() {
+        if (state.isTyping) return;
+        state.isTyping = true;
+        
+        // Show typing indicator in chat
+        const typingEl = document.createElement('div');
+        typingEl.className = 'typing-indicator';
+        typingEl.id = 'typingIndicator';
+        typingEl.innerHTML = '<span>' + getDisplayName(state.currentChatPartner) + ' is typing</span><div class="dots"><span></span><span></span><span></span></div>';
+        DOM.chatMessages.appendChild(typingEl);
+        scrollToBottom();
+        
+        // Clear after timeout
+        clearTimeout(state.typingTimeout);
+        state.typingTimeout = setTimeout(() => {
+            hideTypingIndicator();
+        }, 3000);
+    }
+
+    function hideTypingIndicator() {
+        const el = document.getElementById('typingIndicator');
+        if (el) el.remove();
+        state.isTyping = false;
     }
 
     // ---------- AUTH ----------
@@ -486,7 +740,8 @@
             bio: '',
             online: true,
             created: Date.now(),
-            avatar: ''
+            avatar: '',
+            rainbow: false
         };
         users.push(newUser);
         state.localCache.users = users;
@@ -604,11 +859,12 @@
                 const tagHtml = tags.map(function(t) { return '<span class="tag">' + t.label + '</span>'; }).join('');
                 const isPinned = pinnedContacts.includes(partner);
                 const displayName = getDisplayName(partner);
+                const isRainbow = pUser && pUser.rainbow;
 
                 html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
                 html += '<div class="avatar">' + partner.charAt(0).toUpperCase() + '</div>';
                 html += '<div class="chat-info">';
-                html += '<div class="cname">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
+                html += '<div class="cname"><span' + (isRainbow ? ' class="rainbow-name"' : '') + '>' + displayName + '</span> ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
                 html += '<div class="preview">' + preview + '</div>';
                 html += '</div>';
                 html += '<div class="time">' + time + '</div>';
@@ -644,7 +900,14 @@
         if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
 
         const displayName = getDisplayName(partnerUsername);
-        if (DOM.chatPartnerName) DOM.chatPartnerName.textContent = displayName;
+        if (DOM.chatPartnerName) {
+            DOM.chatPartnerName.textContent = displayName;
+            if (partner.rainbow) {
+                DOM.chatPartnerName.classList.add('rainbow-name');
+            } else {
+                DOM.chatPartnerName.classList.remove('rainbow-name');
+            }
+        }
         if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
         if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
 
@@ -678,6 +941,7 @@
         }
         
         applyChatBackground();
+        applyChatTheme();
         renderChatList();
         updateMobileView();
         scrollToBottom();
@@ -717,7 +981,6 @@
                     content += '<span class="duration">0:00</span>';
                     content += '</div></div>';
                 } else {
-                    // File
                     content += '<div class="file-content"><div class="file-info">';
                     content += '<div class="file-icon">📄</div>';
                     content += '<div class="file-name">' + (msg.file.name || 'File') + '</div>';
@@ -730,10 +993,34 @@
             } else {
                 content = msg.text || '';
             }
+
+            // Add reactions if any
+            if (msg.reactions && msg.reactions.length > 0) {
+                content += '<div class="reactions">';
+                const reactionCounts = {};
+                msg.reactions.forEach(r => {
+                    reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+                });
+                Object.entries(reactionCounts).forEach(([emoji, count]) => {
+                    const isUserReacted = msg.reactions.some(r => r.user === state.currentUser.username && r.emoji === emoji);
+                    content += '<span class="reaction' + (isUserReacted ? ' active' : '') + '" data-msg="' + msgId + '" data-emoji="' + emoji + '">' + emoji + ' ' + count + '</span>';
+                });
+                content += '</div>';
+            }
             
             div.innerHTML = '<div class="selection-circle"></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
             DOM.chatMessages.appendChild(div);
         }
+
+        // Add reaction click handlers
+        document.querySelectorAll('.reaction').forEach(function(el) {
+            el.addEventListener('click', function() {
+                const msgId = this.dataset.msg;
+                const emoji = this.dataset.emoji;
+                addReaction(msgId, emoji);
+            });
+        });
+
         scrollToBottom();
     }
 
@@ -778,7 +1065,8 @@
                         caption: caption,
                         name: file.name,
                         size: file.size
-                    }
+                    },
+                    reactions: []
                 });
             }
             pendingFiles = [];
@@ -790,7 +1078,8 @@
             messages[chatKey].push({
                 sender: state.currentUser.username,
                 timestamp: Date.now(),
-                text: text
+                text: text,
+                reactions: []
             });
         }
 
@@ -810,6 +1099,7 @@
         if (DOM.messageInput) DOM.messageInput.value = '';
         scrollToBottom();
         updateActivity();
+        hideTypingIndicator();
     }
 
     // ---------- VOICE MESSAGE ----------
@@ -840,7 +1130,8 @@
                             type: 'audio',
                             data: audioData,
                             caption: 'Voice message'
-                        }
+                        },
+                        reactions: []
                     });
                     
                     state.localCache.messages = messages;
@@ -855,7 +1146,8 @@
             
             mediaRecorder.start();
             isRecording = true;
-            if (DOM.micBtn) DOM.micBtn.style.background = 'rgba(255,0,0,0.3)';
+            if (DOM.micBtn) DOM.micBtn.style.background = 'rgba(255,0,0,0.2)';
+            if (DOM.micBtn) DOM.micBtn.style.borderColor = 'rgba(255,0,0,0.3)';
             setStatus('Recording...', 'red');
         } catch (err) {
             console.error('Error accessing microphone:', err);
@@ -868,7 +1160,10 @@
             mediaRecorder.stop();
             mediaRecorder.stream.getTracks().forEach(track => track.stop());
             isRecording = false;
-            if (DOM.micBtn) DOM.micBtn.style.background = '';
+            if (DOM.micBtn) {
+                DOM.micBtn.style.background = '';
+                DOM.micBtn.style.borderColor = '';
+            }
             setStatus('Connected', 'green');
         }
     }
@@ -1059,89 +1354,46 @@
         root.style.setProperty('--bg-card', '');
         root.style.setProperty('--text-primary', '');
         root.style.setProperty('--text-secondary', '');
-        root.style.setProperty('--dark-purple', '');
-        root.style.setProperty('--dark-purple-glow', '');
+        root.style.setProperty('--charcoal', '');
+        root.style.setProperty('--accent-glow', '');
 
         if (theme === 'dark') {
-            root.style.setProperty('--bg-primary', '#0a0a0a');
-            root.style.setProperty('--bg-secondary', '#141414');
-            root.style.setProperty('--bg-tertiary', '#1a1a1a');
-            root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.7)');
-            root.style.setProperty('--text-primary', '#f0f0f0');
-            root.style.setProperty('--text-secondary', '#999');
-            root.style.setProperty('--dark-purple', '#2d1b69');
-            root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
-            root.style.setProperty('--msg-outgoing', '#2d1b69');
-            root.style.setProperty('--msg-incoming', 'rgba(30, 30, 30, 0.6)');
+            root.style.setProperty('--bg-primary', '#0A0A0A');
+            root.style.setProperty('--bg-secondary', '#121212');
+            root.style.setProperty('--bg-tertiary', '#1A1A1A');
+            root.style.setProperty('--bg-card', 'rgba(20,20,20,0.3)');
+            root.style.setProperty('--text-primary', '#FFFFFF');
+            root.style.setProperty('--text-secondary', '#B2BEB5');
+            root.style.setProperty('--charcoal', '#36454F');
+            root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.3)');
+            root.style.setProperty('--msg-outgoing', 'rgba(255,255,255,0.06)');
+            root.style.setProperty('--msg-incoming', 'rgba(255,255,255,0.03)');
             document.body.classList.remove('light-theme');
         } else if (theme === 'light') {
-            root.style.setProperty('--bg-primary', '#f5f5f5');
-            root.style.setProperty('--bg-secondary', '#ffffff');
-            root.style.setProperty('--bg-tertiary', '#f0f0f0');
-            root.style.setProperty('--bg-card', 'rgba(255, 255, 255, 0.8)');
-            root.style.setProperty('--text-primary', '#1a1a1a');
-            root.style.setProperty('--text-secondary', '#666');
-            root.style.setProperty('--dark-purple', '#4a2b8a');
-            root.style.setProperty('--dark-purple-glow', 'rgba(74, 43, 138, 0.2)');
-            root.style.setProperty('--msg-outgoing', '#4a2b8a');
-            root.style.setProperty('--msg-incoming', 'rgba(240, 240, 240, 0.6)');
+            root.style.setProperty('--bg-primary', '#FFFFFF');
+            root.style.setProperty('--bg-secondary', '#F8F6F0');
+            root.style.setProperty('--bg-tertiary', '#E5E4E2');
+            root.style.setProperty('--bg-card', 'rgba(255,255,255,0.7)');
+            root.style.setProperty('--text-primary', '#121212');
+            root.style.setProperty('--text-secondary', '#36454F');
+            root.style.setProperty('--charcoal', '#36454F');
+            root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.15)');
+            root.style.setProperty('--msg-outgoing', 'rgba(255,255,255,0.5)');
+            root.style.setProperty('--msg-incoming', 'rgba(200,200,200,0.3)');
             document.body.classList.add('light-theme');
-        } else if (theme === 'midnight') {
-            root.style.setProperty('--bg-primary', '#0a0e1a');
-            root.style.setProperty('--bg-secondary', '#0f1524');
-            root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.7)');
-            root.style.setProperty('--text-primary', '#7b9ac9');
-            root.style.setProperty('--text-secondary', '#5a7a9a');
-            root.style.setProperty('--dark-purple', '#1a2a5a');
-            root.style.setProperty('--dark-purple-glow', 'rgba(26, 42, 90, 0.3)');
-            root.style.setProperty('--msg-outgoing', '#1a2a5a');
-            root.style.setProperty('--msg-incoming', 'rgba(26, 34, 56, 0.6)');
+        } else {
+            // Other themes use dark as base with color variations
+            root.style.setProperty('--bg-primary', '#0A0A0A');
+            root.style.setProperty('--bg-secondary', '#121212');
+            root.style.setProperty('--bg-tertiary', '#1A1A1A');
+            root.style.setProperty('--bg-card', 'rgba(20,20,20,0.3)');
+            root.style.setProperty('--text-primary', '#FFFFFF');
+            root.style.setProperty('--text-secondary', '#B2BEB5');
+            root.style.setProperty('--charcoal', '#36454F');
+            root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.3)');
+            root.style.setProperty('--msg-outgoing', 'rgba(255,255,255,0.06)');
+            root.style.setProperty('--msg-incoming', 'rgba(255,255,255,0.03)');
             document.body.classList.remove('light-theme');
-        } else if (theme === 'forest') {
-            root.style.setProperty('--bg-primary', '#0d1a0d');
-            root.style.setProperty('--bg-secondary', '#122412');
-            root.style.setProperty('--bg-tertiary', '#1a2e1a');
-            root.style.setProperty('--bg-card', 'rgba(31, 58, 31, 0.7)');
-            root.style.setProperty('--text-primary', '#7bc97b');
-            root.style.setProperty('--text-secondary', '#5a9a5a');
-            root.style.setProperty('--dark-purple', '#1a4a1a');
-            root.style.setProperty('--dark-purple-glow', 'rgba(26, 74, 26, 0.3)');
-            root.style.setProperty('--msg-outgoing', '#1a4a1a');
-            root.style.setProperty('--msg-incoming', 'rgba(26, 46, 26, 0.6)');
-            document.body.classList.remove('light-theme');
-        } else if (theme === 'ocean') {
-            root.style.setProperty('--bg-primary', '#0a0d1a');
-            root.style.setProperty('--bg-secondary', '#0f1524');
-            root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.7)');
-            root.style.setProperty('--text-primary', '#7b9ac9');
-            root.style.setProperty('--text-secondary', '#5a7a9a');
-            root.style.setProperty('--dark-purple', '#1a3a6a');
-            root.style.setProperty('--dark-purple-glow', 'rgba(26, 58, 106, 0.3)');
-            root.style.setProperty('--msg-outgoing', '#1a3a6a');
-            root.style.setProperty('--msg-incoming', 'rgba(26, 34, 56, 0.6)');
-            document.body.classList.remove('light-theme');
-        } else if (theme === 'custom') {
-            const customTheme = localStorage.getItem('vvn_custom_theme');
-            if (customTheme) {
-                const ct = JSON.parse(customTheme);
-                root.style.setProperty('--dark-purple', ct.primary || '#2d1b69');
-                root.style.setProperty('--bg-secondary', ct.secondary || '#141414');
-                root.style.setProperty('--text-primary', ct.text || '#f0f0f0');
-                root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
-                root.style.setProperty('--bg-primary', '#0a0a0a');
-                root.style.setProperty('--bg-tertiary', '#1a1a1a');
-                root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.7)');
-                root.style.setProperty('--text-secondary', '#999');
-                root.style.setProperty('--msg-outgoing', ct.primary || '#2d1b69');
-                root.style.setProperty('--msg-incoming', 'rgba(30, 30, 30, 0.6)');
-            }
-            if (document.getElementById('customThemeOptions')) {
-                document.getElementById('customThemeOptions').style.display = 'block';
-            }
-            document.body.classList.remove('light-theme');
-            return;
         }
         if (document.getElementById('customThemeOptions')) {
             document.getElementById('customThemeOptions').style.display = 'none';
@@ -1149,24 +1401,30 @@
     }
 
     function applyCustomTheme() {
-        const primary = document.getElementById('primaryColor')?.value || '#2d1b69';
-        const secondary = document.getElementById('secondaryColor')?.value || '#141414';
-        const text = document.getElementById('textColor')?.value || '#f0f0f0';
-        const accent = document.getElementById('accentColor')?.value || '#2d1b69';
+        const primary = document.getElementById('primaryColor')?.value || '#36454F';
+        const secondary = document.getElementById('secondaryColor')?.value || '#121212';
+        const text = document.getElementById('textColor')?.value || '#FFFFFF';
+        const accent = document.getElementById('accentColor')?.value || '#36454F';
         
         const root = document.documentElement;
-        root.style.setProperty('--dark-purple', primary);
+        root.style.setProperty('--charcoal', primary);
         root.style.setProperty('--bg-secondary', secondary);
         root.style.setProperty('--text-primary', text);
         root.style.setProperty('--accent', accent);
-        root.style.setProperty('--accent-hover', accent);
-        root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+        root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.3)');
         root.style.setProperty('--msg-outgoing', primary);
         
         localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text, accent }));
         state.settings.theme = 'custom';
         localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
         alert('Custom theme applied!');
+    }
+
+    // ---------- APPLY CHAT THEME ----------
+    function applyChatTheme() {
+        if (DOM.chatMessages && chatSettings.chatTheme) {
+            DOM.chatMessages.className = 'chat-messages ' + chatSettings.chatTheme;
+        }
     }
 
     // ---------- SELECTION FUNCTIONS ----------
@@ -1578,7 +1836,6 @@
             Notification.requestPermission();
         }
 
-        // Check for saved device or auto-detect
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && typeof applyDeviceLayout === 'function') {
             state.deviceType = savedDevice;
@@ -1609,7 +1866,8 @@
                     bio: 'Creator of VVN',
                     online: true,
                     created: Date.now(),
-                    avatar: ''
+                    avatar: '',
+                    rainbow: false
                 });
             }
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -1633,7 +1891,8 @@
                         bio: 'Creator of VVN',
                         online: true,
                         created: Date.now(),
-                        avatar: ''
+                        avatar: '',
+                        rainbow: false
                     });
                 }
                 localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -1735,6 +1994,13 @@
             DOM.messageInput.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') sendMessage();
                 updateActivity();
+                // Show typing indicator
+                if (state.currentChatPartner) {
+                    showTypingIndicator();
+                }
+            });
+            DOM.messageInput.addEventListener('blur', function() {
+                hideTypingIndicator();
             });
         }
 
@@ -1919,6 +2185,7 @@
                             if (userIndex !== -1) {
                                 state.localCache.users[userIndex] = user;
                                 localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                                pushToRemote();
                             }
                         }
                     };
@@ -1975,7 +2242,38 @@
         document.querySelectorAll('.dropdown-item').forEach(function(item) {
             item.addEventListener('click', function() {
                 const action = this.dataset.action;
+                if (action === 'reaction') {
+                    // Handle reaction sub-dropdown items
+                    const subItems = this.querySelectorAll('.sub-dropdown .dropdown-item');
+                    if (subItems.length) {
+                        // If clicked on the main item, toggle sub-dropdown
+                        const subDropdown = this.querySelector('.sub-dropdown');
+                        if (subDropdown) {
+                            subDropdown.style.display = subDropdown.style.display === 'block' ? 'none' : 'block';
+                        }
+                        return;
+                    }
+                }
                 handleDropdownAction(action);
+                closeDropdown();
+            });
+        });
+
+        // Sub-dropdown reaction items
+        document.querySelectorAll('.sub-dropdown .dropdown-item').forEach(function(item) {
+            item.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const reaction = this.dataset.reaction;
+                if (reaction && state.currentChatPartner) {
+                    // Find the last message from the chat partner
+                    const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+                    const messages = state.localCache.messages[chatKey] || [];
+                    if (messages.length > 0) {
+                        const lastMsg = messages[messages.length - 1];
+                        const msgId = lastMsg.timestamp + '-' + (messages.length - 1);
+                        addReaction(msgId, reaction);
+                    }
+                }
                 closeDropdown();
             });
         });
@@ -2127,6 +2425,17 @@
             }
         });
 
+        // Shine effect mouse tracking
+        document.addEventListener('mousemove', function(e) {
+            document.querySelectorAll('.shine-effect, .shine-hover').forEach(function(el) {
+                const rect = el.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                el.style.setProperty('--mouse-x', x + '%');
+                el.style.setProperty('--mouse-y', y + '%');
+            });
+        });
+
         // Start app
         init();
 
@@ -2139,5 +2448,12 @@
         console.log('🔒 Message delivery: End-to-End Encrypted');
         console.log('🎤 Voice messages supported!');
         console.log('📎 File sharing supported!');
+        console.log('🎮 Rock Paper Scissors game available!');
+        console.log('🌈 Rainbow name feature available!');
+        console.log('📅 Scheduled messages available!');
+        console.log('💬 Quick replies available!');
+        console.log('😊 Message reactions available!');
+        console.log('📊 Message stats available!');
+        console.log('🎨 Chat themes available!');
     });
 })();
