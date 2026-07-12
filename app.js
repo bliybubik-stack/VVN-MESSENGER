@@ -1,25 +1,14 @@
-// ============================================================
-// VVN Messenger - Version 1.0.0
-// ============================================================
-// Device Selection First - Always shows device screen on load
-// Real users from JSONBin database
-// Monochrome glassmorphism interface
-// ============================================================
+// VVN Messenger - Main Application
 
 (function() {
     'use strict';
-
-    // ---------- VERSION ----------
-    const VVN_VERSION = '1.0.0';
-    console.log('🚀 VVN Messenger v' + VVN_VERSION);
-    console.log('📱 Device Selection First - Always!');
 
     // ---------- STATE ----------
     let state = {
         currentUser: null,
         currentChatPartner: null,
         localCache: { users: [], chats: {}, messages: {} },
-        isMobile: window.innerWidth < 820,
+        isMobile: window.innerWidth < 768,
         syncInterval: null,
         settings: {
             e2ee: true,
@@ -33,8 +22,7 @@
             theme: 'dark'
         },
         loadingComplete: false,
-        deviceType: 'pc',
-        version: VVN_VERSION
+        deviceType: 'pc'
     };
 
     // Get CONFIG from window
@@ -57,8 +45,6 @@
         deviceScreen: document.getElementById('deviceScreen'),
         authScreen: document.getElementById('authScreen'),
         messenger: document.getElementById('messenger'),
-        statusBar: document.getElementById('statusBar'),
-        messengerLayout: document.getElementById('messengerLayout'),
         authError: document.getElementById('authError'),
         regError: document.getElementById('regError'),
         loginForm: document.getElementById('loginForm'),
@@ -79,9 +65,11 @@
         chatPartnerName: document.getElementById('chatPartnerName'),
         chatPartnerStatus: document.getElementById('chatPartnerStatus'),
         chatMessages: document.getElementById('chatMessages'),
+        chatInputBar: document.getElementById('chatInputBar'),
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
         backBtn: document.getElementById('backBtn'),
+        profileBtn: document.getElementById('profileBtn'),
         settingsBtn: document.getElementById('settingsBtn'),
         syncDot: document.getElementById('syncDot'),
         syncStatus: document.getElementById('syncStatus'),
@@ -118,6 +106,30 @@
         chatHeaderInfo: document.getElementById('chatHeaderInfo'),
         chatDropdownBtn: document.getElementById('chatDropdownBtn'),
         dropdownMenu: document.getElementById('dropdownMenu'),
+        autoDetectBtn: document.getElementById('autoDetectBtn'),
+        deviceIndicator: document.getElementById('deviceIndicator'),
+        autoLockTimer: document.getElementById('autoLockTimer'),
+        sessionTimeout: document.getElementById('sessionTimeout'),
+        messageHistory: document.getElementById('messageHistory'),
+        messageDelivery: document.getElementById('messageDelivery'),
+        primaryColor: document.getElementById('primaryColor'),
+        secondaryColor: document.getElementById('secondaryColor'),
+        textColor: document.getElementById('textColor'),
+        accentColor: document.getElementById('accentColor'),
+        applyCustomTheme: document.getElementById('applyCustomTheme'),
+        clipBtn: document.getElementById('clipBtn'),
+        micBtn: document.getElementById('micBtn'),
+        fileModal: document.getElementById('fileModal'),
+        fileModalClose: document.getElementById('fileModalClose'),
+        fileSelectBtn: document.getElementById('fileSelectBtn'),
+        fileInput: document.getElementById('fileInput'),
+        filePreviewContainer: document.getElementById('filePreviewContainer'),
+        fileClearBtn: document.getElementById('fileClearBtn'),
+        fileCaption: document.getElementById('fileCaption'),
+        fileSendBtn: document.getElementById('fileSendBtn'),
+        selectBtn: document.getElementById('selectBtn'),
+        userSettingsBtn: document.getElementById('userSettingsBtn'),
+        chatSettingsBtn: document.getElementById('chatSettingsBtn'),
         selectionToolbar: document.getElementById('selectionToolbar'),
         selectedCount: document.getElementById('selectedCount'),
         deleteSelectedBtn: document.getElementById('deleteSelectedBtn'),
@@ -142,28 +154,7 @@
         bgDefault: document.getElementById('bgDefault'),
         bgCustom: document.getElementById('bgCustom'),
         bgUpload: document.getElementById('bgUpload'),
-        createNoteBtn: document.getElementById('createNoteBtn'),
-        autoDetectBtn: document.getElementById('autoDetectBtn'),
-        deviceIndicator: document.getElementById('deviceIndicator'),
-        autoLockTimer: document.getElementById('autoLockTimer'),
-        sessionTimeout: document.getElementById('sessionTimeout'),
-        messageHistory: document.getElementById('messageHistory'),
-        messageDelivery: document.getElementById('messageDelivery'),
-        primaryColor: document.getElementById('primaryColor'),
-        secondaryColor: document.getElementById('secondaryColor'),
-        textColor: document.getElementById('textColor'),
-        accentColor: document.getElementById('accentColor'),
-        applyCustomTheme: document.getElementById('applyCustomTheme'),
-        clipBtn: document.getElementById('clipBtn'),
-        fileModal: document.getElementById('fileModal'),
-        fileModalClose: document.getElementById('fileModalClose'),
-        fileSelectBtn: document.getElementById('fileSelectBtn'),
-        fileInput: document.getElementById('fileInput'),
-        filePreviewContainer: document.getElementById('filePreviewContainer'),
-        fileClearBtn: document.getElementById('fileClearBtn'),
-        fileCaption: document.getElementById('fileCaption'),
-        fileSendBtn: document.getElementById('fileSendBtn'),
-        sidebar: document.getElementById('sidebar')
+        createNoteBtn: document.getElementById('createNoteBtn')
     };
 
     // ---------- STATE VARIABLES ----------
@@ -179,18 +170,10 @@
     };
     let pendingFiles = [];
     let autoLockTimeout = null;
-
-    // ---------- PATTERN ROTATION ----------
-    const patterns = ['pattern-1', 'pattern-2', 'pattern-3', 'pattern-4', 'pattern-5'];
-    let currentPatternIndex = 0;
-
-    function rotatePattern() {
-        const bg = document.querySelector('.chat-bg-pattern');
-        if (bg) {
-            bg.className = 'chat-bg-pattern ' + patterns[currentPatternIndex];
-            currentPatternIndex = (currentPatternIndex + 1) % patterns.length;
-        }
-    }
+    let lastActivity = Date.now();
+    let isRecording = false;
+    let mediaRecorder = null;
+    let audioChunks = [];
 
     // ---------- UTILITY FUNCTIONS ----------
     function formatTime(ts) {
@@ -247,17 +230,13 @@
         return user ? user.displayName || username : username;
     }
 
-    function getIconPath(name) {
-        return 'icons/' + name + '.png';
-    }
-
     // ---------- NOTIFICATIONS ----------
     function sendNotification(username, message, time) {
         if (!('Notification' in window)) return;
         if (Notification.permission === 'granted') {
             new Notification('VVN - New Message', {
                 body: username + ': ' + message + ' at ' + time,
-                icon: getIconPath('logo')
+                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">💬</text></svg>'
             });
         } else if (Notification.permission !== 'denied') {
             Notification.requestPermission();
@@ -272,7 +251,7 @@
         }
         if (p >= 100 && !state.loadingComplete) {
             state.loadingComplete = true;
-            setTimeout(function() {
+            setTimeout(() => {
                 if (DOM.loadingOverlay) {
                     DOM.loadingOverlay.classList.add('hidden');
                 }
@@ -411,57 +390,66 @@
     }
 
     // ---------- DEVICE SELECTION ----------
-    function selectDevice(device) {
-        state.deviceType = device;
-        localStorage.setItem('vvn_device', device);
-        if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
-        if (DOM.statusBar) DOM.statusBar.style.display = 'flex';
-        if (DOM.messengerLayout) DOM.messengerLayout.style.display = 'flex';
-
-        if (DOM.deviceIndicator) {
-            const icons = { phone: '📱', tablet: '📟', pc: '🖥️' };
-            DOM.deviceIndicator.textContent = icons[device] + ' ' + device.charAt(0).toUpperCase() + device.slice(1);
-            DOM.deviceIndicator.style.display = 'block';
-        }
-
-        const root = document.documentElement;
-        if (device === 'phone') {
-            root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 20px)');
-        } else if (device === 'tablet') {
-            root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 16px)');
-        } else {
-            root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 12px)');
-        }
-
-        // Also save in settings for theme switcher
-        if (state.settings) {
-            state.settings.device = device;
-            localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
-        }
-
-        setTimeout(function() {
-            updateMobileView();
-            window.dispatchEvent(new Event('resize'));
-        }, 100);
-    }
-
-    function detectDevice() {
-        const width = window.innerWidth;
-        const ratio = width / window.innerHeight;
-        if (width < 768 || ratio < 0.8) {
-            return 'phone';
-        } else if (width >= 768 && width < 1200) {
-            return 'tablet';
-        } else {
-            return 'pc';
-        }
-    }
-
     function showDeviceSelection() {
-        if (DOM.deviceScreen) DOM.deviceScreen.classList.remove('hidden');
+        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'flex';
         if (DOM.authScreen) DOM.authScreen.style.display = 'none';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
-        console.log('📱 Device Selection Screen - Always First!');
+    }
+
+    function selectDevice(deviceType) {
+        state.deviceType = deviceType;
+        localStorage.setItem('vvn_device', deviceType);
+        if (typeof applyDeviceLayout === 'function') {
+            applyDeviceLayout(deviceType);
+        }
+        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
+        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+    }
+
+    // ---------- DROPDOWN MENU ----------
+    function toggleDropdown() {
+        if (!DOM.dropdownMenu) return;
+        if (DOM.dropdownMenu.style.display === 'block') {
+            DOM.dropdownMenu.style.display = 'none';
+        } else {
+            DOM.dropdownMenu.style.display = 'block';
+            const btn = DOM.chatDropdownBtn;
+            if (btn) {
+                const rect = btn.getBoundingClientRect();
+                DOM.dropdownMenu.style.top = (rect.bottom + 8) + 'px';
+                DOM.dropdownMenu.style.right = '12px';
+            }
+        }
+    }
+
+    function closeDropdown() {
+        if (DOM.dropdownMenu) DOM.dropdownMenu.style.display = 'none';
+    }
+
+    function handleDropdownAction(action) {
+        switch(action) {
+            case 'select':
+                toggleSelectionMode();
+                break;
+            case 'user-settings':
+                openUserSettings();
+                break;
+            case 'chat-settings':
+                openChatSettings();
+                break;
+            case 'profile':
+                if (state.currentChatPartner) {
+                    showProfile(state.currentChatPartner);
+                }
+                break;
+            case 'device':
+                logout();
+                showDeviceSelection();
+                break;
+            case 'logout':
+                logout();
+                break;
+        }
     }
 
     // ---------- AUTH ----------
@@ -543,8 +531,7 @@
         state.currentChatPartner = null;
         if (state.syncInterval) clearInterval(state.syncInterval);
         if (autoLockTimeout) clearTimeout(autoLockTimeout);
-        showDeviceSelection();
-        if (DOM.authScreen) DOM.authScreen.style.display = 'none';
+        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
     }
 
@@ -563,6 +550,7 @@
     }
 
     function updateActivity() {
+        lastActivity = Date.now();
         resetAutoLock();
     }
 
@@ -616,13 +604,11 @@
                 const tagHtml = tags.map(function(t) { return '<span class="tag">' + t.label + '</span>'; }).join('');
                 const isPinned = pinnedContacts.includes(partner);
                 const displayName = getDisplayName(partner);
-                const avatarLetter = partner.charAt(0).toUpperCase();
-                const avatarImg = pUser && pUser.avatar ? pUser.avatar : getIconPath('user');
 
                 html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="avatar"><img src="' + avatarImg + '" alt="' + avatarLetter + '" /></div>';
-                html += '<div class="info">';
-                html += '<div class="name">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
+                html += '<div class="avatar">' + partner.charAt(0).toUpperCase() + '</div>';
+                html += '<div class="chat-info">';
+                html += '<div class="cname">' + displayName + ' ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
                 html += '<div class="preview">' + preview + '</div>';
                 html += '</div>';
                 html += '<div class="time">' + time + '</div>';
@@ -655,12 +641,12 @@
         if (DOM.chatActive) DOM.chatActive.style.display = 'flex';
         if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'none';
         if (DOM.chatHeader) DOM.chatHeader.style.display = 'flex';
+        if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
 
         const displayName = getDisplayName(partnerUsername);
         if (DOM.chatPartnerName) DOM.chatPartnerName.textContent = displayName;
         if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
-        const avatarImg = partner.avatar || getIconPath('user');
-        if (DOM.chatAvatar) DOM.chatAvatar.innerHTML = '<img src="' + avatarImg + '" alt="' + partner.username.charAt(0).toUpperCase() + '" />';
+        if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
 
         const chatKey = getChatKey(state.currentUser.username, partnerUsername);
         const msgs = state.localCache.messages[chatKey] || [];
@@ -697,13 +683,12 @@
         scrollToBottom();
         clearSelection();
         closeDropdown();
-        rotatePattern();
     }
 
     function renderMessages(msgs) {
         if (!DOM.chatMessages) return;
         DOM.chatMessages.innerHTML = '';
-        if (!msgs || msgs.length === 0) {
+        if (!msgs.length) {
             DOM.chatMessages.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">No messages yet</div>';
             return;
         }
@@ -717,13 +702,28 @@
             
             let content = '';
             if (msg.file) {
-                content += '<div class="file-content">';
                 if (msg.file.type === 'image') {
-                    content += '<img src="' + msg.file.data + '" alt="Image" />';
+                    content += '<div class="file-content"><img src="' + msg.file.data + '" alt="Image" onclick="window.open(this.src)" /></div>';
                 } else if (msg.file.type === 'video') {
-                    content += '<video controls><source src="' + msg.file.data + '" /></video>';
+                    content += '<div class="file-content"><video controls><source src="' + msg.file.data + '" /></video></div>';
+                } else if (msg.file.type === 'audio') {
+                    content += '<div class="file-content"><div class="voice-message">';
+                    content += '<button class="play-btn" onclick="this.querySelector(\'img\').style.display=this.querySelector(\'img\').style.display===\'none\'?\'block\':\'none\'"><img src="icons/play.png" alt="Play" width="16" height="16" /></button>';
+                    content += '<div class="waveform">';
+                    for (let w = 0; w < 20; w++) {
+                        content += '<div class="bar"></div>';
+                    }
+                    content += '</div>';
+                    content += '<span class="duration">0:00</span>';
+                    content += '</div></div>';
+                } else {
+                    // File
+                    content += '<div class="file-content"><div class="file-info">';
+                    content += '<div class="file-icon">📄</div>';
+                    content += '<div class="file-name">' + (msg.file.name || 'File') + '</div>';
+                    content += '<div class="file-size">' + (msg.file.size || '0 KB') + '</div>';
+                    content += '</div></div>';
                 }
-                content += '</div>';
                 if (msg.file.caption) {
                     content += '<div class="file-caption">' + msg.file.caption + '</div>';
                 }
@@ -749,7 +749,8 @@
         if (DOM.chatActive) DOM.chatActive.style.display = 'none';
         if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'flex';
         if (state.isMobile) {
-            if (DOM.sidebar) DOM.sidebar.classList.remove('hide-mobile');
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.remove('hide-mobile');
             if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
@@ -774,7 +775,9 @@
                     file: {
                         type: file.type,
                         data: file.data,
-                        caption: caption
+                        caption: caption,
+                        name: file.name,
+                        size: file.size
                     }
                 });
             }
@@ -807,7 +810,67 @@
         if (DOM.messageInput) DOM.messageInput.value = '';
         scrollToBottom();
         updateActivity();
-        rotatePattern();
+    }
+
+    // ---------- VOICE MESSAGE ----------
+    async function startVoiceRecording() {
+        if (isRecording) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            
+            mediaRecorder.ondataavailable = function(event) {
+                audioChunks.push(event.data);
+            };
+            
+            mediaRecorder.onstop = function() {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const audioData = reader.result;
+                    const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+                    const messages = state.localCache.messages;
+                    if (!messages[chatKey]) messages[chatKey] = [];
+                    
+                    messages[chatKey].push({
+                        sender: state.currentUser.username,
+                        timestamp: Date.now(),
+                        file: {
+                            type: 'audio',
+                            data: audioData,
+                            caption: 'Voice message'
+                        }
+                    });
+                    
+                    state.localCache.messages = messages;
+                    localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                    pushToRemote();
+                    renderMessages(messages[chatKey]);
+                    renderChatList();
+                    scrollToBottom();
+                };
+                reader.readAsDataURL(audioBlob);
+            };
+            
+            mediaRecorder.start();
+            isRecording = true;
+            if (DOM.micBtn) DOM.micBtn.style.background = 'rgba(255,0,0,0.3)';
+            setStatus('Recording...', 'red');
+        } catch (err) {
+            console.error('Error accessing microphone:', err);
+            alert('Could not access microphone. Please allow microphone access.');
+        }
+    }
+
+    function stopVoiceRecording() {
+        if (mediaRecorder && isRecording) {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            isRecording = false;
+            if (DOM.micBtn) DOM.micBtn.style.background = '';
+            setStatus('Connected', 'green');
+        }
     }
 
     // ---------- SEARCH ----------
@@ -835,10 +898,8 @@
         for (const u of found) {
             const tags = getUserTags(u.username);
             const tagHtml = tags.map(function(t) { return '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>'; }).join('');
-            const avatarLetter = u.username.charAt(0).toUpperCase();
-            const avatarImg = u.avatar || getIconPath('user');
             html += '<div class="search-result-item" data-username="' + u.username + '">';
-            html += '<div class="avatar"><img src="' + avatarImg + '" alt="' + avatarLetter + '" /></div>';
+            html += '<div class="avatar">' + u.username.charAt(0).toUpperCase() + '</div>';
             html += '<div class="info">';
             html += '<div class="uname">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
             html += '<div class="email">@' + u.username + '</div>';
@@ -874,7 +935,7 @@
         if (DOM.profileBio) DOM.profileBio.textContent = user.bio || 'No bio yet';
         if (DOM.profileJoined) DOM.profileJoined.textContent = 'Joined: ' + formatDate(user.created || Date.now());
         if (DOM.profileAge) DOM.profileAge.textContent = 'Age: ' + getAge(user.created || Date.now());
-        if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || getIconPath('user');
+        if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
         if (DOM.profileUserID) DOM.profileUserID.textContent = 'ID: ' + user.username + '-' + (user.created || '').toString().slice(-6);
 
         if (state.settings.devMode && CONFIG.DEV_PIN) {
@@ -900,7 +961,7 @@
         if (DOM.settingsUsername) DOM.settingsUsername.value = user.username;
         if (DOM.settingsPassword) DOM.settingsPassword.value = '';
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
-        if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || getIconPath('user');
+        if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
 
         const savedSettings = localStorage.getItem('vvn_settings');
         if (savedSettings) {
@@ -921,16 +982,6 @@
         if (DOM.sessionTimeout) DOM.sessionTimeout.value = state.settings.sessionTimeout || 'never';
         if (DOM.messageHistory) DOM.messageHistory.value = state.settings.messageHistory || 'forever';
         if (DOM.messageDelivery) DOM.messageDelivery.value = state.settings.messageDelivery || 'e2ee';
-
-        // Load device selection in settings
-        const device = state.settings.device || state.deviceType || 'pc';
-        document.querySelectorAll('.device-option').forEach(function(btn) {
-            if (btn.dataset.device === device) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
 
         applyTheme(state.settings.theme || 'dark');
 
@@ -1015,11 +1066,13 @@
             root.style.setProperty('--bg-primary', '#0a0a0a');
             root.style.setProperty('--bg-secondary', '#141414');
             root.style.setProperty('--bg-tertiary', '#1a1a1a');
-            root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.75)');
+            root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.7)');
             root.style.setProperty('--text-primary', '#f0f0f0');
             root.style.setProperty('--text-secondary', '#999');
             root.style.setProperty('--dark-purple', '#2d1b69');
             root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+            root.style.setProperty('--msg-outgoing', '#2d1b69');
+            root.style.setProperty('--msg-incoming', 'rgba(30, 30, 30, 0.6)');
             document.body.classList.remove('light-theme');
         } else if (theme === 'light') {
             root.style.setProperty('--bg-primary', '#f5f5f5');
@@ -1030,36 +1083,44 @@
             root.style.setProperty('--text-secondary', '#666');
             root.style.setProperty('--dark-purple', '#4a2b8a');
             root.style.setProperty('--dark-purple-glow', 'rgba(74, 43, 138, 0.2)');
+            root.style.setProperty('--msg-outgoing', '#4a2b8a');
+            root.style.setProperty('--msg-incoming', 'rgba(240, 240, 240, 0.6)');
             document.body.classList.add('light-theme');
         } else if (theme === 'midnight') {
             root.style.setProperty('--bg-primary', '#0a0e1a');
             root.style.setProperty('--bg-secondary', '#0f1524');
             root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.75)');
+            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.7)');
             root.style.setProperty('--text-primary', '#7b9ac9');
             root.style.setProperty('--text-secondary', '#5a7a9a');
             root.style.setProperty('--dark-purple', '#1a2a5a');
             root.style.setProperty('--dark-purple-glow', 'rgba(26, 42, 90, 0.3)');
+            root.style.setProperty('--msg-outgoing', '#1a2a5a');
+            root.style.setProperty('--msg-incoming', 'rgba(26, 34, 56, 0.6)');
             document.body.classList.remove('light-theme');
         } else if (theme === 'forest') {
             root.style.setProperty('--bg-primary', '#0d1a0d');
             root.style.setProperty('--bg-secondary', '#122412');
             root.style.setProperty('--bg-tertiary', '#1a2e1a');
-            root.style.setProperty('--bg-card', 'rgba(31, 58, 31, 0.75)');
+            root.style.setProperty('--bg-card', 'rgba(31, 58, 31, 0.7)');
             root.style.setProperty('--text-primary', '#7bc97b');
             root.style.setProperty('--text-secondary', '#5a9a5a');
             root.style.setProperty('--dark-purple', '#1a4a1a');
             root.style.setProperty('--dark-purple-glow', 'rgba(26, 74, 26, 0.3)');
+            root.style.setProperty('--msg-outgoing', '#1a4a1a');
+            root.style.setProperty('--msg-incoming', 'rgba(26, 46, 26, 0.6)');
             document.body.classList.remove('light-theme');
         } else if (theme === 'ocean') {
             root.style.setProperty('--bg-primary', '#0a0d1a');
             root.style.setProperty('--bg-secondary', '#0f1524');
             root.style.setProperty('--bg-tertiary', '#141c2e');
-            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.75)');
+            root.style.setProperty('--bg-card', 'rgba(26, 34, 56, 0.7)');
             root.style.setProperty('--text-primary', '#7b9ac9');
             root.style.setProperty('--text-secondary', '#5a7a9a');
             root.style.setProperty('--dark-purple', '#1a3a6a');
             root.style.setProperty('--dark-purple-glow', 'rgba(26, 58, 106, 0.3)');
+            root.style.setProperty('--msg-outgoing', '#1a3a6a');
+            root.style.setProperty('--msg-incoming', 'rgba(26, 34, 56, 0.6)');
             document.body.classList.remove('light-theme');
         } else if (theme === 'custom') {
             const customTheme = localStorage.getItem('vvn_custom_theme');
@@ -1071,8 +1132,10 @@
                 root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
                 root.style.setProperty('--bg-primary', '#0a0a0a');
                 root.style.setProperty('--bg-tertiary', '#1a1a1a');
-                root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.75)');
+                root.style.setProperty('--bg-card', 'rgba(30, 30, 30, 0.7)');
                 root.style.setProperty('--text-secondary', '#999');
+                root.style.setProperty('--msg-outgoing', ct.primary || '#2d1b69');
+                root.style.setProperty('--msg-incoming', 'rgba(30, 30, 30, 0.6)');
             }
             if (document.getElementById('customThemeOptions')) {
                 document.getElementById('customThemeOptions').style.display = 'block';
@@ -1098,6 +1161,7 @@
         root.style.setProperty('--accent', accent);
         root.style.setProperty('--accent-hover', accent);
         root.style.setProperty('--dark-purple-glow', 'rgba(45, 27, 105, 0.3)');
+        root.style.setProperty('--msg-outgoing', primary);
         
         localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text, accent }));
         state.settings.theme = 'custom';
@@ -1109,12 +1173,14 @@
     function toggleSelectionMode() {
         selectionMode = !selectionMode;
         if (selectionMode) {
+            if (DOM.selectBtn) DOM.selectBtn.classList.add('active');
             document.querySelectorAll('.message').forEach(function(msg) {
                 msg.classList.add('selectable');
             });
             if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('active');
         } else {
             clearSelection();
+            if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
             document.querySelectorAll('.message').forEach(function(msg) {
                 msg.classList.remove('selectable');
             });
@@ -1145,6 +1211,7 @@
         });
         updateSelectedCount();
         selectionMode = false;
+        if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
         document.querySelectorAll('.message').forEach(function(msg) {
             msg.classList.remove('selectable');
         });
@@ -1384,63 +1451,6 @@
         }
     }
 
-    // ---------- DROPDOWN MENU ----------
-    function toggleDropdown() {
-        if (!DOM.dropdownMenu) return;
-        if (DOM.dropdownMenu.style.display === 'block') {
-            DOM.dropdownMenu.style.display = 'none';
-        } else {
-            DOM.dropdownMenu.style.display = 'block';
-            const btn = DOM.chatDropdownBtn;
-            if (btn) {
-                const rect = btn.getBoundingClientRect();
-                DOM.dropdownMenu.style.top = (rect.bottom + 8) + 'px';
-                DOM.dropdownMenu.style.right = '12px';
-            }
-        }
-    }
-
-    function closeDropdown() {
-        if (DOM.dropdownMenu) DOM.dropdownMenu.style.display = 'none';
-    }
-
-    function handleDropdownAction(action) {
-        switch(action) {
-            case 'select':
-                toggleSelectionMode();
-                break;
-            case 'user-settings':
-                openUserSettings();
-                break;
-            case 'chat-settings':
-                openChatSettings();
-                break;
-            case 'profile':
-                if (state.currentChatPartner) {
-                    showProfile(state.currentChatPartner);
-                }
-                break;
-            case 'device':
-                // Open settings to themes tab for device selection
-                openSettings();
-                // Switch to themes tab
-                document.querySelectorAll('.settings-tab').forEach(function(t) {
-                    t.classList.remove('active');
-                });
-                document.querySelectorAll('.settings-panel').forEach(function(p) {
-                    p.classList.remove('active');
-                });
-                const themesTab = document.querySelector('.settings-tab[data-tab="themes"]');
-                const themesPanel = document.getElementById('themesSettings');
-                if (themesTab) themesTab.classList.add('active');
-                if (themesPanel) themesPanel.classList.add('active');
-                break;
-            case 'logout':
-                logout();
-                break;
-        }
-    }
-
     // ---------- FILE ATTACHMENT ----------
     function openFileModal() {
         if (DOM.fileModal) DOM.fileModal.classList.add('active');
@@ -1462,20 +1472,33 @@
             const reader = new FileReader();
             reader.onload = function(ev) {
                 const data = ev.target.result;
-                const fileType = file.type.startsWith('image/') ? 'image' : 'video';
+                let fileType = 'file';
+                if (file.type.startsWith('image/')) fileType = 'image';
+                else if (file.type.startsWith('video/')) fileType = 'video';
+                else if (file.type.startsWith('audio/')) fileType = 'audio';
                 
                 pendingFiles.push({
                     data: data,
                     type: fileType,
-                    name: file.name
+                    name: file.name,
+                    size: (file.size / 1024).toFixed(1) + ' KB'
                 });
                 
                 if (DOM.filePreviewContainer) {
                     const item = document.createElement('div');
                     item.className = 'file-preview-item';
                     const index = pendingFiles.length - 1;
-                    item.innerHTML = (fileType === 'image' ? '<img src="' + data + '" />' : '<video controls><source src="' + data + '" /></video>') +
-                        '<button class="remove-file" data-index="' + index + '">×</button>';
+                    let preview = '';
+                    if (fileType === 'image') {
+                        preview = '<img src="' + data + '" />';
+                    } else if (fileType === 'video') {
+                        preview = '<video controls><source src="' + data + '" /></video>';
+                    } else if (fileType === 'audio') {
+                        preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">🎵 ' + file.name + '</div>';
+                    } else {
+                        preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">📄 ' + file.name + '</div>';
+                    }
+                    item.innerHTML = preview + '<button class="remove-file" data-index="' + index + '">×</button>';
                     DOM.filePreviewContainer.appendChild(item);
                     
                     item.querySelector('.remove-file').addEventListener('click', function() {
@@ -1502,30 +1525,6 @@
         if (DOM.fileCaption) DOM.fileCaption.value = '';
     }
 
-    // ---------- MOBILE ----------
-    function updateMobileView() {
-        const isMobile = window.innerWidth < 820;
-        state.isMobile = isMobile;
-        
-        const sidebar = document.getElementById('sidebar');
-        const chatArea = document.getElementById('chatArea');
-        
-        if (!sidebar || !chatArea) return;
-        
-        if (isMobile) {
-            if (state.currentChatPartner) {
-                sidebar.classList.add('hide-mobile');
-                chatArea.classList.add('active-mobile');
-            } else {
-                sidebar.classList.remove('hide-mobile');
-                chatArea.classList.remove('active-mobile');
-            }
-        } else {
-            sidebar.classList.remove('hide-mobile');
-            chatArea.classList.remove('active-mobile');
-        }
-    }
-
     // ---------- LOAD SAVED SETTINGS ----------
     function loadSavedSettings() {
         const names = localStorage.getItem('vvn_contact_names');
@@ -1546,33 +1545,27 @@
         }
     }
 
-    // ---------- ADD VERSION TO UI ----------
-    function addVersionToUI() {
-        const statusBar = document.querySelector('.status-bar');
-        if (statusBar) {
-            const versionSpan = document.createElement('span');
-            versionSpan.style.cssText = 'opacity:0.3; font-size:0.6rem; margin-left:8px;';
-            versionSpan.textContent = 'v' + VVN_VERSION;
-            const syncText = statusBar.querySelector('.sync-text');
-            if (syncText) {
-                syncText.after(versionSpan);
+    // ---------- MOBILE ----------
+    function updateMobileView() {
+        state.isMobile = window.innerWidth < 768;
+        const sidebar = document.getElementById('sidebar');
+        if (state.isMobile) {
+            if (state.currentChatPartner) {
+                if (sidebar) sidebar.classList.add('hide-mobile');
+                if (DOM.chatArea) DOM.chatArea.classList.add('active-mobile');
+            } else {
+                if (sidebar) sidebar.classList.remove('hide-mobile');
+                if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
             }
-        }
-        
-        const deviceBox = document.querySelector('.device-box');
-        if (deviceBox) {
-            const versionTag = document.createElement('div');
-            versionTag.style.cssText = 'margin-top:12px; color:var(--text-muted); font-size:0.6rem; opacity:0.3; letter-spacing:0.5px;';
-            versionTag.textContent = 'VVN v' + VVN_VERSION;
-            deviceBox.appendChild(versionTag);
+        } else {
+            if (sidebar) sidebar.classList.remove('hide-mobile');
+            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
 
     // ---------- INIT ----------
     async function init() {
-        console.log('🚀 VVN Messenger v' + VVN_VERSION);
-        console.log('📱 Device Selection First - Always shows on load');
-        console.log('👤 This app uses REAL users from the JSONBin database.');
+        console.log('🚀 Initializing VVN...');
         
         if (DOM.loadingOverlay) {
             DOM.loadingOverlay.classList.remove('hidden');
@@ -1585,11 +1578,15 @@
             Notification.requestPermission();
         }
 
+        // Check for saved device or auto-detect
         const savedDevice = localStorage.getItem('vvn_device');
-        if (savedDevice && ['phone', 'tablet', 'pc'].includes(savedDevice)) {
-            selectDevice(savedDevice);
-        } else {
-            showDeviceSelection();
+        if (savedDevice && typeof applyDeviceLayout === 'function') {
+            state.deviceType = savedDevice;
+            applyDeviceLayout(savedDevice);
+        } else if (typeof detectDevice === 'function') {
+            const detected = detectDevice();
+            state.deviceType = detected;
+            applyDeviceLayout(detected);
         }
 
         const cached = localStorage.getItem('vvn_cache');
@@ -1614,7 +1611,6 @@
                     created: Date.now(),
                     avatar: ''
                 });
-                console.log('👤 Default owner account created: vaultnet / admin123');
             }
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
@@ -1653,16 +1649,7 @@
             applyTheme(state.settings.theme);
         }
 
-        const bg = document.querySelector('.chat-bg-pattern');
-        if (bg) {
-            const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
-            bg.className = 'chat-bg-pattern ' + randomPattern;
-            currentPatternIndex = patterns.indexOf(randomPattern);
-        }
-
         updateLoading(90);
-
-        addVersionToUI();
 
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
@@ -1670,9 +1657,7 @@
             if (user) {
                 state.currentUser = user;
                 renderMessenger();
-                setTimeout(function() {
-                    updateMobileView();
-                }, 50);
+
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
 
@@ -1684,7 +1669,6 @@
         }
 
         showDeviceSelection();
-        if (DOM.messenger) DOM.messenger.style.display = 'none';
         updateLoading(100);
     }
 
@@ -1754,6 +1738,21 @@
             });
         }
 
+        // Voice message
+        if (DOM.micBtn) {
+            DOM.micBtn.addEventListener('mousedown', startVoiceRecording);
+            DOM.micBtn.addEventListener('mouseup', stopVoiceRecording);
+            DOM.micBtn.addEventListener('mouseleave', stopVoiceRecording);
+            DOM.micBtn.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                startVoiceRecording();
+            });
+            DOM.micBtn.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                stopVoiceRecording();
+            });
+        }
+
         // Search
         if (DOM.searchInput) {
             DOM.searchInput.addEventListener('input', function() {
@@ -1770,10 +1769,21 @@
         if (DOM.backBtn) {
             DOM.backBtn.addEventListener('click', function() {
                 if (state.isMobile) {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) sidebar.classList.remove('hide-mobile');
+                    if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
                     state.currentChatPartner = null;
                     showPlaceholder();
                     renderChatList();
-                    updateMobileView();
+                }
+            });
+        }
+
+        // Profile button (in header)
+        if (DOM.profileBtn) {
+            DOM.profileBtn.addEventListener('click', function() {
+                if (state.currentChatPartner) {
+                    showProfile(state.currentChatPartner);
                 }
             });
         }
@@ -1942,17 +1952,15 @@
             btn.addEventListener('click', function() {
                 const device = this.dataset.device;
                 selectDevice(device);
-                if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
-                if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
             });
         });
 
         if (DOM.autoDetectBtn) {
             DOM.autoDetectBtn.addEventListener('click', function() {
-                const detected = detectDevice();
-                selectDevice(detected);
-                if (DOM.deviceScreen) DOM.deviceScreen.classList.add('hidden');
-                if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+                if (typeof detectDevice === 'function') {
+                    const detected = detectDevice();
+                    selectDevice(detected);
+                }
             });
         }
 
@@ -1979,6 +1987,10 @@
         });
 
         // Selection
+        if (DOM.selectBtn) {
+            DOM.selectBtn.addEventListener('click', toggleSelectionMode);
+        }
+
         document.addEventListener('click', function(e) {
             const msgEl = e.target.closest('.message');
             if (msgEl && selectionMode) {
@@ -2110,16 +2122,22 @@
         // Resize
         window.addEventListener('resize', function() {
             updateMobileView();
+            if (typeof applyDeviceLayout === 'function') {
+                applyDeviceLayout(state.deviceType);
+            }
         });
 
         // Start app
         init();
 
-        console.log('✅ VVN Messenger v' + VVN_VERSION + ' fully loaded!');
-        console.log('📱 Device Selection ALWAYS shows first!');
+        console.log('🚀 VVN Messenger started!');
         console.log('👤 Default owner: vaultnet');
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
+        console.log('🎨 5 Themes available: Dark, Light, Midnight, Forest, Ocean');
+        console.log('🔒 Message delivery: End-to-End Encrypted');
+        console.log('🎤 Voice messages supported!');
+        console.log('📎 File sharing supported!');
     });
 })();
