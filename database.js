@@ -1,89 +1,79 @@
-// database.js - JSONBin database with encryption
+// VVN Database - Local storage management
+
 const Database = {
-    BIN_ID: '6a5222dbda38895dfe4ef18e',
-    MASTER_KEY: '$2a$10$xpnzNbyjOgRS6s..YVAMhOqwuj/FOPnU15M2J9uSwHBsRJAygi1Lu',
-    BIN_URL: `https://api.jsonbin.io/v3/b/6a5222dbda38895dfe4ef18e`,
-
-    localCache: { users: [], chats: {}, messages: {} },
-    currentUser: null,
-    sessionKey: null,
-
-    async fetchFromBin() {
-        try {
-            const resp = await fetch(this.BIN_URL, {
-                headers: {
-                    'X-Master-Key': this.MASTER_KEY,
-                    'X-Bin-Meta': 'false'
-                }
-            });
-            if (!resp.ok) throw new Error('Fetch failed');
-            return await resp.json();
-        } catch (e) {
-            console.error('Fetch error:', e);
-            return null;
-        }
+    // Get all users
+    getUsers() {
+        const data = localStorage.getItem('vvn_users');
+        return data ? JSON.parse(data) : [];
     },
-
-    async updateBin(data) {
-        try {
-            const resp = await fetch(this.BIN_URL, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Master-Key': this.MASTER_KEY,
-                    'X-Bin-Meta': 'false'
-                },
-                body: JSON.stringify(data)
-            });
-            if (!resp.ok) throw new Error('Update failed');
-            return true;
-        } catch (e) {
-            console.error('Update error:', e);
-            return false;
-        }
+    
+    // Save users
+    saveUsers(users) {
+        localStorage.setItem('vvn_users', JSON.stringify(users));
     },
-
-    async load() {
-        const remote = await this.fetchFromBin();
-        if (remote) {
-            this.localCache = {
-                users: remote.users || [],
-                chats: remote.chats || {},
-                messages: remote.messages || {}
-            };
-            localStorage.setItem('vvn_cache', JSON.stringify(this.localCache));
-        } else {
-            const cached = localStorage.getItem('vvn_cache');
-            if (cached) {
-                this.localCache = JSON.parse(cached);
-            } else {
-                this.localCache = { users: [], chats: {}, messages: {} };
-                await this.updateBin(this.localCache);
-            }
-        }
-        return this.localCache;
+    
+    // Get all chats
+    getChats() {
+        const data = localStorage.getItem('vvn_chats');
+        return data ? JSON.parse(data) : {};
     },
-
-    async save() {
-        localStorage.setItem('vvn_cache', JSON.stringify(this.localCache));
-        await this.updateBin(this.localCache);
+    
+    // Save chats
+    saveChats(chats) {
+        localStorage.setItem('vvn_chats', JSON.stringify(chats));
     },
-
-    getUsers() { return this.localCache.users || []; },
-    setUsers(users) { this.localCache.users = users; this.save(); },
-    getChats() { return this.localCache.chats || {}; },
-    setChats(chats) { this.localCache.chats = chats; this.save(); },
-    getMessages() { return this.localCache.messages || {}; },
-    setMessages(messages) { this.localCache.messages = messages; this.save(); },
-
+    
+    // Get all messages
+    getMessages() {
+        const data = localStorage.getItem('vvn_messages');
+        return data ? JSON.parse(data) : {};
+    },
+    
+    // Save messages
+    saveMessages(messages) {
+        localStorage.setItem('vvn_messages', JSON.stringify(messages));
+    },
+    
+    // Get current session
     getSession() {
-        const session = localStorage.getItem('vvn_session');
-        return session ? JSON.parse(session) : null;
+        const data = localStorage.getItem('vvn_session');
+        return data ? JSON.parse(data) : null;
     },
-    setSession(session) {
+    
+    // Save session
+    saveSession(session) {
         localStorage.setItem('vvn_session', JSON.stringify(session));
     },
+    
+    // Clear session
     clearSession() {
         localStorage.removeItem('vvn_session');
+    },
+    
+    // Get all data
+    getAll() {
+        return {
+            users: this.getUsers(),
+            chats: this.getChats(),
+            messages: this.getMessages()
+        };
+    },
+    
+    // Save all data
+    saveAll(data) {
+        if (data.users) this.saveUsers(data.users);
+        if (data.chats) this.saveChats(data.chats);
+        if (data.messages) this.saveMessages(data.messages);
+    },
+    
+    // Clear all data
+    clearAll() {
+        localStorage.removeItem('vvn_users');
+        localStorage.removeItem('vvn_chats');
+        localStorage.removeItem('vvn_messages');
+        localStorage.removeItem('vvn_session');
+        localStorage.removeItem('vvn_cache');
     }
 };
+
+window.Database = Database;
