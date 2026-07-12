@@ -3,2108 +3,554 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
-    <title>VVN · Monochrome</title>
+    <title>VVN Messenger</title>
+    <link rel="stylesheet" href="style.css" />
     <style>
-        /* ----- CSS Reset & Base ----- */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --matte-black: #0a0a0a;
-            --charcoal: #1a1a1a;
-            --dark-gray: #2a2a2a;
-            --gray: #3a3a3a;
-            --light-gray: #6a6a6a;
-            --white: #f0f0f0;
-            --bg-primary: var(--matte-black);
-            --bg-secondary: var(--charcoal);
-            --bg-surface: rgba(255, 255, 255, 0.04);
-            --bg-glass: rgba(20, 20, 20, 0.85);
-            --border-glass: rgba(255, 255, 255, 0.06);
-            --text-primary: var(--white);
-            --text-secondary: #9a9a9a;
-            --text-muted: #5a5a5a;
-            --bubble-out: var(--dark-gray);
-            --bubble-in: rgba(255, 255, 255, 0.06);
-            --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.6);
-            --radius-lg: 24px;
-            --radius-md: 14px;
-            --radius-sm: 10px;
-            --safe-bottom: env(safe-area-inset-bottom, 12px);
-            --input-height: 128px;
-            --input-bottom-padding: 40px;
-        }
-
-        body {
-            background: var(--matte-black);
-            color: var(--text-primary);
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            margin: 0;
-        }
-
-        /* ----- App Container ----- */
-        #app {
-            width: 100%;
-            max-width: 1300px;
-            height: 100vh;
-            max-height: 100vh;
-            background: var(--bg-glass);
-            backdrop-filter: blur(32px) saturate(1.2);
-            -webkit-backdrop-filter: blur(32px) saturate(1.2);
-            border: 1px solid var(--border-glass);
-            border-radius: 0;
-            box-shadow: var(--shadow-glass), inset 0 1px 0 rgba(255, 255, 255, 0.03);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* ----- Chat Background Patterns (Grid & Dots only) ----- */
-        .chat-bg-pattern {
-            position: absolute;
-            inset: 0;
-            opacity: 0.05;
-            pointer-events: none;
-            z-index: 0;
-            background-repeat: repeat;
-        }
-        .chat-bg-pattern.pattern-grid {
-            background-image: 
-                linear-gradient(0deg, var(--white) 1px, transparent 1px),
-                linear-gradient(90deg, var(--white) 1px, transparent 1px);
-            background-size: 40px 40px;
-            opacity: 0.04;
-        }
-        .chat-bg-pattern.pattern-grid-large {
-            background-image: 
-                linear-gradient(0deg, var(--white) 1px, transparent 1px),
-                linear-gradient(90deg, var(--white) 1px, transparent 1px);
-            background-size: 80px 80px;
-            opacity: 0.03;
-        }
-        .chat-bg-pattern.pattern-dots {
-            background-image: radial-gradient(circle at 20px 20px, var(--white) 2px, transparent 2px);
-            background-size: 40px 40px;
-            opacity: 0.06;
-        }
-        .chat-bg-pattern.pattern-dots-small {
-            background-image: radial-gradient(circle at 12px 12px, var(--white) 1.5px, transparent 1.5px);
-            background-size: 24px 24px;
-            opacity: 0.05;
-        }
-        .chat-bg-pattern.pattern-dots-large {
-            background-image: radial-gradient(circle at 30px 30px, var(--white) 3px, transparent 3px);
-            background-size: 60px 60px;
-            opacity: 0.04;
-        }
-
-        /* ----- Device Selection Screen ----- */
-        #deviceScreen {
-            display: flex;
-            flex: 1;
-            align-items: center;
-            justify-content: center;
-            background: var(--matte-black);
-            padding: 20px;
-            z-index: 100;
-            position: absolute;
-            inset: 0;
-            backdrop-filter: blur(40px);
-            -webkit-backdrop-filter: blur(40px);
-        }
-        #deviceScreen.hidden {
-            display: none;
-        }
-        .device-container {
-            width: 100%;
-            max-width: 480px;
-            text-align: center;
-        }
-        .device-container .brand {
-            margin-bottom: 32px;
-        }
-        .device-container .brand .logo {
-            width: 64px;
-            height: 64px;
-            border-radius: 16px;
-            background: rgba(255,255,255,0.04);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 12px;
-            border: 1px solid var(--border-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            overflow: hidden;
-        }
-        .device-container .brand .logo img {
-            width: 48px;
-            height: 48px;
-        }
-        .device-container .brand h1 {
-            font-weight: 500;
-            font-size: 1.8rem;
-            color: var(--white);
-            letter-spacing: -0.5px;
-        }
-        .device-container .brand p {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-top: 4px;
-            letter-spacing: 1px;
-        }
-        .device-box {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-lg);
-            padding: 28px 24px;
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-        }
-        .device-box h2 {
-            font-weight: 500;
-            font-size: 1.1rem;
-            color: var(--white);
-            margin-bottom: 4px;
-        }
-        .device-box .sub {
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            margin-bottom: 20px;
-        }
-        .device-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 16px;
-        }
-        .device-option {
-            background: rgba(255,255,255,0.03);
-            border: 2px solid var(--border-glass);
-            border-radius: var(--radius-sm);
-            padding: 16px 12px;
-            cursor: pointer;
-            transition: 0.3s;
-            color: var(--text-primary);
-            text-align: center;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-        }
-        .device-option:hover {
-            border-color: var(--gray);
-            background: rgba(255, 255, 255, 0.06);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
-        .device-option img {
-            width: 40px;
-            height: 40px;
-            margin-bottom: 6px;
-        }
-        .device-option .label {
-            font-weight: 500;
-            font-size: 0.9rem;
-            display: block;
-        }
-        .device-option .desc {
-            color: var(--text-muted);
-            font-size: 0.65rem;
-            display: block;
-            margin-top: 2px;
-        }
-        .device-auto {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            flex-wrap: wrap;
-            padding-top: 12px;
-            border-top: 1px solid var(--border-glass);
-        }
-        .device-auto button {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border-glass);
-            border-radius: 40px;
-            padding: 8px 20px;
-            color: var(--white);
-            cursor: pointer;
-            transition: 0.2s;
-            font-size: 0.85rem;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .device-auto button:hover {
-            background: rgba(255,255,255,0.08);
-        }
-        .device-auto .or {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-        }
-
-        /* ----- Status Bar ----- */
-        .status-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 6px 20px;
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border-glass);
-            background: rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            flex-shrink: 0;
-            min-height: 32px;
-            position: relative;
-            z-index: 5;
-        }
-        .status-bar .sync-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #6a6a6a;
-            margin-right: 8px;
-            box-shadow: 0 0 12px rgba(106, 106, 106, 0.2);
-        }
-        .status-bar .sync-text {
-            letter-spacing: 0.3px;
-        }
-        .sync-btn {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border-glass);
-            border-radius: 40px;
-            padding: 2px 12px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 0.65rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: 0.2s;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-        .sync-btn img {
-            width: 14px;
-            height: 14px;
-            opacity: 0.5;
-        }
-        .sync-btn:hover {
-            background: rgba(255,255,255,0.08);
-        }
-        .sync-btn:hover img {
-            opacity: 0.8;
-        }
-
-        /* ----- Main Layout ----- */
-        .messenger-layout {
-            display: flex;
-            flex: 1;
-            min-height: 0;
-            overflow: hidden;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* ----- Sidebar ----- */
-        .sidebar {
-            width: 30%;
-            min-width: 260px;
-            background: rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border-right: 1px solid var(--border-glass);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            flex-shrink: 0;
-            position: relative;
-            z-index: 2;
-        }
-
-        .sidebar-header {
-            padding: 14px 18px 10px 18px;
-            border-bottom: 1px solid var(--border-glass);
-            flex-shrink: 0;
-            background: rgba(0, 0, 0, 0.15);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-        }
-        .logo-area {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-        .logo-area .brand {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-weight: 600;
-            font-size: 1.1rem;
-            letter-spacing: -0.3px;
-            color: var(--white);
-        }
-        .logo-area .brand .logo-icon {
-            width: 26px;
-            height: 26px;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.04);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border-glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            overflow: hidden;
-        }
-        .logo-area .brand .logo-icon img {
-            width: 22px;
-            height: 22px;
-        }
-        .logo-area .settings-icon {
-            opacity: 0.4;
-            transition: 0.2s;
-            cursor: pointer;
-            color: var(--text-secondary);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            padding: 4px 8px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-        }
-        .logo-area .settings-icon img {
-            width: 20px;
-            height: 20px;
-            opacity: 0.5;
-        }
-        .logo-area .settings-icon:hover {
-            opacity: 0.8;
-            background: rgba(255,255,255,0.04);
-        }
-        .logo-area .settings-icon:hover img {
-            opacity: 0.8;
-        }
-
-        .user-badge {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255,255,255,0.04);
-            padding: 4px 12px 4px 8px;
-            border-radius: 40px;
-            border: 1px solid var(--border-glass);
-            font-size: 0.8rem;
-            margin-bottom: 10px;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            color: var(--white);
-        }
-        .user-badge .avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--dark-gray);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border-glass);
-            overflow: hidden;
-        }
-        .user-badge .avatar img {
-            width: 22px;
-            height: 22px;
-        }
-        .user-badge span {
-            font-size: 0.8rem;
-        }
-
-        .search-wrap {
-            position: relative;
-        }
-        .search-wrap input {
-            width: 100%;
-            padding: 6px 12px 6px 32px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-glass);
-            border-radius: 40px;
-            color: var(--text-primary);
-            font-size: 0.8rem;
-            outline: none;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            transition: 0.2s;
-        }
-        .search-wrap input::placeholder {
-            color: var(--text-muted);
-        }
-        .search-wrap input:focus {
-            border-color: var(--gray);
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.04);
-        }
-        .search-wrap .search-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 0.3;
-            display: flex;
-            align-items: center;
-        }
-        .search-wrap .search-icon img {
-            width: 16px;
-            height: 16px;
-        }
-
-        /* Chat list */
-        .chat-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 6px 10px 12px;
-        }
-        .chat-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 10px;
-            border-radius: var(--radius-md);
-            cursor: pointer;
-            transition: 0.2s;
-            margin-bottom: 2px;
-            border: 1px solid transparent;
-            color: var(--white);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .chat-item:hover {
-            background: rgba(255,255,255,0.04);
-            border-color: var(--border-glass);
-            transform: translateX(4px);
-        }
-        .chat-item.active {
-            background: rgba(255,255,255,0.06);
-            border-color: var(--gray);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }
-        .chat-item .avatar {
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            background: var(--dark-gray);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: 600;
-            font-size: 0.85rem;
-            color: var(--text-secondary);
-            flex-shrink: 0;
-            border: 1px solid var(--border-glass);
-            overflow: hidden;
-        }
-        .chat-item .avatar img {
-            width: 38px;
-            height: 38px;
-        }
-        .chat-item .info {
-            flex: 1;
-            min-width: 0;
-        }
-        .chat-item .info .name {
-            font-weight: 500;
-            font-size: 0.85rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .chat-item .info .name .tag {
-            font-size: 0.5rem;
-            background: var(--dark-gray);
-            color: var(--text-secondary);
-            padding: 0 6px;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-        .chat-item .info .preview {
-            font-size: 0.7rem;
-            color: var(--text-muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .chat-item .time {
-            font-size: 0.6rem;
-            color: var(--text-muted);
-            flex-shrink: 0;
-        }
-        .empty-chats {
-            color: var(--text-muted);
-            text-align: center;
-            padding: 30px 10px;
-            font-size: 0.85rem;
-        }
-
-        /* ----- Chat Area ----- */
-        .chat-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background: transparent;
-            min-width: 0;
-            height: 100%;
-            overflow: hidden;
-            position: relative;
-        }
-
-        /* Chat Header */
-        .chat-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 16px;
-            border-bottom: 1px solid var(--border-glass);
-            background: rgba(0, 0, 0, 0.15);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            flex-shrink: 0;
-            min-height: 48px;
-            position: relative;
-            z-index: 3;
-        }
-        .chat-header .back {
-            display: none;
-            opacity: 0.5;
-            cursor: pointer;
-            color: var(--text-secondary);
-            padding: 4px 6px;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-        }
-        .chat-header .back img {
-            width: 20px;
-            height: 20px;
-            opacity: 0.5;
-        }
-        .chat-header .back:hover {
-            background: rgba(255,255,255,0.04);
-        }
-        .chat-header .back:hover img {
-            opacity: 0.8;
-        }
-        .chat-header .partner {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex: 1;
-            cursor: pointer;
-        }
-        .chat-header .partner .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--dark-gray);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border-glass);
-            overflow: hidden;
-        }
-        .chat-header .partner .avatar img {
-            width: 28px;
-            height: 28px;
-        }
-        .chat-header .partner .name {
-            font-weight: 500;
-            font-size: 0.9rem;
-            color: var(--white);
-        }
-        .chat-header .partner .status {
-            font-size: 0.6rem;
-            color: var(--text-muted);
-        }
-        .chat-header .actions {
-            display: flex;
-            gap: 4px;
-        }
-        .chat-header .actions button {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid var(--border-glass);
-            border-radius: 40px;
-            padding: 4px 8px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            font-size: 0.7rem;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            transition: 0.15s;
-            height: 28px;
-        }
-        .chat-header .actions button img {
-            width: 18px;
-            height: 18px;
-            opacity: 0.5;
-        }
-        .chat-header .actions button:hover {
-            background: rgba(255, 255, 255, 0.06);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-        }
-        .chat-header .actions button:hover img {
-            opacity: 0.8;
-        }
-
-        /* Messages */
-        .chat-messages {
-            flex: 1;
-            padding: 10px 14px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            min-height: 0;
-            -webkit-overflow-scrolling: touch;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* --- Message Bubbles (Glassmorphism enhanced) --- */
-        .message {
-            max-width: 78%;
-            padding: 6px 12px;
-            border-radius: 14px;
-            font-size: 0.85rem;
-            line-height: 1.5;
-            word-wrap: break-word;
-            position: relative;
-            margin-bottom: 2px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-glass);
-            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.02);
-            animation: messageIn 0.25s ease-out;
-        }
-        @keyframes messageIn {
-            0% { opacity: 0; transform: translateY(6px) scale(0.98); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .message.outgoing {
-            align-self: flex-end;
-            background: rgba(42, 42, 42, 0.6);
-            color: var(--white);
-            border-bottom-right-radius: 4px;
-            border-color: rgba(255, 255, 255, 0.06);
-        }
-        .message.outgoing .time {
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .message.incoming {
-            align-self: flex-start;
-            background: rgba(255, 255, 255, 0.04);
-            border-bottom-left-radius: 4px;
-            border-color: rgba(255, 255, 255, 0.04);
-            color: var(--text-primary);
-        }
-        .message.incoming .time {
-            color: var(--text-muted);
-        }
-
-        .message .time {
-            font-size: 0.55rem;
-            margin-top: 2px;
-            text-align: right;
-            letter-spacing: 0.2px;
-        }
-
-        .message .file-attachment {
-            margin-top: 4px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 6px 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid var(--border-glass);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .message .file-attachment .file-icon {
-            font-size: 1.2rem;
-            opacity: 0.6;
-        }
-        .message .file-attachment .file-info {
-            flex: 1;
-            font-size: 0.75rem;
-        }
-        .message .file-attachment .file-info .name {
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-        .message .file-attachment .file-info .size {
-            color: var(--text-muted);
-            font-size: 0.65rem;
-        }
-
-        .message .voice-message {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 4px;
-            padding: 4px 0;
-        }
-        .message .voice-message .waveform {
-            flex: 1;
-            height: 20px;
-            background: rgba(255, 255, 255, 0.04);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            padding: 0 8px;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-        .message .voice-message .waveform span {
-            display: inline-block;
-            width: 3px;
-            background: var(--text-secondary);
-            border-radius: 2px;
-            height: 10px;
-        }
-        .message .voice-message .waveform span:nth-child(2) { height: 16px; }
-        .message .voice-message .waveform span:nth-child(3) { height: 20px; }
-        .message .voice-message .waveform span:nth-child(4) { height: 14px; }
-        .message .voice-message .waveform span:nth-child(5) { height: 18px; }
-        .message .voice-message .waveform span:nth-child(6) { height: 12px; }
-        .message .voice-message .duration {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-        }
-        .message .voice-message .play-btn {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--gray);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.6rem;
-            color: var(--white);
-            flex-shrink: 0;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-glass);
-        }
-
-        .message .media-attachment {
-            margin-top: 4px;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 1px solid var(--border-glass);
-            max-width: 200px;
-            background: rgba(255,255,255,0.04);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-        }
-        .message .media-attachment svg {
-            display: block;
-            width: 100%;
-        }
-        .message .media-attachment .caption {
-            padding: 4px 8px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            background: rgba(0, 0, 0, 0.2);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-
-        .message.draft {
-            background: rgba(255, 255, 255, 0.03);
-            border-color: rgba(255, 255, 255, 0.08);
-            border-style: dashed;
-            color: var(--text-secondary);
-        }
-        .message.draft .draft-label {
-            font-size: 0.6rem;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-        }
-
-        .message .selection-circle {
-            position: absolute;
-            left: -24px;
-            top: 50%;
-            transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            border: 2px solid var(--text-muted);
-            display: none;
-            background: transparent;
-            transition: 0.2s;
-        }
-        .message.selectable .selection-circle {
-            display: block;
-        }
-        .message.selected .selection-circle {
-            background: var(--gray);
-            border-color: var(--gray);
-            box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
-        }
-        .message.selected .selection-circle::after {
-            content: '✓';
-            color: var(--white);
-            font-size: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-        }
-        .message.selected {
-            opacity: 0.85;
-            background: rgba(255, 255, 255, 0.06) !important;
-            border-color: var(--gray);
-        }
-
-        .date-separator {
-            text-align: center;
-            font-size: 0.65rem;
-            color: var(--text-muted);
-            padding: 10px 0 4px;
-            letter-spacing: 0.5px;
-        }
-        .date-separator span {
-            background: rgba(255,255,255,0.04);
-            padding: 3px 14px;
-            border-radius: 40px;
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-glass);
-        }
-
-        .typing-indicator {
-            align-self: flex-start;
-            padding: 6px 14px;
-            background: var(--bubble-in);
-            border-radius: 20px;
-            border-bottom-left-radius: 4px;
-            border: 1px solid var(--border-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            display: flex;
-            gap: 4px;
-            margin-top: 4px;
-        }
-        .typing-indicator span {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--text-muted);
-            animation: typingBounce 1.4s infinite;
-        }
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typingBounce {
-            0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
-            30% { transform: translateY(-8px); opacity: 1; }
-        }
-
-        /* ================================================================ */
-        /*  CHAT INPUT BAR - FLOATING DYNAMIC ISLAND WITH GLASS EFFECT     */
-        /*  80% clear glass, blurry edges, clear center                    */
-        /* ================================================================ */
-        .chat-input-wrapper {
-            flex-shrink: 0;
-            position: relative;
-            z-index: 10;
-            background: transparent;
-            backdrop-filter: none;
-            padding: 8px 16px calc(40px + var(--safe-bottom));
-            will-change: transform;
-            min-height: calc(128px + 40px + var(--safe-bottom));
-        }
-
-        /* Floating island with life glass effect */
-        .chat-input-island {
-            background: rgba(30, 32, 38, 0.15);
-            backdrop-filter: blur(8px) saturate(1.2);
-            -webkit-backdrop-filter: blur(8px) saturate(1.2);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            border-radius: 60px;
-            box-shadow: 
-                0 8px 40px rgba(0, 0, 0, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.04);
-            padding: 6px 8px 6px 18px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-            min-height: 84px;
-            transition: 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* Life glass effect - blurry edges, clear center */
-        .chat-input-island::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: 60px;
-            background: radial-gradient(
-                ellipse at center,
-                rgba(255, 255, 255, 0.02) 30%,
-                rgba(255, 255, 255, 0.04) 50%,
-                rgba(255, 255, 255, 0.06) 70%,
-                rgba(255, 255, 255, 0.02) 100%
-            );
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        /* Inner glow overlay */
-        .chat-input-island::after {
-            content: '';
-            position: absolute;
-            inset: 1px;
-            border-radius: 59px;
-            background: radial-gradient(
-                ellipse at 50% 50%,
-                rgba(255, 255, 255, 0.01) 0%,
-                transparent 60%,
-                rgba(255, 255, 255, 0.02) 100%
-            );
-            pointer-events: none;
-            z-index: 0;
-        }
-
-        .chat-input-island .clip-btn {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            border-radius: 40px;
-            padding: 12px 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: 0.25s ease;
-            width: 52px;
-            height: 52px;
-            color: var(--text-secondary);
-            flex-shrink: 0;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            position: relative;
-            z-index: 1;
-        }
-        .chat-input-island .clip-btn img {
-            width: 24px;
-            height: 24px;
-            opacity: 0.5;
-        }
-        .chat-input-island .clip-btn:hover {
-            background: rgba(255, 255, 255, 0.06);
-            transform: scale(1.04);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }
-        .chat-input-island .clip-btn:hover img {
-            opacity: 0.8;
-        }
-
-        .chat-input-island input {
-            flex: 1;
-            padding: 14px 8px;
-            background: transparent;
-            border: none;
-            color: var(--text-primary);
-            font-size: 1.05rem;
-            outline: none;
-            min-height: 50px;
-            width: 100%;
-            position: relative;
-            z-index: 1;
-            text-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-        }
-        .chat-input-island input::placeholder {
-            color: var(--text-muted);
-            font-weight: 400;
-            letter-spacing: 0.2px;
-        }
-        .chat-input-island input:focus {
-            outline: none;
-        }
-
-        .chat-input-island .send-btn {
-            width: 56px;
-            height: 56px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.04);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: 0.25s ease;
-            color: var(--white);
-            flex-shrink: 0;
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            position: relative;
-            z-index: 1;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-        }
-        .chat-input-island .send-btn img {
-            width: 24px;
-            height: 24px;
-            opacity: 0.8;
-        }
-        .chat-input-island .send-btn:hover {
-            background: rgba(255, 255, 255, 0.08);
-            transform: scale(1.04);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-        }
-        .chat-input-island .send-btn:hover img {
-            opacity: 1;
-        }
-
-        /* Glow pulse on send button */
-        .chat-input-island .send-btn::after {
-            content: '';
-            position: absolute;
-            inset: -2px;
-            border-radius: 50%;
-            background: radial-gradient(circle at center, rgba(255,255,255,0.03) 0%, transparent 70%);
-            opacity: 0;
-            transition: 0.3s;
-        }
-        .chat-input-island .send-btn:hover::after {
-            opacity: 1;
-        }
-
-        /* Dropdown Menu */
-        .dropdown-menu {
-            position: fixed;
-            background: rgba(20, 20, 20, 0.85);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid var(--border-glass);
-            border-radius: var(--radius-sm);
-            padding: 8px 0;
-            min-width: 200px;
-            box-shadow: var(--shadow-glass);
-            z-index: 50;
-            display: none;
-        }
-        .dropdown-item {
-            padding: 10px 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            transition: 0.2s;
-            color: var(--text-primary);
-            font-size: 0.85rem;
-        }
-        .dropdown-item:hover {
-            background: rgba(255,255,255,0.04);
-        }
-        .dropdown-item img {
-            width: 18px;
-            height: 18px;
-            opacity: 0.5;
-        }
-        .dropdown-divider {
-            height: 1px;
-            background: var(--border-glass);
-            margin: 4px 12px;
-        }
-
-        /* ----- Responsive ----- */
-        @media (max-width: 820px) {
-            #app {
-                border-radius: 0;
-                max-height: 100vh;
-            }
-            .sidebar {
-                width: 100%;
-                min-width: unset;
-                border-right: none;
-            }
-            .chat-area {
-                display: none;
-                width: 100%;
-            }
-            .chat-area.active-mobile {
-                display: flex;
-            }
-            .sidebar.hide-mobile {
-                display: none;
-            }
-            .chat-header .back {
-                display: flex !important;
-            }
-            .message {
-                max-width: 88%;
-            }
-            .chat-input-wrapper {
-                padding: 6px 12px calc(34px + var(--safe-bottom));
-                min-height: calc(110px + 34px + var(--safe-bottom));
-            }
-            .chat-input-island {
-                min-height: 72px;
-                padding: 4px 6px 4px 14px;
-                border-radius: 50px;
-                gap: 10px;
-            }
-            .chat-input-island input {
-                min-height: 42px;
-                font-size: 0.95rem;
-                padding: 10px 6px;
-            }
-            .chat-input-island .send-btn {
-                width: 48px;
-                height: 48px;
-            }
-            .chat-input-island .send-btn img {
-                width: 20px;
-                height: 20px;
-            }
-            .chat-input-island .clip-btn {
-                width: 44px;
-                height: 44px;
-                padding: 10px;
-            }
-            .chat-input-island .clip-btn img {
-                width: 20px;
-                height: 20px;
-            }
-            .device-grid {
-                grid-template-columns: repeat(3, 1fr);
-                gap: 8px;
-            }
-            .device-option {
-                padding: 12px 8px;
-            }
-            .device-option img {
-                width: 32px;
-                height: 32px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            body {
-                padding: 0;
-            }
-            #app {
-                border-radius: 0;
-                max-height: 100vh;
-                height: 100vh;
-            }
-            .chat-item .avatar {
-                width: 30px;
-                height: 30px;
-            }
-            .message {
-                font-size: 0.8rem;
-                padding: 5px 10px;
-                max-width: 92%;
-            }
-            .chat-header {
-                padding: 4px 10px;
-                min-height: 40px;
-            }
-            .chat-messages {
-                padding: 6px 8px;
-            }
-            .chat-input-wrapper {
-                padding: 4px 10px calc(28px + var(--safe-bottom));
-                min-height: calc(96px + 28px + var(--safe-bottom));
-            }
-            .chat-input-island {
-                min-height: 60px;
-                padding: 4px 4px 4px 12px;
-                border-radius: 40px;
-                gap: 8px;
-            }
-            .chat-input-island input {
-                min-height: 36px;
-                font-size: 0.85rem;
-                padding: 8px 4px;
-            }
-            .chat-input-island .send-btn {
-                width: 42px;
-                height: 42px;
-            }
-            .chat-input-island .send-btn img {
-                width: 18px;
-                height: 18px;
-            }
-            .chat-input-island .clip-btn {
-                width: 38px;
-                height: 38px;
-                padding: 8px;
-            }
-            .chat-input-island .clip-btn img {
-                width: 18px;
-                height: 18px;
-            }
-            .device-grid {
-                grid-template-columns: 1fr 1fr 1fr;
-                gap: 6px;
-            }
-            .device-option {
-                padding: 10px 6px;
-            }
-            .device-option img {
-                width: 28px;
-                height: 28px;
-            }
-            .device-option .desc {
-                font-size: 0.55rem;
-            }
-            .device-box {
-                padding: 20px 16px;
-            }
-        }
-
-        @media (max-width: 360px) {
-            .device-grid {
-                grid-template-columns: 1fr;
-                gap: 6px;
-            }
-            .device-option {
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                padding: 10px 14px;
-                text-align: left;
-            }
-            .device-option img {
-                margin-bottom: 0;
-                width: 28px;
-                height: 28px;
-            }
-            .device-option .desc {
-                display: none;
-            }
-        }
-
-        /* Landscape phone support */
-        @media (max-height: 500px) and (orientation: landscape) {
-            .chat-header {
-                min-height: 34px;
-                padding: 4px 10px;
-            }
-            .chat-messages {
-                padding: 4px 8px;
-            }
-            .chat-input-wrapper {
-                padding: 4px 10px calc(20px + var(--safe-bottom));
-                min-height: calc(80px + 20px + var(--safe-bottom));
-            }
-            .chat-input-island {
-                min-height: 48px;
-                padding: 3px 4px 3px 10px;
-                border-radius: 30px;
-                gap: 6px;
-            }
-            .chat-input-island input {
-                min-height: 32px;
-                font-size: 0.8rem;
-                padding: 6px 4px;
-            }
-            .chat-input-island .send-btn {
-                width: 38px;
-                height: 38px;
-            }
-            .chat-input-island .send-btn img {
-                width: 16px;
-                height: 16px;
-            }
-            .chat-input-island .clip-btn {
-                width: 34px;
-                height: 34px;
-                padding: 6px;
-            }
-            .chat-input-island .clip-btn img {
-                width: 16px;
-                height: 16px;
-            }
-            .message {
-                font-size: 0.75rem;
-                padding: 4px 8px;
-                max-width: 85%;
-            }
-            .chat-item {
-                padding: 4px 6px;
-            }
-            .chat-item .avatar {
-                width: 24px;
-                height: 24px;
-            }
-            .chat-item .info .name {
-                font-size: 0.75rem;
-            }
-            .chat-item .info .preview {
-                font-size: 0.65rem;
-            }
-        }
-
-        /* Samsung/Android navigation bar protection */
         @supports (padding: max(0px)) {
-            .chat-input-wrapper {
-                padding-bottom: max(40px, env(safe-area-inset-bottom, 40px));
-            }
-        }
-
-        /* iOS Safari specific */
-        @supports (-webkit-touch-callout: none) {
-            .chat-input-wrapper {
-                padding-bottom: calc(40px + constant(safe-area-inset-bottom));
-                padding-bottom: calc(40px + env(safe-area-inset-bottom));
-            }
-        }
-
-        /* Desktop specific - taller input */
-        @media (min-width: 1200px) {
-            .chat-input-wrapper {
-                padding: 10px 24px calc(48px + var(--safe-bottom));
-                min-height: calc(140px + 48px + var(--safe-bottom));
-            }
-            .chat-input-island {
-                min-height: 96px;
-                padding: 8px 12px 8px 24px;
-                border-radius: 80px;
-                gap: 16px;
-            }
-            .chat-input-island input {
-                min-height: 60px;
-                font-size: 1.1rem;
-                padding: 12px 8px;
-            }
-            .chat-input-island .send-btn {
-                width: 64px;
-                height: 64px;
-            }
-            .chat-input-island .send-btn img {
-                width: 28px;
-                height: 28px;
-            }
-            .chat-input-island .clip-btn {
-                width: 60px;
-                height: 60px;
-                padding: 14px;
-            }
-            .chat-input-island .clip-btn img {
-                width: 28px;
-                height: 28px;
-            }
-            .chat-input-island {
-                box-shadow: 
-                    0 12px 60px rgba(0, 0, 0, 0.4),
-                    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+            #app {
+                padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
             }
         }
     </style>
 </head>
 <body>
     <div id="app">
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay">
+            <div class="loader-container">
+                <div class="loader-icon">
+                    <img src="icons/shield.png" alt="VVN" width="72" height="72" />
+                </div>
+                <div class="loader-bar"><div class="fill" id="loaderFill"></div></div>
+                <p>SECURE CONNECTION ESTABLISHING...</p>
+            </div>
+        </div>
 
-        <!-- Device Selection Screen -->
+        <!-- Device Selection -->
         <div id="deviceScreen">
             <div class="device-container">
-                <div class="brand">
-                    <div class="logo">
-                        <img src="icons/logo.png" alt="VVN" />
-                    </div>
+                <div class="device-brand">
+                    <img src="icons/logo.png" alt="VVN" width="80" height="80" class="rounded-logo" />
                     <h1>VVN</h1>
                     <p>VEIL-VAULT-NET</p>
                 </div>
-                <div class="device-box">
+                <div class="device-box glass-card">
                     <h2>Select Your Device</h2>
-                    <p class="sub">Choose your device type for optimal layout</p>
+                    <p class="device-sub">Choose your device type for optimal layout</p>
                     <div class="device-grid">
                         <button class="device-option" data-device="phone">
-                            <img src="icons/phone.png" alt="Phone" />
-                            <span class="label">Phone</span>
-                            <span class="desc">Mobile optimized</span>
+                            <img src="icons/phone.png" alt="Phone" width="48" height="48" />
+                            <span>Phone</span>
+                            <small>Mobile optimized</small>
                         </button>
                         <button class="device-option" data-device="tablet">
-                            <img src="icons/tablet.png" alt="Tablet" />
-                            <span class="label">Tablet</span>
-                            <span class="desc">Tablet optimized</span>
+                            <img src="icons/tablet.png" alt="Tablet" width="48" height="48" />
+                            <span>Tablet</span>
+                            <small>Tablet optimized</small>
                         </button>
                         <button class="device-option" data-device="pc">
-                            <img src="icons/pc.png" alt="PC" />
-                            <span class="label">PC / Desktop</span>
-                            <span class="desc">Full desktop layout</span>
+                            <img src="icons/pc.png" alt="PC" width="48" height="48" />
+                            <span>PC / Desktop</span>
+                            <small>Full desktop layout</small>
                         </button>
                     </div>
                     <div class="device-auto">
-                        <button id="autoDetectBtn">Auto Detect</button>
-                        <span class="or">or let us detect your device</span>
+                        <button class="btn-secondary" id="autoDetectBtn">Auto Detect</button>
+                        <span class="device-auto-text">or let us detect your device</span>
                     </div>
                 </div>
-                <div style="text-align:center;margin-top:16px;color:var(--text-muted);font-size:0.7rem;letter-spacing:1px;">
-                    END-TO-END ENCRYPTED
+                <div class="auth-footer">
+                    <span>END-TO-END ENCRYPTED</span>
                 </div>
             </div>
         </div>
 
-        <!-- Status Bar -->
-        <div class="status-bar" id="statusBar" style="display:none;">
-            <span>
-                <span class="sync-dot"></span>
-                <span class="sync-text" id="syncStatus">Synced · 12 users</span>
-            </span>
-            <button class="sync-btn" id="manualSyncBtn">
-                <img src="icons/settings.png" alt="Sync" />
-                Sync
-            </button>
+        <!-- Auth Screen -->
+        <div id="authScreen" style="display:none;">
+            <div class="auth-container">
+                <div class="auth-brand">
+                    <img src="icons/logo.png" alt="VVN" width="80" height="80" class="rounded-logo" />
+                    <h1>VVN</h1>
+                    <p>VEIL-VAULT-NET</p>
+                </div>
+                <div class="auth-box glass-card" id="authBox">
+                    <div class="auth-tabs">
+                        <button class="auth-tab active" data-tab="login">Sign in</button>
+                        <button class="auth-tab" data-tab="register">Create account</button>
+                    </div>
+                    
+                    <form id="loginForm" class="auth-form active">
+                        <div class="input-group">
+                            <img src="icons/user.png" alt="" class="input-icon" />
+                            <input type="text" id="loginUsername" placeholder="USERNAME" />
+                        </div>
+                        <div class="input-group">
+                            <img src="icons/lock.png" alt="" class="input-icon" />
+                            <input type="password" id="loginPassword" placeholder="PASSWORD" />
+                        </div>
+                        <button type="submit" class="btn-primary">Enter VVN</button>
+                        <div id="authError" class="auth-error"></div>
+                    </form>
+
+                    <form id="registerForm" class="auth-form">
+                        <div class="input-group">
+                            <img src="icons/user.png" alt="" class="input-icon" />
+                            <input type="text" id="regUsername" placeholder="USERNAME" />
+                        </div>
+                        <div class="input-group">
+                            <img src="icons/edit.png" alt="" class="input-icon" />
+                            <input type="text" id="regDisplayName" placeholder="DISPLAY NAME" />
+                        </div>
+                        <div class="input-group">
+                            <img src="icons/lock.png" alt="" class="input-icon" />
+                            <input type="password" id="regPassword" placeholder="PASSWORD" />
+                        </div>
+                        <button type="submit" class="btn-primary">Create account</button>
+                        <div id="regError" class="auth-error"></div>
+                    </form>
+                </div>
+                <div class="auth-footer">
+                    <span>END-TO-END ENCRYPTED</span>
+                </div>
+            </div>
         </div>
 
-        <!-- Messenger Layout -->
-        <div class="messenger-layout" id="messengerLayout" style="display:none;">
+        <!-- Messenger -->
+        <div id="messenger" style="display:none;">
+            <div id="statusBar">
+                <span><span class="status-dot" id="syncDot"></span><span id="syncStatus">Initializing...</span></span>
+                <button class="sync-btn" id="manualSyncBtn">
+                    <img src="icons/settings.png" alt="Sync" width="14" height="14" /> Sync
+                </button>
+            </div>
 
-            <!-- Sidebar -->
-            <div class="sidebar" id="sidebar">
-                <div class="sidebar-header">
-                    <div class="logo-area">
-                        <div class="brand">
-                            <div class="logo-icon">
-                                <img src="icons/logo.png" alt="VVN" />
+            <div class="messenger-layout">
+                <div class="sidebar" id="sidebar">
+                    <div class="sidebar-header">
+                        <div class="logo-bar">
+                            <div class="logo-container">
+                                <img src="icons/logo.png" alt="VVN" width="32" height="32" class="rounded-logo-small" />
+                                <h2>VVN</h2>
                             </div>
-                            <span>VVN</span>
+                            <button class="settings-btn" id="settingsBtn">
+                                <img src="icons/settings.png" alt="Settings" width="24" height="24" />
+                            </button>
                         </div>
-                        <span class="settings-icon" id="settingsBtn">
-                            <img src="icons/settings.png" alt="Settings" />
-                        </span>
+                        <div class="user-badge" id="userBadge">
+                            <img src="icons/user.png" alt="" width="20" height="20" />
+                            <span id="sidebarUsername">user</span>
+                        </div>
+                        <div class="search-wrap">
+                            <input id="searchInput" placeholder="Search users..." />
+                            <img src="icons/search.png" alt="" class="search-icon" />
+                            <div id="searchResults" class="search-results"></div>
+                        </div>
                     </div>
-                    <div class="user-badge" id="userBadge">
-                        <div class="avatar"><img src="icons/user.png" alt="U" /></div>
-                        <span id="sidebarUsername">user</span>
-                        <span style="margin-left:auto;font-size:0.6rem;color:var(--text-muted);">● Online</span>
-                    </div>
-                    <div class="search-wrap">
-                        <span class="search-icon"><img src="icons/search.png" alt="" /></span>
-                        <input id="searchInput" placeholder="Search users..." />
-                        <div id="searchResults" class="search-results"></div>
-                    </div>
+                    <div class="chat-list" id="chatList"></div>
                 </div>
-                <div class="chat-list" id="chatList">
-                    <div class="chat-item active" data-chat="testmessages">
-                        <div class="avatar"><img src="icons/user.png" alt="T" /></div>
-                        <div class="info">
-                            <div class="name">testmessages <span class="tag">DEV</span></div>
-                            <div class="preview">Last message preview</div>
+
+                <div class="chat-area" id="chatArea">
+                    <div id="chatPlaceholder" class="chat-placeholder">
+                        <div class="placeholder-content">
+                            <img src="icons/shield.png" alt="VVN" width="80" height="80" />
+                            <h3>Your chats will appear here</h3>
+                            <p>Search a user above to start a private chat.</p>
                         </div>
-                        <div class="time">now</div>
                     </div>
-                    <div class="chat-item">
-                        <div class="avatar"><img src="icons/user.png" alt="A" /></div>
-                        <div class="info">
-                            <div class="name">Alex</div>
-                            <div class="preview">Hey, how are you?</div>
+                    <div id="chatActive" style="display:none; flex-direction:column; height:100%;">
+                        <div class="chat-header" id="chatHeader">
+                            <button class="back-btn" id="backBtn">
+                                <img src="icons/back.png" alt="Back" width="24" height="24" />
+                            </button>
+                            <div class="chat-header-info" id="chatHeaderInfo">
+                                <div class="avatar" id="chatAvatar">👤</div>
+                                <div>
+                                    <div class="chatuser" id="chatPartnerName"></div>
+                                    <div class="status" id="chatPartnerStatus">offline</div>
+                                </div>
+                            </div>
+                            <button class="header-action-btn dropdown-trigger" id="chatDropdownBtn">
+                                <img src="icons/settings.png" alt="Menu" width="22" height="22" />
+                            </button>
                         </div>
-                        <div class="time">12:30</div>
-                    </div>
-                    <div class="chat-item">
-                        <div class="avatar"><img src="icons/user.png" alt="J" /></div>
-                        <div class="info">
-                            <div class="name">Jordan</div>
-                            <div class="preview">Check this out</div>
+
+                        <div class="dropdown-menu" id="dropdownMenu" style="display:none;">
+                            <div class="dropdown-item" data-action="select">
+                                <img src="icons/select.png" alt="Select" width="18" height="18" /> Select Messages
+                            </div>
+                            <div class="dropdown-item" data-action="user-settings">
+                                <img src="icons/user-settings.png" alt="User" width="18" height="18" /> User Settings
+                            </div>
+                            <div class="dropdown-item" data-action="chat-settings">
+                                <img src="icons/chat-settings.png" alt="Chat" width="18" height="18" /> Chat Settings
+                            </div>
+                            <div class="dropdown-item" data-action="profile">
+                                <img src="icons/user.png" alt="Profile" width="18" height="18" /> View Profile
+                            </div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item" data-action="device">
+                                <img src="icons/settings.png" alt="Device" width="18" height="18" /> Change Device
+                            </div>
+                            <div class="dropdown-item" data-action="logout" style="color:#ff6b6b;">
+                                <img src="icons/close.png" alt="Logout" width="18" height="18" style="opacity:0.6;" /> Logout
+                            </div>
                         </div>
-                        <div class="time">11:15</div>
+
+                        <div id="pinnedDock" style="display:none;">
+                            <div class="pinned-content">
+                                <img src="icons/pin.png" alt="Pinned" width="16" height="16" />
+                                <span>Pinned message</span>
+                                <span class="unpin-btn" id="unpinBtn">✕</span>
+                            </div>
+                            <div id="pinnedMessagePreview"></div>
+                        </div>
+
+                        <div class="chat-messages" id="chatMessages"></div>
+
+                        <div id="selectionToolbar" style="display:none;">
+                            <span id="selectedCount">0 selected</span>
+                            <button class="toolbar-btn" id="deleteSelectedBtn" title="Delete">
+                                <img src="icons/delete.png" alt="Delete" width="20" height="20" />
+                            </button>
+                            <button class="toolbar-btn" id="pinSelectedBtn" title="Pin">
+                                <img src="icons/pin.png" alt="Pin" width="20" height="20" />
+                            </button>
+                            <button class="toolbar-btn" id="cancelSelectionBtn" title="Cancel">
+                                <img src="icons/close.png" alt="Cancel" width="20" height="20" />
+                            </button>
+                        </div>
+
+                        <div class="chat-input-bar" id="chatInputBar">
+                            <button class="clip-btn" id="clipBtn" title="Attach files">
+                                <img src="icons/clip.png" alt="Attach" width="28" height="28" />
+                            </button>
+                            <input id="messageInput" placeholder="Type a message..." />
+                            <button class="mic-btn" id="micBtn" title="Voice message">
+                                <img src="icons/mic.png" alt="Mic" width="24" height="24" />
+                            </button>
+                            <button id="sendBtn">
+                                <img src="icons/send.png" alt="Send" width="28" height="28" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Chat Area -->
-            <div class="chat-area" id="chatArea">
-                <!-- Random background pattern (Grid or Dots) -->
-                <div class="chat-bg-pattern pattern-grid"></div>
+        <!-- Delete Modal -->
+        <div id="deleteModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content delete-modal glass-card">
+                <button class="modal-close" id="deleteModalClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h3>Delete Messages</h3>
+                <p>Choose how to delete the selected messages:</p>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+                    <button class="btn-secondary" id="deleteForMeBtn">Delete for me</button>
+                    <button class="btn-primary" id="deleteForEveryoneBtn">Delete for everyone</button>
+                </div>
+            </div>
+        </div>
 
-                <!-- Chat Header -->
-                <div class="chat-header">
-                    <span class="back" id="backBtn">
-                        <img src="icons/back.png" alt="Back" />
-                    </span>
-                    <div class="partner" id="chatHeaderInfo">
-                        <div class="avatar" id="chatAvatar">
-                            <img src="icons/user.png" alt="T" />
+        <!-- User Settings Modal -->
+        <div id="userSettingsModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content settings-modal glass-card">
+                <button class="modal-close" id="userSettingsClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h2>User Settings</h2>
+                <div class="settings-group">
+                    <label>Contact Actions</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary" id="renameContactBtn">
+                            <img src="icons/rename.png" alt="Rename" width="16" height="16" /> Rename
+                        </button>
+                        <button class="btn-secondary" id="deleteContactBtn">
+                            <img src="icons/delete-contact.png" alt="Delete" width="16" height="16" /> Delete Contact
+                        </button>
+                        <button class="btn-secondary" id="blockUserBtn">
+                            <img src="icons/block.png" alt="Block" width="16" height="16" /> Block
+                        </button>
+                        <button class="btn-secondary" id="unblockUserBtn" style="display:none;">
+                            <img src="icons/unblock.png" alt="Unblock" width="16" height="16" /> Unblock
+                        </button>
+                        <button class="btn-secondary" id="pinContactBtn">
+                            <img src="icons/pin.png" alt="Pin" width="16" height="16" /> Pin Contact
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat Settings Modal -->
+        <div id="chatSettingsModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content settings-modal glass-card">
+                <button class="modal-close" id="chatSettingsClose">
+                    <img src="icons/close.png" alt="Close" width="24" height="24" />
+                </button>
+                <h2>Chat Settings</h2>
+                <div class="settings-group">
+                    <label>Message Bubble Style</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary bubble-style" data-style="rounded">Rounded</button>
+                        <button class="btn-secondary bubble-style" data-style="square">Square</button>
+                        <button class="btn-secondary bubble-style" data-style="modern">Modern</button>
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Chat Background</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary" id="bgDefault">Default</button>
+                        <button class="btn-secondary" id="bgCustom">Custom Image</button>
+                        <input type="file" id="bgUpload" accept="image/*" style="display:none;" />
+                    </div>
+                </div>
+                <div class="settings-group">
+                    <label>Fun Stuff</label>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                        <button class="btn-secondary" id="createNoteBtn">
+                            <img src="icons/note.png" alt="Note" width="16" height="16" /> Create Note
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content settings-modal glass-card">
+                <button class="modal-close" id="settingsClose">
+                    <img src="icons/close.png" alt="Close" width="28" height="28" />
+                </button>
+                <h2>Settings</h2>
+                <div class="settings-tabs">
+                    <button class="settings-tab active" data-tab="profile">Profile</button>
+                    <button class="settings-tab" data-tab="security">Security</button>
+                    <button class="settings-tab" data-tab="themes">Themes</button>
+                </div>
+                
+                <div class="settings-panel active" id="profileSettings">
+                    <div class="settings-group">
+                        <label>Profile Picture</label>
+                        <div class="avatar-upload">
+                            <img id="settingsAvatar" src="icons/user.png" alt="" />
+                            <input type="file" id="avatarUpload" accept="image/*" />
+                            <button class="btn-secondary" onclick="document.getElementById('avatarUpload').click()">Change</button>
                         </div>
-                        <div>
-                            <div class="name" id="chatPartnerName">testmessages</div>
-                            <div class="status" id="chatPartnerStatus">Online · last seen now</div>
+                    </div>
+                    <div class="settings-group">
+                        <label>Display Name</label>
+                        <input type="text" id="settingsDisplayName" placeholder="How friends see you" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Username</label>
+                        <input type="text" id="settingsUsername" placeholder="Your unique handle" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Password</label>
+                        <input type="password" id="settingsPassword" placeholder="New password" />
+                    </div>
+                    <div class="settings-group">
+                        <label>Bio</label>
+                        <textarea id="settingsBio" placeholder="Tell us about yourself" rows="3"></textarea>
+                    </div>
+                    <button class="btn-primary" id="saveSettings">Save Changes</button>
+                </div>
+
+                <div class="settings-panel" id="securitySettings">
+                    <div class="settings-group">
+                        <label>End-to-End Encryption</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="e2eeToggle" checked />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="e2eeStatus">Enabled</span>
+                        </div>
+                        <p class="setting-desc">Messages are encrypted and can only be read by you and the recipient.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Two-Factor Authentication</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="twofaToggle" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="twofaStatus">Disabled</span>
+                        </div>
+                        <p class="setting-desc">Add an extra layer of security to your account.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Privacy Mode</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="privacyToggle" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="privacyStatus">Disabled</span>
+                        </div>
+                        <p class="setting-desc">Hide your online status and read receipts.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Developer Mode</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="devToggle" />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="devStatus">Disabled</span>
+                        </div>
+                        <p class="setting-desc">Enable developer features and debug tools.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Auto-Lock Timer</label>
+                        <select id="autoLockTimer">
+                            <option value="never">Never</option>
+                            <option value="1">1 minute</option>
+                            <option value="5">5 minutes</option>
+                            <option value="15">15 minutes</option>
+                            <option value="30">30 minutes</option>
+                            <option value="60">1 hour</option>
+                        </select>
+                        <p class="setting-desc">Lock the app after inactivity.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Message Delivery</label>
+                        <select id="messageDelivery">
+                            <option value="e2ee">End-to-End Encrypted</option>
+                            <option value="server">Server Encrypted</option>
+                            <option value="unencrypted">Unencrypted (Not Recommended)</option>
+                        </select>
+                        <p class="setting-desc">Choose how messages are delivered and encrypted.</p>
+                    </div>
+                </div>
+
+                <div class="settings-panel" id="themesSettings">
+                    <div class="settings-group">
+                        <label>App Theme</label>
+                        <p class="setting-desc">Choose a theme for the entire app.</p>
+                        <div class="theme-grid">
+                            <button class="theme-card active" data-theme="dark" style="background:#0a0a0a; color:#f0f0f0;">
+                                <div class="theme-icon">🌙</div>
+                                <div class="theme-name">Dark</div>
+                            </button>
+                            <button class="theme-card" data-theme="light" style="background:#f5f5f5; color:#1a1a1a;">
+                                <div class="theme-icon">☀️</div>
+                                <div class="theme-name">Light</div>
+                            </button>
+                            <button class="theme-card" data-theme="auto" style="background:linear-gradient(135deg, #0a0a0a 50%, #f5f5f5 50%); color:#f0f0f0;">
+                                <div class="theme-icon">🔄</div>
+                                <div class="theme-name">Auto</div>
+                            </button>
+                            <button class="theme-card" data-theme="midnight" style="background:#0a0e1a; color:#7b9ac9;">
+                                <div class="theme-icon">🌃</div>
+                                <div class="theme-name">Midnight</div>
+                            </button>
+                            <button class="theme-card" data-theme="forest" style="background:#0d1a0d; color:#7bc97b;">
+                                <div class="theme-icon">🌲</div>
+                                <div class="theme-name">Forest</div>
+                            </button>
+                            <button class="theme-card" data-theme="ocean" style="background:#0a0d1a; color:#7b9ac9;">
+                                <div class="theme-icon">🌊</div>
+                                <div class="theme-name">Ocean</div>
+                            </button>
                         </div>
                     </div>
-                    <div class="actions">
-                        <button class="header-action-btn" id="chatDropdownBtn">
-                            <img src="icons/settings.png" alt="Menu" />
-                        </button>
+                    <div class="settings-group" id="customThemeOptions" style="display:none;">
+                        <label>Custom Theme Colors</label>
+                        <div class="color-grid">
+                            <div class="color-item">
+                                <label>Primary</label>
+                                <input type="color" id="primaryColor" value="#2d1b69" />
+                            </div>
+                            <div class="color-item">
+                                <label>Background</label>
+                                <input type="color" id="secondaryColor" value="#141414" />
+                            </div>
+                            <div class="color-item">
+                                <label>Text</label>
+                                <input type="color" id="textColor" value="#f0f0f0" />
+                            </div>
+                            <div class="color-item">
+                                <label>Accent</label>
+                                <input type="color" id="accentColor" value="#2d1b69" />
+                            </div>
+                        </div>
+                        <button class="btn-primary" id="applyCustomTheme" style="margin-top:10px;">Apply Custom Theme</button>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Dropdown Menu -->
-                <div class="dropdown-menu" id="dropdownMenu" style="display:none;">
-                    <div class="dropdown-item" data-action="select">
-                        <img src="icons/select.png" alt="Select" />
-                        <span>Select Messages</span>
-                    </div>
-                    <div class="dropdown-item" data-action="user-settings">
-                        <img src="icons/user-settings.png" alt="User" />
-                        <span>User Settings</span>
-                    </div>
-                    <div class="dropdown-item" data-action="chat-settings">
-                        <img src="icons/chat-settings.png" alt="Chat" />
-                        <span>Chat Settings</span>
-                    </div>
-                    <div class="dropdown-item" data-action="profile">
-                        <img src="icons/user.png" alt="Profile" />
-                        <span>View Profile</span>
-                    </div>
-                    <div class="dropdown-divider"></div>
-                    <div class="dropdown-item" data-action="device">
-                        <img src="icons/settings.png" alt="Device" />
-                        <span>Change Device Layout</span>
-                    </div>
-                    <div class="dropdown-item" data-action="logout" style="color:#ff6b6b;">
-                        <img src="icons/close.png" alt="Logout" style="opacity:0.6;" />
-                        <span>Logout</span>
-                    </div>
+        <!-- File Attachment Modal -->
+        <div id="fileModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content file-modal glass-card">
+                <button class="modal-close" id="fileModalClose">
+                    <img src="icons/close.png" alt="Close" width="28" height="28" />
+                </button>
+                <h3>Attach Files</h3>
+                <div class="file-preview" id="filePreview">
+                    <div id="filePreviewContainer"></div>
                 </div>
-
-                <!-- Messages Container -->
-                <div class="chat-messages" id="chatMessages">
-                    <!-- Messages will be rendered here -->
+                <div class="file-input-group">
+                    <button class="btn-secondary" id="fileSelectBtn">Select Files</button>
+                    <input type="file" id="fileInput" accept="image/*,video/*,audio/*,application/*" multiple style="display:none;" />
+                    <button class="btn-secondary" id="fileClearBtn" style="display:none;">Clear All</button>
                 </div>
+                <div class="settings-group">
+                    <label>Caption (Optional)</label>
+                    <input type="text" id="fileCaption" placeholder="Add a title or description..." />
+                </div>
+                <button class="btn-primary" id="fileSendBtn">Send All</button>
+            </div>
+        </div>
 
-                <!-- Chat Input - Floating Dynamic Island with Life Glass -->
-                <div class="chat-input-wrapper">
-                    <div class="chat-input-island">
-                        <button class="clip-btn" id="clipBtn">
-                            <img src="icons/clip.png" alt="Attach" />
-                        </button>
-                        <input type="text" id="messageInput" placeholder="Type a message..." />
-                        <button class="send-btn" id="sendBtn">
-                            <img src="icons/send.png" alt="Send" />
-                        </button>
+        <!-- Profile Modal -->
+        <div id="profileModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content profile-modal glass-card">
+                <button class="modal-close" id="modalClose">
+                    <img src="icons/close.png" alt="Close" width="28" height="28" />
+                </button>
+                <div class="profile-card" id="profileCard">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <img id="profileAvatar" src="icons/user.png" alt="" />
+                        </div>
+                        <div class="profile-name-container">
+                            <div class="profile-name" id="profileDisplayName">Display Name</div>
+                            <div class="profile-tags" id="profileTags"></div>
+                        </div>
+                    </div>
+                    <div class="profile-section">
+                        <div class="profile-label">Info</div>
+                        <div class="profile-username" id="profileUsername">@username</div>
+                        <div class="profile-password" id="profilePassword" style="display:none;">Password: ********</div>
+                        <div class="profile-userid" id="profileUserID">ID: loading...</div>
+                    </div>
+                    <div class="profile-section">
+                        <div class="profile-label">About</div>
+                        <div class="profile-bio" id="profileBio">No bio yet</div>
+                        <div class="profile-joined" id="profileJoined">Joined: Today</div>
+                        <div class="profile-age" id="profileAge">Age: 0 days</div>
+                    </div>
+                    <div class="profile-footer">
+                        <div class="dev-note">- VVN. VEIL-VAULT-NET.<br>Your security matters.</div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        (function() {
-            'use strict';
-
-            // ----- Message Types -----
-            const messageTypes = {
-                TEXT: 'text',
-                DRAFT: 'draft',
-                NOTE: 'note',
-                VOICE: 'voice',
-                PHOTO: 'photo',
-                VIDEO: 'video',
-                FILE: 'file'
-            };
-
-            // ----- Pattern rotation (Grid & Dots only) -----
-            const patterns = ['pattern-grid', 'pattern-grid-large', 'pattern-dots', 'pattern-dots-small', 'pattern-dots-large'];
-            let currentPatternIndex = 0;
-
-            function rotatePattern() {
-                const bg = document.querySelector('.chat-bg-pattern');
-                if (bg) {
-                    bg.className = 'chat-bg-pattern ' + patterns[currentPatternIndex];
-                    currentPatternIndex = (currentPatternIndex + 1) % patterns.length;
-                }
-            }
-
-            // ----- Sample Messages -----
-            const sampleMessages = [{
-                type: messageTypes.TEXT,
-                sender: 'incoming',
-                text: 'Hey! Welcome to the test chat.',
-                time: '14:30'
-            }, {
-                type: messageTypes.TEXT,
-                sender: 'outgoing',
-                text: 'Thanks! This is a test message.',
-                time: '14:31'
-            }, {
-                type: messageTypes.DRAFT,
-                sender: 'incoming',
-                text: 'This is a draft message that I\'m working on...',
-                time: '14:32'
-            }, {
-                type: messageTypes.NOTE,
-                sender: 'outgoing',
-                text: 'Note to self: Remember to test all message types.',
-                time: '14:33'
-            }, {
-                type: messageTypes.VOICE,
-                sender: 'incoming',
-                text: 'Voice message: 0:03',
-                time: '14:34'
-            }, {
-                type: messageTypes.PHOTO,
-                sender: 'outgoing',
-                text: 'Photo: test-image.jpg',
-                caption: 'This is a test photo',
-                time: '14:35'
-            }, {
-                type: messageTypes.VIDEO,
-                sender: 'incoming',
-                text: 'Video: test-video.mp4',
-                caption: 'Test video message',
-                time: '14:36'
-            }, {
-                type: messageTypes.FILE,
-                sender: 'outgoing',
-                text: 'test-file.pdf',
-                size: '245 KB',
-                time: '14:37'
-            }, {
-                type: messageTypes.TEXT,
-                sender: 'incoming',
-                text: 'Looks great! All message types are working.',
-                time: '14:38'
-            }, {
-                type: messageTypes.TEXT,
-                sender: 'outgoing',
-                text: 'Perfect! Now we can test sending new messages.',
-                time: '14:39'
-            }];
-
-            // ----- State -----
-            let messages = [];
-            let currentChat = 'testmessages';
-            let isMobile = window.innerWidth < 820;
-            let deviceType = 'pc';
-
-            // ----- DOM Refs -----
-            const chatMessages = document.getElementById('chatMessages');
-            const messageInput = document.getElementById('messageInput');
-            const sendBtn = document.getElementById('sendBtn');
-            const clipBtn = document.getElementById('clipBtn');
-            const backBtn = document.getElementById('backBtn');
-            const sidebar = document.getElementById('sidebar');
-            const chatArea = document.getElementById('chatArea');
-            const deviceScreen = document.getElementById('deviceScreen');
-            const statusBar = document.getElementById('statusBar');
-            const messengerLayout = document.getElementById('messengerLayout');
-            const autoDetectBtn = document.getElementById('autoDetectBtn');
-            const chatDropdownBtn = document.getElementById('chatDropdownBtn');
-            const dropdownMenu = document.getElementById('dropdownMenu');
-
-            // ----- Device Selection -----
-            function selectDevice(device) {
-                deviceType = device;
-                localStorage.setItem('vvn_device', device);
-                deviceScreen.classList.add('hidden');
-                statusBar.style.display = 'flex';
-                messengerLayout.style.display = 'flex';
-
-                document.body.className = 'device-' + device;
-
-                const root = document.documentElement;
-                if (device === 'phone') {
-                    root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 20px)');
-                } else if (device === 'tablet') {
-                    root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 16px)');
-                } else {
-                    root.style.setProperty('--safe-bottom', 'env(safe-area-inset-bottom, 12px)');
-                }
-
-                setTimeout(function() {
-                    window.dispatchEvent(new Event('resize'));
-                }, 100);
-            }
-
-            function detectDevice() {
-                const width = window.innerWidth;
-                const height = window.innerHeight;
-                const ratio = width / height;
-
-                if (width < 768 || ratio < 0.8) {
-                    return 'phone';
-                } else if (width >= 768 && width < 1200) {
-                    return 'tablet';
-                } else {
-                    return 'pc';
-                }
-            }
-
-            // ----- Dropdown Functions -----
-            function toggleDropdown() {
-                if (!dropdownMenu) return;
-                if (dropdownMenu.style.display === 'block') {
-                    dropdownMenu.style.display = 'none';
-                } else {
-                    dropdownMenu.style.display = 'block';
-                    if (chatDropdownBtn) {
-                        const rect = chatDropdownBtn.getBoundingClientRect();
-                        dropdownMenu.style.top = (rect.bottom + 8) + 'px';
-                        dropdownMenu.style.right = '12px';
-                    }
-                }
-            }
-
-            function closeDropdown() {
-                if (dropdownMenu) dropdownMenu.style.display = 'none';
-            }
-
-            function handleDropdownAction(action) {
-                switch(action) {
-                    case 'select':
-                        alert('Selection mode would toggle here');
-                        break;
-                    case 'user-settings':
-                        alert('User settings would open here');
-                        break;
-                    case 'chat-settings':
-                        alert('Chat settings would open here');
-                        break;
-                    case 'profile':
-                        alert('Profile would show here');
-                        break;
-                    case 'device':
-                        selectDevice(detectDevice());
-                        break;
-                    case 'logout':
-                        if (confirm('Logout?')) {
-                            localStorage.removeItem('vvn_session');
-                            location.reload();
-                        }
-                        break;
-                }
-                closeDropdown();
-            }
-
-            // ----- Render Functions -----
-            function renderMessage(msg) {
-                const div = document.createElement('div');
-                div.className = 'message ' + msg.sender;
-                div.innerHTML = '<div class="selection-circle"></div>';
-
-                let content = '';
-
-                switch (msg.type) {
-                    case messageTypes.TEXT:
-                        content = msg.text;
-                        break;
-
-                    case messageTypes.DRAFT:
-                        content = '<div class="draft-label">✎ Draft</div>' + msg.text;
-                        div.classList.add('draft');
-                        break;
-
-                    case messageTypes.NOTE:
-                        content = '<div class="draft-label">📝 Note</div>' + msg.text;
-                        break;
-
-                    case messageTypes.VOICE:
-                        content = `
-                            <div class="voice-message">
-                                <span class="play-btn">▶</span>
-                                <div class="waveform">
-                                    <span></span><span></span><span></span><span></span><span></span><span></span>
-                                </div>
-                                <span class="duration">${msg.text.replace('Voice message: ', '')}</span>
-                            </div>
-                        `;
-                        break;
-
-                    case messageTypes.PHOTO:
-                        content = `
-                            <div class="media-attachment">
-                                <svg viewBox="0 0 400 250">
-                                    <rect width="400" height="250" fill="#1a1a1a"/>
-                                    <circle cx="200" cy="125" r="60" fill="#2a2a2a" opacity="0.6"/>
-                                    <circle cx="160" cy="95" r="20" fill="#ffffff" opacity="0.1"/>
-                                </svg>
-                                ${msg.caption ? '<div class="caption">' + msg.caption + '</div>' : ''}
-                            </div>
-                        `;
-                        break;
-
-                    case messageTypes.VIDEO:
-                        content = `
-                            <div class="media-attachment">
-                                <svg viewBox="0 0 400 250">
-                                    <rect width="400" height="250" fill="#1a1a1a"/>
-                                    <rect x="150" y="90" width="100" height="70" rx="4" fill="#2a2a2a" opacity="0.6"/>
-                                    <polygon points="185,110 215,125 185,140" fill="#ffffff" opacity="0.3"/>
-                                </svg>
-                                ${msg.caption ? '<div class="caption">' + msg.caption + '</div>' : ''}
-                            </div>
-                        `;
-                        break;
-
-                    case messageTypes.FILE:
-                        content = `
-                            <div class="file-attachment">
-                                <span class="file-icon">📄</span>
-                                <div class="file-info">
-                                    <div class="name">${msg.text}</div>
-                                    <div class="size">${msg.size || '128 KB'}</div>
-                                </div>
-                            </div>
-                        `;
-                        break;
-
-                    default:
-                        content = msg.text || 'Message';
-                }
-
-                const timeDiv = document.createElement('div');
-                timeDiv.className = 'time';
-                timeDiv.textContent = msg.time || 'now';
-
-                div.innerHTML += content;
-                div.appendChild(timeDiv);
-
-                return div;
-            }
-
-            function renderMessages() {
-                if (!chatMessages) return;
-                chatMessages.innerHTML = '';
-
-                const sep = document.createElement('div');
-                sep.className = 'date-separator';
-                sep.innerHTML = '<span>Today</span>';
-                chatMessages.appendChild(sep);
-
-                messages.forEach(function(msg) {
-                    chatMessages.appendChild(renderMessage(msg));
-                });
-
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-
-            // ----- Add New Message -----
-            function addMessage(text, type) {
-                if (type === undefined) type = messageTypes.TEXT;
-                const msg = {
-                    type: type,
-                    sender: 'outgoing',
-                    text: text,
-                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                };
-                messages.push(msg);
-                renderMessages();
-                rotatePattern();
-            }
-
-            // ----- Handle Send -----
-            function handleSend() {
-                const text = messageInput.value.trim();
-                if (!text) return;
-
-                if (text.startsWith('/')) {
-                    const cmd = text.substring(1).toLowerCase();
-                    let msgType = messageTypes.TEXT;
-                    let displayText = text;
-
-                    switch (cmd) {
-                        case 'draft':
-                            msgType = messageTypes.DRAFT;
-                            displayText = 'Draft message';
-                            break;
-                        case 'note':
-                            msgType = messageTypes.NOTE;
-                            displayText = 'Note message';
-                            break;
-                        case 'voice':
-                            msgType = messageTypes.VOICE;
-                            displayText = '0:05';
-                            break;
-                        case 'photo':
-                            msgType = messageTypes.PHOTO;
-                            displayText = 'photo-test.jpg';
-                            break;
-                        case 'video':
-                            msgType = messageTypes.VIDEO;
-                            displayText = 'video-test.mp4';
-                            break;
-                        case 'file':
-                            msgType = messageTypes.FILE;
-                            displayText = 'document.pdf';
-                            break;
-                        default:
-                            msgType = messageTypes.TEXT;
-                            displayText = text.substring(1);
-                    }
-
-                    const msg = {
-                        type: msgType,
-                        sender: 'outgoing',
-                        text: displayText,
-                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    };
-
-                    if (msgType === messageTypes.PHOTO || msgType === messageTypes.VIDEO) {
-                        msg.caption = 'Test media';
-                    }
-                    if (msgType === messageTypes.FILE) {
-                        msg.size = '128 KB';
-                    }
-
-                    messages.push(msg);
-                    renderMessages();
-                    messageInput.value = '';
-                    rotatePattern();
-                    return;
-                }
-
-                addMessage(text);
-                messageInput.value = '';
-            }
-
-            // ----- Mobile Navigation -----
-            function toggleMobileView(showChat) {
-                if (window.innerWidth < 820) {
-                    if (showChat) {
-                        sidebar.classList.add('hide-mobile');
-                        chatArea.classList.add('active-mobile');
-                    } else {
-                        sidebar.classList.remove('hide-mobile');
-                        chatArea.classList.remove('active-mobile');
-                    }
-                }
-            }
-
-            // ----- Init -----
-            function init() {
-                const savedDevice = localStorage.getItem('vvn_device');
-                if (savedDevice && ['phone', 'tablet', 'pc'].includes(savedDevice)) {
-                    selectDevice(savedDevice);
-                } else {
-                    deviceScreen.classList.remove('hidden');
-                    statusBar.style.display = 'none';
-                    messengerLayout.style.display = 'none';
-                }
-
-                messages = sampleMessages.slice();
-                renderMessages();
-
-                // Set initial random pattern (Grid or Dots)
-                const bg = document.querySelector('.chat-bg-pattern');
-                if (bg) {
-                    const randomPattern = patterns[Math.floor(Math.random() * patterns.length)];
-                    bg.className = 'chat-bg-pattern ' + randomPattern;
-                    currentPatternIndex = patterns.indexOf(randomPattern);
-                }
-
-                sendBtn.addEventListener('click', handleSend);
-                messageInput.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSend();
-                    }
-                });
-
-                clipBtn.addEventListener('click', function() {
-                    const commands = [
-                        '/text - Send text message',
-                        '/draft - Send as draft',
-                        '/note - Send as note',
-                        '/voice - Send voice message',
-                        '/photo - Send photo',
-                        '/video - Send video',
-                        '/file - Send file'
-                    ];
-                    alert('Available commands:\n\n' + commands.join('\n'));
-                });
-
-                backBtn.addEventListener('click', function() {
-                    toggleMobileView(false);
-                });
-
-                document.querySelectorAll('.device-option').forEach(function(btn) {
-                    btn.addEventListener('click', function() {
-                        const device = this.dataset.device;
-                        selectDevice(device);
-                    });
-                });
-
-                autoDetectBtn.addEventListener('click', function() {
-                    const detected = detectDevice();
-                    selectDevice(detected);
-                });
-
-                document.querySelectorAll('.chat-item').forEach(function(item) {
-                    item.addEventListener('click', function() {
-                        document.querySelectorAll('.chat-item').forEach(function(el) {
-                            el.classList.remove('active');
-                        });
-                        this.classList.add('active');
-                        toggleMobileView(true);
-                        rotatePattern();
-                    });
-                });
-
-                // Dropdown Events
-                chatDropdownBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    toggleDropdown();
-                });
-
-                document.querySelectorAll('.dropdown-item').forEach(function(item) {
-                    item.addEventListener('click', function() {
-                        const action = this.dataset.action;
-                        handleDropdownAction(action);
-                    });
-                });
-
-                document.addEventListener('click', function(e) {
-                    if (!e.target.closest('.header-action-btn') && !e.target.closest('.dropdown-menu')) {
-                        closeDropdown();
-                    }
-                });
-
-                window.addEventListener('resize', function() {
-                    isMobile = window.innerWidth < 820;
-                    if (!isMobile) {
-                        sidebar.classList.remove('hide-mobile');
-                        chatArea.classList.remove('active-mobile');
-                    }
-                });
-
-                console.log('🚀 VVN Monochrome Messenger initialized!');
-                console.log('📝 Available commands: /text, /draft, /note, /voice, /photo, /video, /file');
-                console.log('💬 Test chat "testmessages" loaded with all message types.');
-                console.log('📱 Device: ' + deviceType);
-                console.log('📏 Floating island input: 128px height + 40px bottom padding');
-                console.log('🎨 Background patterns: Grid & Dots only');
-                console.log('💎 Life glass effect: 80% clear with blurry edges');
-            }
-
-            init();
-        })();
-    </script>
+    <script src="config.js"></script>
+    <script src="crypto.js"></script>
+    <script src="database.js"></script>
+    <script src="device-layouts.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
