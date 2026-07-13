@@ -5,11 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
     <title>VVN Messenger</title>
     <link rel="stylesheet" href="style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <style>
         @supports (padding: max(0px)) {
-            #app {
-                padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
-            }
+            #app { padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px); }
         }
     </style>
 </head>
@@ -171,75 +170,50 @@
                         </div>
 
                         <div class="dropdown-menu" id="dropdownMenu" style="display:none;">
-                            <div class="dropdown-item" data-action="select">
-                                <img src="icons/select.png" alt="Select" width="18" height="18" /> Select Messages
+                            <div class="dropdown-item" data-action="search">
+                                <img src="icons/search.png" alt="Search" width="18" height="18" /> Search Messages
+                            </div>
+                            <div class="dropdown-item" data-action="wallpaper">
+                                <img src="icons/background.png" alt="Wallpaper" width="18" height="18" /> Chat Wallpaper
+                            </div>
+                            <div class="dropdown-item" data-action="bubblecolor">
+                                <img src="icons/edit.png" alt="Color" width="18" height="18" /> Bubble Color
+                            </div>
+                            <div class="dropdown-item" data-action="fontsize">
+                                <img src="icons/edit.png" alt="Font" width="18" height="18" /> Font Size
+                            </div>
+                            <div class="dropdown-item" data-action="fontfamily">
+                                <img src="icons/edit.png" alt="Font" width="18" height="18" /> Font Family
+                            </div>
+                            <div class="dropdown-item" data-action="chatinfo">
+                                <img src="icons/settings.png" alt="Info" width="18" height="18" /> Chat Info
                             </div>
                             <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" data-action="user-settings">
-                                <img src="icons/user-settings.png" alt="User" width="18" height="18" /> User Settings
-                                <span class="arrow-right">▶</span>
-                                <div class="sub-dropdown">
-                                    <div class="dropdown-item" data-action="renameContactBtn">✏️ Rename Contact</div>
-                                    <div class="dropdown-item" data-action="deleteContactBtn">🗑️ Delete Contact</div>
-                                    <div class="dropdown-item" data-action="blockUserBtn">🚫 Block</div>
-                                    <div class="dropdown-item" data-action="unblockUserBtn">✅ Unblock</div>
-                                    <div class="dropdown-item" data-action="pinContactBtn">📌 Pin Contact</div>
-                                </div>
+                            <div class="dropdown-item" data-action="stickers">
+                                <img src="icons/note.png" alt="Stickers" width="18" height="18" /> Stickers
                             </div>
-                            <div class="dropdown-item" data-action="chat-settings">
-                                <img src="icons/chat-settings.png" alt="Chat" width="18" height="18" /> Chat Settings
-                                <span class="arrow-right">▶</span>
-                                <div class="sub-dropdown">
-                                    <div class="dropdown-item" data-action="wallpaper">🖼️ Wallpaper</div>
-                                    <div class="dropdown-item" data-action="bubblecolor">🎨 Bubble Color</div>
-                                    <div class="dropdown-item" data-action="fontsize">🔤 Font Size</div>
-                                    <div class="dropdown-item" data-action="fontfamily">🔤 Font Family</div>
-                                    <div class="dropdown-item" data-action="chattimestamp">🕐 Timestamp</div>
-                                    <div class="dropdown-item" data-action="readreceipts">👁️ Read Receipts</div>
-                                    <div class="dropdown-item" data-action="animation">🎬 Animations</div>
-                                    <div class="dropdown-item" data-action="chattheme">🎨 Chat Theme</div>
-                                    <div class="dropdown-divider"></div>
-                                    <div class="dropdown-item" data-action="bgDefault">Default BG</div>
-                                    <div class="dropdown-item" data-action="bgCustom">Custom BG</div>
-                                </div>
+                            <div class="dropdown-item" data-action="gifs">
+                                <img src="icons/note.png" alt="GIFs" width="18" height="18" /> GIFs
+                            </div>
+                            <div class="dropdown-item" data-action="games">
+                                <img src="icons/note.png" alt="Games" width="18" height="18" /> Mini Games
+                            </div>
+                            <div class="dropdown-item" data-action="poll">
+                                <img src="icons/note.png" alt="Poll" width="18" height="18" /> Create Poll
                             </div>
                             <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" data-action="reaction">
-                                <span>😊 Add Reaction</span>
-                                <span class="arrow-right">▶</span>
-                                <div class="sub-dropdown">
-                                    <div class="dropdown-item" data-reaction="❤️">❤️ Love</div>
-                                    <div class="dropdown-item" data-reaction="😂">😂 Laugh</div>
-                                    <div class="dropdown-item" data-reaction="😮">😮 Wow</div>
-                                    <div class="dropdown-item" data-reaction="😢">😢 Sad</div>
-                                    <div class="dropdown-item" data-reaction="😡">😡 Angry</div>
-                                </div>
+                            <div class="dropdown-item" data-action="profile">
+                                <img src="icons/user.png" alt="Profile" width="18" height="18" /> View Profile
                             </div>
-                            <div class="dropdown-item" data-action="reply">🗨️ Reply</div>
-                            <div class="dropdown-item" data-action="search">🔍 Search</div>
-                            <div class="dropdown-item" data-action="forward">📨 Forward</div>
-                            <div class="dropdown-item" data-action="schedule">📅 Schedule</div>
-                            <div class="dropdown-item" data-action="quickreply">💬 Quick Reply</div>
-                            <div class="dropdown-item" data-action="quickreply-add">➕ Add Quick Reply</div>
-                            <div class="dropdown-item" data-action="stats">📊 Message Stats</div>
+                            <div class="dropdown-item" data-action="status">
+                                <img src="icons/edit.png" alt="Status" width="18" height="18" /> Set Status
+                            </div>
+                            <div class="dropdown-item" data-action="theme">
+                                <img src="icons/settings.png" alt="Theme" width="18" height="18" /> Theme Settings
+                            </div>
                             <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" data-action="sticker">🖼️ Stickers</div>
-                            <div class="dropdown-item" data-action="gif">🎬 GIFs</div>
-                            <div class="dropdown-item" data-action="game">🎮 Games</div>
-                            <div class="dropdown-item" data-action="poll">📊 Poll</div>
-                            <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" data-action="rainbow">🌈 Rainbow Name</div>
-                            <div class="dropdown-item" data-action="status">📝 Status</div>
-                            <div class="dropdown-item" data-action="qr">📱 QR Code</div>
-                            <div class="dropdown-item" data-action="badges">🏆 Badges</div>
-                            <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" data-action="generalsettings">
-                                <img src="icons/settings.png" alt="General" width="18" height="18" /> General Settings
-                                <span class="arrow-right">▶</span>
-                                <div class="sub-dropdown">
-                                    <div class="dropdown-item" data-action="device">📱 Switch Device</div>
-                                    <div class="dropdown-item" data-action="logout">🚪 Logout</div>
-                                </div>
+                            <div class="dropdown-item" data-action="logout" style="color:#ff6b6b;">
+                                <img src="icons/close.png" alt="Logout" width="18" height="18" style="opacity:0.6;" /> Logout
                             </div>
                         </div>
 
@@ -261,6 +235,9 @@
                             </button>
                             <button class="toolbar-btn" id="pinSelectedBtn" title="Pin">
                                 <img src="icons/pin.png" alt="Pin" width="20" height="20" />
+                            </button>
+                            <button class="toolbar-btn" id="forwardSelectedBtn" title="Forward">
+                                <img src="icons/send.png" alt="Forward" width="20" height="20" />
                             </button>
                             <button class="toolbar-btn" id="cancelSelectionBtn" title="Cancel">
                                 <img src="icons/close.png" alt="Cancel" width="20" height="20" />
@@ -299,74 +276,6 @@
             </div>
         </div>
 
-        <div id="userSettingsModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content settings-modal glass-card">
-                <button class="modal-close" id="userSettingsClose">
-                    <img src="icons/close.png" alt="Close" width="24" height="24" />
-                </button>
-                <h2>User Settings</h2>
-                <div class="settings-group">
-                    <label>Contact Actions</label>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                        <button class="btn-secondary" id="renameContactBtn">
-                            <img src="icons/rename.png" alt="Rename" width="16" height="16" /> Rename
-                        </button>
-                        <button class="btn-secondary" id="deleteContactBtn">
-                            <img src="icons/delete-contact.png" alt="Delete" width="16" height="16" /> Delete Contact
-                        </button>
-                        <button class="btn-secondary" id="blockUserBtn">
-                            <img src="icons/block.png" alt="Block" width="16" height="16" /> Block
-                        </button>
-                        <button class="btn-secondary" id="unblockUserBtn" style="display:none;">
-                            <img src="icons/unblock.png" alt="Unblock" width="16" height="16" /> Unblock
-                        </button>
-                        <button class="btn-secondary" id="pinContactBtn">
-                            <img src="icons/pin.png" alt="Pin" width="16" height="16" /> Pin Contact
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="chatSettingsModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content settings-modal glass-card">
-                <button class="modal-close" id="chatSettingsClose">
-                    <img src="icons/close.png" alt="Close" width="24" height="24" />
-                </button>
-                <h2>Chat Settings</h2>
-                <div class="settings-group">
-                    <label>Message Bubble Style</label>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                        <button class="btn-secondary bubble-style" data-style="rounded">Rounded</button>
-                        <button class="btn-secondary bubble-style" data-style="square">Square</button>
-                        <button class="btn-secondary bubble-style" data-style="modern">Modern</button>
-                        <button class="btn-secondary bubble-style" data-style="soft">Soft</button>
-                        <button class="btn-secondary bubble-style" data-style="sharp">Sharp</button>
-                        <button class="btn-secondary bubble-style" data-style="pill">Pill</button>
-                        <button class="btn-secondary bubble-style" data-style="wavy">Wavy</button>
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <label>Chat Background</label>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                        <button class="btn-secondary" id="bgDefault">Default</button>
-                        <button class="btn-secondary" id="bgCustom">Custom Image</button>
-                        <input type="file" id="bgUpload" accept="image/*" style="display:none;" />
-                    </div>
-                </div>
-                <div class="settings-group">
-                    <label>Fun Stuff</label>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                        <button class="btn-secondary" id="createNoteBtn">
-                            <img src="icons/note.png" alt="Note" width="16" height="16" /> Create Note
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div id="settingsModal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content settings-modal glass-card">
@@ -376,8 +285,10 @@
                 <h2>Settings</h2>
                 <div class="settings-tabs">
                     <button class="settings-tab active" data-tab="profile">Profile</button>
+                    <button class="settings-tab" data-tab="chat">Chat</button>
                     <button class="settings-tab" data-tab="security">Security</button>
                     <button class="settings-tab" data-tab="themes">Themes</button>
+                    <button class="settings-tab" data-tab="general">General</button>
                 </div>
                 
                 <div class="settings-panel active" id="profileSettings">
@@ -405,7 +316,83 @@
                         <label>Bio</label>
                         <textarea id="settingsBio" placeholder="Tell us about yourself" rows="3"></textarea>
                     </div>
+                    <div class="settings-group">
+                        <label>Custom Status</label>
+                        <input type="text" id="settingsStatus" placeholder="What's on your mind?" />
+                    </div>
                     <button class="btn-primary" id="saveSettings">Save Changes</button>
+                </div>
+
+                <div class="settings-panel" id="chatSettings">
+                    <div class="settings-group">
+                        <label>Bubble Style</label>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                            <button class="btn-secondary bubble-style" data-style="rounded">Rounded</button>
+                            <button class="btn-secondary bubble-style" data-style="square">Square</button>
+                            <button class="btn-secondary bubble-style" data-style="modern">Modern</button>
+                            <button class="btn-secondary bubble-style" data-style="soft">Soft</button>
+                            <button class="btn-secondary bubble-style" data-style="sharp">Sharp</button>
+                            <button class="btn-secondary bubble-style" data-style="pill">Pill</button>
+                        </div>
+                    </div>
+                    <div class="settings-group">
+                        <label>Bubble Color</label>
+                        <input type="color" id="bubbleColorPicker" value="#36454F" />
+                        <button class="btn-secondary" id="applyBubbleColor">Apply Color</button>
+                    </div>
+                    <div class="settings-group">
+                        <label>Font Size</label>
+                        <select id="fontSizeSelect">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                            <option value="xl">Extra Large</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label>Font Family</label>
+                        <select id="fontFamilySelect">
+                            <option value="inter">Inter</option>
+                            <option value="sf">SF Pro</option>
+                            <option value="roboto">Roboto</option>
+                            <option value="poppins">Poppins</option>
+                            <option value="helvetica">Helvetica</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label>Chat Spacing</label>
+                        <select id="chatSpacingSelect">
+                            <option value="compact">Compact</option>
+                            <option value="comfortable" selected>Comfortable</option>
+                            <option value="spacious">Spacious</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label>Timestamp Format</label>
+                        <select id="timestampFormatSelect">
+                            <option value="12h">12 Hour</option>
+                            <option value="24h">24 Hour</option>
+                            <option value="relative">Relative</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label>Message Animations</label>
+                        <select id="messageAnimationSelect">
+                            <option value="slide">Slide</option>
+                            <option value="fade">Fade</option>
+                            <option value="pop">Pop</option>
+                            <option value="bounce">Bounce</option>
+                            <option value="none">None</option>
+                        </select>
+                    </div>
+                    <div class="settings-group">
+                        <label>Chat Background</label>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                            <button class="btn-secondary" id="bgDefault">Default</button>
+                            <button class="btn-secondary" id="bgCustom">Custom Image</button>
+                            <input type="file" id="bgUpload" accept="image/*" style="display:none;" />
+                        </div>
+                    </div>
                 </div>
 
                 <div class="settings-panel" id="securitySettings">
@@ -419,6 +406,17 @@
                             <span id="e2eeStatus">Enabled</span>
                         </div>
                         <p class="setting-desc">Messages are encrypted and can only be read by you and the recipient.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Read Receipts</label>
+                        <div class="toggle-group">
+                            <label class="toggle">
+                                <input type="checkbox" id="readReceiptsToggle" checked />
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="readReceiptsStatus">Enabled</span>
+                        </div>
+                        <p class="setting-desc">Show when messages have been read.</p>
                     </div>
                     <div class="settings-group">
                         <label>Two-Factor Authentication</label>
@@ -465,15 +463,6 @@
                         </select>
                         <p class="setting-desc">Lock the app after inactivity.</p>
                     </div>
-                    <div class="settings-group">
-                        <label>Message Delivery</label>
-                        <select id="messageDelivery">
-                            <option value="e2ee">End-to-End Encrypted</option>
-                            <option value="server">Server Encrypted</option>
-                            <option value="unencrypted">Unencrypted (Not Recommended)</option>
-                        </select>
-                        <p class="setting-desc">Choose how messages are delivered and encrypted.</p>
-                    </div>
                 </div>
 
                 <div class="settings-panel" id="themesSettings">
@@ -488,10 +477,6 @@
                             <button class="theme-card" data-theme="light" style="background:#f5f5f5; color:#1a1a1a;">
                                 <div class="theme-icon">☀️</div>
                                 <div class="theme-name">Light</div>
-                            </button>
-                            <button class="theme-card" data-theme="auto" style="background:linear-gradient(135deg, #0a0a0a 50%, #f5f5f5 50%); color:#f0f0f0;">
-                                <div class="theme-icon">🔄</div>
-                                <div class="theme-name">Auto</div>
                             </button>
                             <button class="theme-card" data-theme="midnight" style="background:#0a0e1a; color:#7b9ac9;">
                                 <div class="theme-icon">🌃</div>
@@ -530,6 +515,68 @@
                         <button class="btn-primary" id="applyCustomTheme" style="margin-top:10px;">Apply Custom Theme</button>
                     </div>
                 </div>
+
+                <div class="settings-panel" id="generalSettings">
+                    <div class="settings-group">
+                        <label>Device Layout</label>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                            <button class="btn-secondary device-layout-btn" data-device="phone">Phone</button>
+                            <button class="btn-secondary device-layout-btn" data-device="tablet">Tablet</button>
+                            <button class="btn-secondary device-layout-btn" data-device="pc">PC</button>
+                            <button class="btn-secondary" id="autoDetectLayoutBtn">Auto Detect</button>
+                        </div>
+                        <p class="setting-desc">Change the layout to match your device.</p>
+                    </div>
+                    <div class="settings-divider"></div>
+                    <div class="settings-group">
+                        <label>Account</label>
+                        <button class="btn-secondary" id="logoutBtn" style="color:#ff6b6b; border-color:#ff6b6b;">Logout</button>
+                        <p class="setting-desc">Sign out of your account.</p>
+                    </div>
+                    <div class="settings-group">
+                        <label>Data</label>
+                        <button class="btn-secondary" id="clearDataBtn" style="color:#ff6b6b; border-color:#ff6b6b;">Clear Local Data</button>
+                        <p class="setting-desc">Clear all locally stored data (messages, settings, etc.)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="profileModal" class="modal">
+            <div class="modal-overlay"></div>
+            <div class="modal-content profile-modal glass-card">
+                <button class="modal-close" id="modalClose">
+                    <img src="icons/close.png" alt="Close" width="28" height="28" />
+                </button>
+                <div class="profile-card" id="profileCard">
+                    <div class="profile-header">
+                        <div class="profile-avatar">
+                            <img id="profileAvatar" src="icons/user.png" alt="" />
+                        </div>
+                        <div class="profile-name-container">
+                            <div class="profile-name" id="profileDisplayName">Display Name</div>
+                            <div class="profile-tags" id="profileTags"></div>
+                            <div class="profile-badges" id="profileBadges"></div>
+                            <div class="custom-status" id="profileStatus">Available</div>
+                        </div>
+                    </div>
+                    <div class="profile-section">
+                        <div class="profile-label">Info</div>
+                        <div class="profile-username" id="profileUsername">@username</div>
+                        <div class="profile-password" id="profilePassword" style="display:none;">Password: ********</div>
+                        <div class="profile-userid" id="profileUserID">ID: loading...</div>
+                        <div class="profile-qr" id="profileQR"></div>
+                    </div>
+                    <div class="profile-section">
+                        <div class="profile-label">About</div>
+                        <div class="profile-bio" id="profileBio">No bio yet</div>
+                        <div class="profile-joined" id="profileJoined">Joined: Today</div>
+                        <div class="profile-age" id="profileAge">Age: 0 days</div>
+                    </div>
+                    <div class="profile-footer">
+                        <div class="dev-note">- VVN. VEIL-VAULT-NET.<br>Your security matters.</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -555,41 +602,6 @@
                 <button class="btn-primary" id="fileSendBtn">Send All</button>
             </div>
         </div>
-
-        <div id="profileModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content profile-modal glass-card">
-                <button class="modal-close" id="modalClose">
-                    <img src="icons/close.png" alt="Close" width="28" height="28" />
-                </button>
-                <div class="profile-card" id="profileCard">
-                    <div class="profile-header">
-                        <div class="profile-avatar">
-                            <img id="profileAvatar" src="icons/user.png" alt="" />
-                        </div>
-                        <div class="profile-name-container">
-                            <div class="profile-name" id="profileDisplayName">Display Name</div>
-                            <div class="profile-tags" id="profileTags"></div>
-                        </div>
-                    </div>
-                    <div class="profile-section">
-                        <div class="profile-label">Info</div>
-                        <div class="profile-username" id="profileUsername">@username</div>
-                        <div class="profile-password" id="profilePassword" style="display:none;">Password: ********</div>
-                        <div class="profile-userid" id="profileUserID">ID: loading...</div>
-                    </div>
-                    <div class="profile-section">
-                        <div class="profile-label">About</div>
-                        <div class="profile-bio" id="profileBio">No bio yet</div>
-                        <div class="profile-joined" id="profileJoined">Joined: Today</div>
-                        <div class="profile-age" id="profileAge">Age: 0 days</div>
-                    </div>
-                    <div class="profile-footer">
-                        <div class="dev-note">- VVN. VEIL-VAULT-NET.<br>Your security matters.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <script src="config.js"></script>
@@ -598,4 +610,4 @@
     <script src="device-layouts.js"></script>
     <script src="app.js"></script>
 </body>
-                            </html>
+    </html>
