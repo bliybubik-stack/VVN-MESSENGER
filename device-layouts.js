@@ -1,13 +1,8 @@
-// Device Layout Configuration
-
 const DEVICE_LAYOUTS = {
     phone: {
         name: 'Phone',
         icon: 'phone.png',
-        breakpoints: {
-            maxWidth: 768,
-            maxHeight: 1024
-        },
+        breakpoints: { maxWidth: 768, maxHeight: 1024 },
         layout: {
             sidebarWidth: '100%',
             chatAreaWidth: '100%',
@@ -33,11 +28,7 @@ const DEVICE_LAYOUTS = {
     tablet: {
         name: 'Tablet',
         icon: 'tablet.png',
-        breakpoints: {
-            minWidth: 769,
-            maxWidth: 1200,
-            maxHeight: 1600
-        },
+        breakpoints: { minWidth: 769, maxWidth: 1200, maxHeight: 1600 },
         layout: {
             sidebarWidth: '35%',
             chatAreaWidth: '65%',
@@ -63,10 +54,7 @@ const DEVICE_LAYOUTS = {
     pc: {
         name: 'PC / Desktop',
         icon: 'pc.png',
-        breakpoints: {
-            minWidth: 1201,
-            minHeight: 900
-        },
+        breakpoints: { minWidth: 1201, minHeight: 900 },
         layout: {
             sidebarWidth: '30%',
             chatAreaWidth: '70%',
@@ -91,46 +79,30 @@ const DEVICE_LAYOUTS = {
     }
 };
 
-// Device detection function
 function detectDevice() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const ratio = width / height;
-    
-    // Check if it's a phone (narrow aspect ratio)
     if (width < 768 || ratio < 0.8) {
         return 'phone';
-    }
-    // Check if it's a tablet (medium aspect ratio)
-    else if (width >= 768 && width < 1200 && height < 1600) {
+    } else if (width >= 768 && width < 1200 && height < 1600) {
         return 'tablet';
-    }
-    // Default to PC
-    else {
+    } else {
         return 'pc';
     }
 }
 
-// Apply device layout
 function applyDeviceLayout(deviceType) {
     const layout = DEVICE_LAYOUTS[deviceType];
     if (!layout) return;
-    
-    // Store device preference
     localStorage.setItem('vvn_device', deviceType);
-    
-    // Update device indicator
     const indicator = document.getElementById('deviceIndicator');
     if (indicator) {
         indicator.textContent = deviceType === 'phone' ? '📱 Phone' : 
                                deviceType === 'tablet' ? '📟 Tablet' : '🖥️ PC';
     }
-    
-    // Apply styles to root
     const root = document.documentElement;
     const styles = layout.styles;
-    
-    // Apply CSS variables for layout
     root.style.setProperty('--sidebar-width', layout.layout.sidebarWidth);
     root.style.setProperty('--chat-area-width', layout.layout.chatAreaWidth);
     root.style.setProperty('--font-size', layout.layout.fontSize);
@@ -138,12 +110,9 @@ function applyDeviceLayout(deviceType) {
     root.style.setProperty('--message-max-width', layout.layout.messageMaxWidth);
     root.style.setProperty('--input-bar-height', layout.layout.inputBarHeight);
     root.style.setProperty('--spacing', layout.layout.spacing);
-    
-    // Apply dynamic styles
     const styleSheet = document.createElement('style');
     styleSheet.id = 'device-styles';
     styleSheet.textContent = `
-        /* Device-specific styles for ${deviceType} */
         .sidebar { ${styles.sidebar} }
         .chat-area { ${styles.chatArea} }
         .chat-header { ${styles.chatHeader} }
@@ -153,8 +122,6 @@ function applyDeviceLayout(deviceType) {
         .chat-item .avatar { ${styles.avatar} }
         .chat-header-info .avatar { ${styles.avatar} }
         .message .selection-circle { ${styles.selectionCircle} }
-        
-        /* Responsive adjustments */
         @media (max-width: 768px) {
             .sidebar { width:100% !important; border-right:none !important; }
             .chat-area { width:100% !important; }
@@ -171,7 +138,6 @@ function applyDeviceLayout(deviceType) {
             .chat-item .avatar { width:28px !important; height:28px !important; }
             .chat-header-info .avatar { width:28px !important; height:28px !important; }
         }
-        
         @media (min-width: 769px) and (max-width: 1200px) {
             .sidebar { width:35% !important; }
             .chat-area { width:65% !important; }
@@ -181,7 +147,6 @@ function applyDeviceLayout(deviceType) {
             .message { font-size:0.9rem !important; padding:8px 12px !important; }
             .message .selection-circle { left:-20px !important; width:16px !important; height:16px !important; }
         }
-        
         @media (min-width: 1201px) {
             .sidebar { width:30% !important; }
             .chat-area { width:70% !important; }
@@ -192,17 +157,11 @@ function applyDeviceLayout(deviceType) {
             .message .selection-circle { left:-28px !important; width:20px !important; height:20px !important; }
         }
     `;
-    
-    // Remove old device styles
     const oldStyle = document.getElementById('device-styles');
     if (oldStyle) oldStyle.remove();
     document.head.appendChild(styleSheet);
-    
-    // Update UI
     const sidebar = document.getElementById('sidebar');
     const chatArea = document.getElementById('chatArea');
-    
-    // Apply mobile-specific classes
     if (deviceType === 'phone') {
         if (sidebar) sidebar.classList.add('phone-layout');
         if (chatArea) chatArea.classList.add('phone-layout');
@@ -213,12 +172,8 @@ function applyDeviceLayout(deviceType) {
         if (sidebar) sidebar.classList.add('pc-layout');
         if (chatArea) chatArea.classList.add('pc-layout');
     }
-    
-    // Trigger resize to apply changes
     window.dispatchEvent(new Event('resize'));
 }
-
-// Make functions globally available
 window.DEVICE_LAYOUTS = DEVICE_LAYOUTS;
 window.detectDevice = detectDevice;
 window.applyDeviceLayout = applyDeviceLayout;
