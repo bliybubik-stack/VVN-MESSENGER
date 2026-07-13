@@ -15,7 +15,6 @@
 </head>
 <body>
     <div id="app">
-        <!-- Loading Overlay -->
         <div id="loadingOverlay">
             <div class="loader-container">
                 <div class="loader-icon">
@@ -26,7 +25,6 @@
             </div>
         </div>
 
-        <!-- Device Selection -->
         <div id="deviceScreen">
             <div class="device-container">
                 <div class="device-brand">
@@ -65,7 +63,6 @@
             </div>
         </div>
 
-        <!-- Auth Screen -->
         <div id="authScreen" style="display:none;">
             <div class="auth-container">
                 <div class="auth-brand">
@@ -115,7 +112,6 @@
             </div>
         </div>
 
-        <!-- Messenger -->
         <div id="messenger" style="display:none;">
             <div id="statusBar">
                 <span><span class="status-dot" id="syncDot"></span><span id="syncStatus">Initializing...</span></span>
@@ -178,21 +174,72 @@
                             <div class="dropdown-item" data-action="select">
                                 <img src="icons/select.png" alt="Select" width="18" height="18" /> Select Messages
                             </div>
+                            <div class="dropdown-divider"></div>
                             <div class="dropdown-item" data-action="user-settings">
                                 <img src="icons/user-settings.png" alt="User" width="18" height="18" /> User Settings
+                                <span class="arrow-right">▶</span>
+                                <div class="sub-dropdown">
+                                    <div class="dropdown-item" data-action="renameContactBtn">✏️ Rename Contact</div>
+                                    <div class="dropdown-item" data-action="deleteContactBtn">🗑️ Delete Contact</div>
+                                    <div class="dropdown-item" data-action="blockUserBtn">🚫 Block</div>
+                                    <div class="dropdown-item" data-action="unblockUserBtn">✅ Unblock</div>
+                                    <div class="dropdown-item" data-action="pinContactBtn">📌 Pin Contact</div>
+                                </div>
                             </div>
                             <div class="dropdown-item" data-action="chat-settings">
                                 <img src="icons/chat-settings.png" alt="Chat" width="18" height="18" /> Chat Settings
-                            </div>
-                            <div class="dropdown-item" data-action="profile">
-                                <img src="icons/user.png" alt="Profile" width="18" height="18" /> View Profile
+                                <span class="arrow-right">▶</span>
+                                <div class="sub-dropdown">
+                                    <div class="dropdown-item" data-action="wallpaper">🖼️ Wallpaper</div>
+                                    <div class="dropdown-item" data-action="bubblecolor">🎨 Bubble Color</div>
+                                    <div class="dropdown-item" data-action="fontsize">🔤 Font Size</div>
+                                    <div class="dropdown-item" data-action="fontfamily">🔤 Font Family</div>
+                                    <div class="dropdown-item" data-action="chattimestamp">🕐 Timestamp</div>
+                                    <div class="dropdown-item" data-action="readreceipts">👁️ Read Receipts</div>
+                                    <div class="dropdown-item" data-action="animation">🎬 Animations</div>
+                                    <div class="dropdown-item" data-action="chattheme">🎨 Chat Theme</div>
+                                    <div class="dropdown-divider"></div>
+                                    <div class="dropdown-item" data-action="bgDefault">Default BG</div>
+                                    <div class="dropdown-item" data-action="bgCustom">Custom BG</div>
+                                </div>
                             </div>
                             <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" data-action="device">
-                                <img src="icons/settings.png" alt="Device" width="18" height="18" /> Change Device
+                            <div class="dropdown-item" data-action="reaction">
+                                <span>😊 Add Reaction</span>
+                                <span class="arrow-right">▶</span>
+                                <div class="sub-dropdown">
+                                    <div class="dropdown-item" data-reaction="❤️">❤️ Love</div>
+                                    <div class="dropdown-item" data-reaction="😂">😂 Laugh</div>
+                                    <div class="dropdown-item" data-reaction="😮">😮 Wow</div>
+                                    <div class="dropdown-item" data-reaction="😢">😢 Sad</div>
+                                    <div class="dropdown-item" data-reaction="😡">😡 Angry</div>
+                                </div>
                             </div>
-                            <div class="dropdown-item" data-action="logout" style="color:#ff6b6b;">
-                                <img src="icons/close.png" alt="Logout" width="18" height="18" style="opacity:0.6;" /> Logout
+                            <div class="dropdown-item" data-action="reply">🗨️ Reply</div>
+                            <div class="dropdown-item" data-action="search">🔍 Search</div>
+                            <div class="dropdown-item" data-action="forward">📨 Forward</div>
+                            <div class="dropdown-item" data-action="schedule">📅 Schedule</div>
+                            <div class="dropdown-item" data-action="quickreply">💬 Quick Reply</div>
+                            <div class="dropdown-item" data-action="quickreply-add">➕ Add Quick Reply</div>
+                            <div class="dropdown-item" data-action="stats">📊 Message Stats</div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item" data-action="sticker">🖼️ Stickers</div>
+                            <div class="dropdown-item" data-action="gif">🎬 GIFs</div>
+                            <div class="dropdown-item" data-action="game">🎮 Games</div>
+                            <div class="dropdown-item" data-action="poll">📊 Poll</div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item" data-action="rainbow">🌈 Rainbow Name</div>
+                            <div class="dropdown-item" data-action="status">📝 Status</div>
+                            <div class="dropdown-item" data-action="qr">📱 QR Code</div>
+                            <div class="dropdown-item" data-action="badges">🏆 Badges</div>
+                            <div class="dropdown-divider"></div>
+                            <div class="dropdown-item" data-action="generalsettings">
+                                <img src="icons/settings.png" alt="General" width="18" height="18" /> General Settings
+                                <span class="arrow-right">▶</span>
+                                <div class="sub-dropdown">
+                                    <div class="dropdown-item" data-action="device">📱 Switch Device</div>
+                                    <div class="dropdown-item" data-action="logout">🚪 Logout</div>
+                                </div>
                             </div>
                         </div>
 
@@ -237,7 +284,6 @@
             </div>
         </div>
 
-        <!-- Delete Modal -->
         <div id="deleteModal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content delete-modal glass-card">
@@ -253,7 +299,6 @@
             </div>
         </div>
 
-        <!-- User Settings Modal -->
         <div id="userSettingsModal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content settings-modal glass-card">
@@ -284,7 +329,6 @@
             </div>
         </div>
 
-        <!-- Chat Settings Modal -->
         <div id="chatSettingsModal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content settings-modal glass-card">
@@ -298,6 +342,10 @@
                         <button class="btn-secondary bubble-style" data-style="rounded">Rounded</button>
                         <button class="btn-secondary bubble-style" data-style="square">Square</button>
                         <button class="btn-secondary bubble-style" data-style="modern">Modern</button>
+                        <button class="btn-secondary bubble-style" data-style="soft">Soft</button>
+                        <button class="btn-secondary bubble-style" data-style="sharp">Sharp</button>
+                        <button class="btn-secondary bubble-style" data-style="pill">Pill</button>
+                        <button class="btn-secondary bubble-style" data-style="wavy">Wavy</button>
                     </div>
                 </div>
                 <div class="settings-group">
@@ -319,7 +367,6 @@
             </div>
         </div>
 
-        <!-- Settings Modal -->
         <div id="settingsModal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content settings-modal glass-card">
@@ -465,19 +512,19 @@
                         <div class="color-grid">
                             <div class="color-item">
                                 <label>Primary</label>
-                                <input type="color" id="primaryColor" value="#2d1b69" />
+                                <input type="color" id="primaryColor" value="#36454F" />
                             </div>
                             <div class="color-item">
                                 <label>Background</label>
-                                <input type="color" id="secondaryColor" value="#141414" />
+                                <input type="color" id="secondaryColor" value="#121212" />
                             </div>
                             <div class="color-item">
                                 <label>Text</label>
-                                <input type="color" id="textColor" value="#f0f0f0" />
+                                <input type="color" id="textColor" value="#FFFFFF" />
                             </div>
                             <div class="color-item">
                                 <label>Accent</label>
-                                <input type="color" id="accentColor" value="#2d1b69" />
+                                <input type="color" id="accentColor" value="#36454F" />
                             </div>
                         </div>
                         <button class="btn-primary" id="applyCustomTheme" style="margin-top:10px;">Apply Custom Theme</button>
@@ -486,7 +533,6 @@
             </div>
         </div>
 
-        <!-- File Attachment Modal -->
         <div id="fileModal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content file-modal glass-card">
@@ -510,7 +556,6 @@
             </div>
         </div>
 
-        <!-- Profile Modal -->
         <div id="profileModal" class="modal">
             <div class="modal-overlay"></div>
             <div class="modal-content profile-modal glass-card">
@@ -553,4 +598,4 @@
     <script src="device-layouts.js"></script>
     <script src="app.js"></script>
 </body>
-</html>
+                            </html>
