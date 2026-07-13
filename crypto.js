@@ -1,9 +1,4 @@
-// VVN Crypto - Simple encryption for messages
-// In production, use a proper encryption library
-
 const Crypto = {
-    // Simple XOR encryption (for demo purposes only)
-    // In production, use AES-256-GCM or similar
     encrypt(text, key) {
         if (!text) return text;
         let result = '';
@@ -13,7 +8,6 @@ const Crypto = {
         }
         return btoa(result);
     },
-    
     decrypt(encrypted, key) {
         if (!encrypted) return encrypted;
         try {
@@ -28,8 +22,6 @@ const Crypto = {
             return encrypted;
         }
     },
-    
-    // Generate a random key for each message
     generateKey() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
         let key = '';
@@ -38,8 +30,6 @@ const Crypto = {
         }
         return key;
     },
-    
-    // Hash a password (simple hash for demo)
     hashPassword(password) {
         let hash = 0;
         for (let i = 0; i < password.length; i++) {
@@ -49,11 +39,8 @@ const Crypto = {
         }
         return 'hashed_' + hash.toString(36);
     },
-    
-    // Verify password
     verifyPassword(password, hash) {
         return this.hashPassword(password) === hash;
     }
 };
-
 window.Crypto = Crypto;
