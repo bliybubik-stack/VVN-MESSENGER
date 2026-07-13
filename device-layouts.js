@@ -9,7 +9,7 @@ const DEVICE_LAYOUTS = {
             sidebarCompact: true,
             chatHeaderCompact: true,
             messageMaxWidth: '90%',
-            inputBarHeight: '100px',
+            inputBarHeight: '105px',
             fontSize: '0.85rem',
             avatarSize: '32px',
             spacing: '8px'
@@ -18,7 +18,7 @@ const DEVICE_LAYOUTS = {
             sidebar: 'width:100%; border-right:none;',
             chatArea: 'width:100%;',
             chatHeader: 'padding:6px 12px; min-height:48px;',
-            chatInputBar: 'min-height:100px; padding:8px 12px;',
+            chatInputBar: 'min-height:105px; padding:8px 12px;',
             messages: 'padding:8px 12px;',
             message: 'font-size:0.85rem; padding:6px 10px;',
             avatar: 'width:32px; height:32px;',
@@ -35,7 +35,7 @@ const DEVICE_LAYOUTS = {
             sidebarCompact: false,
             chatHeaderCompact: false,
             messageMaxWidth: '75%',
-            inputBarHeight: '110px',
+            inputBarHeight: '115px',
             fontSize: '0.9rem',
             avatarSize: '40px',
             spacing: '10px'
@@ -44,7 +44,7 @@ const DEVICE_LAYOUTS = {
             sidebar: 'width:35%; border-right:1px solid var(--glass-border);',
             chatArea: 'width:65%;',
             chatHeader: 'padding:8px 16px; min-height:56px;',
-            chatInputBar: 'min-height:110px; padding:10px 14px;',
+            chatInputBar: 'min-height:115px; padding:10px 14px;',
             messages: 'padding:10px 16px;',
             message: 'font-size:0.9rem; padding:8px 12px;',
             avatar: 'width:40px; height:40px;',
@@ -61,7 +61,7 @@ const DEVICE_LAYOUTS = {
             sidebarCompact: false,
             chatHeaderCompact: false,
             messageMaxWidth: '65%',
-            inputBarHeight: '123px',
+            inputBarHeight: '125px',
             fontSize: '1rem',
             avatarSize: '44px',
             spacing: '12px'
@@ -70,7 +70,7 @@ const DEVICE_LAYOUTS = {
             sidebar: 'width:30%; border-right:1px solid var(--glass-border);',
             chatArea: 'width:70%;',
             chatHeader: 'padding:10px 20px; min-height:64px;',
-            chatInputBar: 'min-height:123px; padding:12px 20px;',
+            chatInputBar: 'min-height:125px; padding:12px 20px;',
             messages: 'padding:12px 20px;',
             message: 'font-size:1rem; padding:10px 16px;',
             avatar: 'width:44px; height:44px;',
@@ -83,13 +83,9 @@ function detectDevice() {
     const width = window.innerWidth;
     const height = window.innerHeight;
     const ratio = width / height;
-    if (width < 768 || ratio < 0.8) {
-        return 'phone';
-    } else if (width >= 768 && width < 1200 && height < 1600) {
-        return 'tablet';
-    } else {
-        return 'pc';
-    }
+    if (width < 768 || ratio < 0.8) return 'phone';
+    else if (width >= 768 && width < 1200 && height < 1600) return 'tablet';
+    else return 'pc';
 }
 
 function applyDeviceLayout(deviceType) {
@@ -98,8 +94,7 @@ function applyDeviceLayout(deviceType) {
     localStorage.setItem('vvn_device', deviceType);
     const indicator = document.getElementById('deviceIndicator');
     if (indicator) {
-        indicator.textContent = deviceType === 'phone' ? '📱 Phone' : 
-                               deviceType === 'tablet' ? '📟 Tablet' : '🖥️ PC';
+        indicator.textContent = deviceType === 'phone' ? '📱 Phone' : deviceType === 'tablet' ? '📟 Tablet' : '🖥️ PC';
     }
     const root = document.documentElement;
     const styles = layout.styles;
@@ -128,7 +123,7 @@ function applyDeviceLayout(deviceType) {
             .chat-area.active-mobile { display:flex !important; }
             .sidebar.hide-mobile { display:none !important; }
             .back-btn { display:block !important; }
-            .chat-input-bar { min-height:100px !important; padding:8px 10px !important; }
+            .chat-input-bar { min-height:105px !important; padding:8px 10px !important; }
             .chat-input-bar input { min-height:38px !important; font-size:0.8rem !important; }
             .chat-input-bar button { width:40px !important; height:40px !important; }
             .chat-input-bar .clip-btn { width:36px !important; height:36px !important; }
@@ -141,7 +136,7 @@ function applyDeviceLayout(deviceType) {
         @media (min-width: 769px) and (max-width: 1200px) {
             .sidebar { width:35% !important; }
             .chat-area { width:65% !important; }
-            .chat-input-bar { min-height:110px !important; padding:10px 14px !important; }
+            .chat-input-bar { min-height:115px !important; padding:10px 14px !important; }
             .chat-input-bar input { min-height:42px !important; }
             .chat-input-bar button { width:46px !important; height:46px !important; }
             .message { font-size:0.9rem !important; padding:8px 12px !important; }
@@ -150,7 +145,7 @@ function applyDeviceLayout(deviceType) {
         @media (min-width: 1201px) {
             .sidebar { width:30% !important; }
             .chat-area { width:70% !important; }
-            .chat-input-bar { min-height:123px !important; padding:12px 20px !important; }
+            .chat-input-bar { min-height:125px !important; padding:12px 20px !important; }
             .chat-input-bar input { min-height:48px !important; }
             .chat-input-bar button { width:52px !important; height:52px !important; }
             .message { font-size:1rem !important; padding:10px 16px !important; }
