@@ -67,7 +67,6 @@
         chatPartnerName: document.getElementById('chatPartnerName'),
         chatPartnerStatus: document.getElementById('chatPartnerStatus'),
         chatMessages: document.getElementById('chatMessages'),
-        chatInputContainer: document.getElementById('chatInputContainer'),
         chatInputBar: document.getElementById('chatInputBar'),
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
@@ -128,9 +127,6 @@
         applyCustomTheme: document.getElementById('applyCustomTheme'),
         clipBtn: document.getElementById('clipBtn'),
         micBtn: document.getElementById('micBtn'),
-        smileBtn: document.getElementById('smileBtn'),
-        gifStickerPanel: document.getElementById('gifStickerPanel'),
-        panelClose: document.getElementById('panelClose'),
         fileModal: document.getElementById('fileModal'),
         fileModalClose: document.getElementById('fileModalClose'),
         fileSelectBtn: document.getElementById('fileSelectBtn'),
@@ -166,7 +162,15 @@
         messageAnimationSelect: document.getElementById('messageAnimationSelect'),
         logoutBtn: document.getElementById('logoutBtn'),
         clearDataBtn: document.getElementById('clearDataBtn'),
-        autoDetectLayoutBtn: document.getElementById('autoDetectLayoutBtn')
+        autoDetectLayoutBtn: document.getElementById('autoDetectLayoutBtn'),
+        funBtn: document.getElementById('funBtn'),
+        funPanel: document.getElementById('funPanel'),
+        panelTabs: document.querySelectorAll('.panel-tab'),
+        panelContents: document.querySelectorAll('.panel-content'),
+        stickerGrid: document.getElementById('stickerGrid'),
+        gifGrid: document.getElementById('gifGrid'),
+        pollBtn: document.getElementById('pollBtn'),
+        gameBtn: document.getElementById('gameBtn')
     };
     let selectionMode = false;
     let selectedMessages = new Set();
@@ -183,9 +187,7 @@
         fontFamily: 'inter',
         chatSpacing: 'comfortable',
         timestampFormat: '12h',
-        messageAnimations: 'slide',
-        wallpaper: null,
-        wallpaperBlur: true
+        messageAnimations: 'slide'
     };
     let pendingFiles = [];
     let autoLockTimeout = null;
@@ -194,6 +196,32 @@
     let mediaRecorder = null;
     let audioChunks = [];
     let replyToMessage = null;
+    let recordingSeconds = 0;
+    let recordingInterval = null;
+
+    const GIF_STICKER_PANEL = [
+        { emoji: "😂", label: "lol" },
+        { emoji: "🔥", label: "fire" },
+        { emoji: "👍", label: "ok" },
+        { emoji: "❤️", label: "love" },
+        { emoji: "😮", label: "wow" },
+        { emoji: "🎉", label: "party" },
+        { emoji: "😭", label: "cry" },
+        { emoji: "🥺", label: "pls" },
+        { emoji: "🤣", label: "rofl" },
+        { emoji: "💯", label: "100" },
+        { emoji: "🙌", label: "yes" },
+        { emoji: "✨", label: "sparkle" }
+    ];
+
+    const SAMPLE_GIFS = [
+        'https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif',
+        'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif',
+        'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
+        'https://media.giphy.com/media/3o6ZtqY0XUyP5qXqQo/giphy.gif',
+        'https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif',
+        'https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif'
+    ];
 
     function formatTime(ts) {
         const d = new Date(ts);
@@ -210,16 +238,19 @@
         }
         return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
+
     function formatDate(ts) {
         const d = new Date(ts);
         return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
     }
+
     function getAge(ts) {
         const days = Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24));
         if (days < 1) return 'Today';
         if (days === 1) return '1 day';
         return days + ' days';
     }
+
     function getUserTags(username) {
         const tags = [];
         const u = username.toLowerCase();
@@ -240,6 +271,7 @@
         }
         return tags;
     }
+
     function getBadges(user) {
         const badges = [];
         if (user && user.created) {
@@ -250,17 +282,21 @@
         if (CONFIG.OWNERS && CONFIG.OWNERS.includes(user.username)) badges.push({ label: 'Verified', class: 'badge-verified' });
         return badges;
     }
+
     function getUserByUsername(username) {
         return state.localCache.users.find(u => u.username === username);
     }
+
     function getChatKey(u1, u2) {
         return [u1, u2].sort().join('_');
     }
+
     function getDisplayName(username) {
         if (contactCustomNames[username]) return contactCustomNames[username];
         const user = getUserByUsername(username);
         return user ? user.displayName || username : username;
     }
+
     function sendNotification(username, message, time) {
         if (!('Notification' in window)) return;
         if (Notification.permission === 'granted') {
@@ -272,6 +308,7 @@
             Notification.requestPermission();
         }
     }
+
     function updateLoading(progress) {
         const p = Math.min(progress, 100);
         if (DOM.loaderFill) DOM.loaderFill.style.width = p + '%';
@@ -280,6 +317,7 @@
             setTimeout(() => { if (DOM.loadingOverlay) DOM.loadingOverlay.classList.add('hidden'); }, 300);
         }
     }
+
     function setStatus(text, color) {
         if (DOM.syncStatus) DOM.syncStatus.textContent = text;
         if (DOM.syncDot) DOM.syncDot.className = 'status-dot ' + color;
@@ -300,6 +338,7 @@
             return null;
         }
     }
+
     async function updateBin(data) {
         try {
             setStatus('Saving...', 'yellow');
@@ -362,6 +401,7 @@
             return true;
         }
     }
+
     async function pushToRemote() {
         setStatus('Pushing...', 'yellow');
         const success = await updateBin(state.localCache);
@@ -374,6 +414,7 @@
         if (DOM.authScreen) DOM.authScreen.style.display = 'none';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
     }
+
     function selectDevice(deviceType) {
         state.deviceType = deviceType;
         localStorage.setItem('vvn_device', deviceType);
@@ -396,6 +437,7 @@
             }
         }
     }
+
     function closeDropdown() {
         if (DOM.dropdownMenu) DOM.dropdownMenu.style.display = 'none';
     }
@@ -408,10 +450,309 @@
             case 'search': searchMessages(); break;
             case 'wallpaper': setChatWallpaper(); break;
             case 'bubblecolor': setBubbleColor(); break;
+            case 'fontsize': { const size = prompt('Choose font size (small, medium, large, xl):', chatSettings.fontSize || 'medium'); if (size) setFontSize(size); } break;
+            case 'fontfamily': { const family = prompt('Choose font family (inter, sf, roboto, poppins, helvetica):', chatSettings.fontFamily || 'inter'); if (family) setFontFamily(family); } break;
             case 'chatinfo': showChatInfo(); break;
+            case 'status': setCustomStatus(); break;
+            case 'theme': openSettings(); break;
             default: break;
         }
         closeDropdown();
+    }
+
+    function toggleFunPanel() {
+        if (!DOM.funPanel) return;
+        if (DOM.funPanel.style.display === 'block') {
+            DOM.funPanel.style.display = 'none';
+            if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        } else {
+            DOM.funPanel.style.display = 'block';
+            if (DOM.funBtn) DOM.funBtn.classList.add('active');
+            switchPanelTab('stickers');
+        }
+    }
+
+    function switchPanelTab(tab) {
+        DOM.panelTabs.forEach(t => t.classList.remove('active'));
+        DOM.panelContents.forEach(c => c.classList.remove('active'));
+        const tabEl = document.querySelector('.panel-tab[data-tab="' + tab + '"]');
+        const contentEl = document.getElementById('panel-' + tab);
+        if (tabEl) tabEl.classList.add('active');
+        if (contentEl) contentEl.classList.add('active');
+        if (tab === 'stickers') loadStickers();
+        if (tab === 'gifs') loadGIFs();
+    }
+
+    function loadStickers() {
+        if (!DOM.stickerGrid) return;
+        const stickers = JSON.parse(localStorage.getItem('vvn_stickers') || '[]');
+        if (stickers.length === 0) {
+            DOM.stickerGrid.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:10px;font-size:0.8rem;">No stickers. Upload some!</div>';
+            return;
+        }
+        DOM.stickerGrid.innerHTML = stickers.map(s =>
+            '<img src="' + s + '" class="sticker" onclick="window.sendSticker(\'' + s + '\')" />'
+        ).join('');
+    }
+
+    function loadGIFs() {
+        if (!DOM.gifGrid) return;
+        DOM.gifGrid.innerHTML = SAMPLE_GIFS.map(g =>
+            '<img src="' + g + '" class="gif-item" onclick="window.sendGIF(\'' + g + '\')" />'
+        ).join('');
+    }
+
+    window.uploadSticker = function() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.multiple = true;
+        input.onchange = function(e) {
+            const files = e.target.files;
+            const stickers = JSON.parse(localStorage.getItem('vvn_stickers') || '[]');
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(ev) {
+                    stickers.push(ev.target.result);
+                    localStorage.setItem('vvn_stickers', JSON.stringify(stickers));
+                    if (DOM.stickerGrid) loadStickers();
+                };
+                reader.readAsDataURL(file);
+            });
+        };
+        input.click();
+    };
+
+    window.sendSticker = function(data) {
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages;
+        if (!messages[chatKey]) messages[chatKey] = [];
+        messages[chatKey].push({
+            sender: state.currentUser.username,
+            timestamp: Date.now(),
+            file: { type: 'image', data: data, caption: 'Sticker', name: 'sticker.png', size: '0 KB' },
+            reactions: []
+        });
+        state.localCache.messages = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages[chatKey]);
+        renderChatList();
+        scrollToBottom();
+        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
+        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+    };
+
+    window.sendGIF = function(data) {
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages;
+        if (!messages[chatKey]) messages[chatKey] = [];
+        messages[chatKey].push({
+            sender: state.currentUser.username,
+            timestamp: Date.now(),
+            file: { type: 'image', data: data, caption: 'GIF', name: 'gif.gif', size: '0 KB' },
+            reactions: []
+        });
+        state.localCache.messages = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages[chatKey]);
+        renderChatList();
+        scrollToBottom();
+        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
+        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+    };
+
+    function createPoll() {
+        const question = prompt('Enter poll question:');
+        if (!question) return;
+        const options = [];
+        for (let i = 0; i < 4; i++) {
+            const opt = prompt('Option ' + (i+1) + ' (leave empty to stop):');
+            if (!opt) break;
+            options.push(opt);
+        }
+        if (options.length < 2) { alert('Need at least 2 options'); return; }
+        const pollData = { question, options: options.map(o => ({ text: o, votes: 0 })), totalVotes: 0 };
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages;
+        if (!messages[chatKey]) messages[chatKey] = [];
+        messages[chatKey].push({
+            sender: state.currentUser.username,
+            timestamp: Date.now(),
+            poll: pollData,
+            text: '📊 Poll: ' + question,
+            reactions: []
+        });
+        state.localCache.messages = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages[chatKey]);
+        renderChatList();
+        scrollToBottom();
+        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
+        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+    }
+
+    function playGame() {
+        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
+        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        const games = ['🎮 Tic Tac Toe', '🎯 Rock Paper Scissors', '🧠 Trivia'];
+        const choice = prompt('Choose a game:\n1. Tic Tac Toe\n2. Rock Paper Scissors\n3. Trivia');
+        if (!choice) return;
+        if (choice === '1') playTicTacToe();
+        else if (choice === '2') playRPS();
+        else if (choice === '3') playTrivia();
+        else alert('Invalid choice');
+    }
+
+    function playTicTacToe() {
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        let board = Array(9).fill('');
+        let currentPlayer = 'X';
+        let gameOver = false;
+        const renderBoard = () => {
+            const cells = modal.querySelectorAll('.game-cell');
+            cells.forEach((cell, i) => {
+                cell.textContent = board[i];
+                cell.className = 'game-cell ' + (board[i] === 'X' ? 'x' : board[i] === 'O' ? 'o' : '');
+            });
+            const result = modal.querySelector('.game-result');
+            const winner = checkWinner();
+            if (winner) {
+                result.textContent = winner === 'draw' ? '🤝 Draw!' : '🏆 ' + winner + ' wins!';
+                gameOver = true;
+            } else {
+                result.textContent = currentPlayer + '\'s turn';
+            }
+        };
+        const checkWinner = () => {
+            const winPatterns = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            for (const pattern of winPatterns) {
+                const [a,b,c] = pattern;
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
+            }
+            if (board.every(cell => cell)) return 'draw';
+            return null;
+        };
+        modal.innerHTML = `
+            <div class="modal-overlay" onclick="this.parentElement.remove()"></div>
+            <div class="modal-content glass-card" style="max-width:340px;">
+                <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
+                <h3>🎮 Tic Tac Toe</h3>
+                <div class="game-container">
+                    <div class="game-board">
+                        ${Array(9).fill(0).map((_, i) => `<div class="game-cell" data-index="${i}"></div>`).join('')}
+                    </div>
+                    <div class="game-result">X's turn</div>
+                    <button class="btn-secondary" onclick="this.closest('.modal').remove()" style="margin-top:8px;">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.querySelectorAll('.game-cell').forEach(cell => {
+            cell.addEventListener('click', function() {
+                if (gameOver) return;
+                const index = parseInt(this.dataset.index);
+                if (board[index]) return;
+                board[index] = currentPlayer;
+                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                renderBoard();
+                const winner = checkWinner();
+                if (winner) {
+                    gameOver = true;
+                    if (winner !== 'draw') {
+                        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+                        const messages = state.localCache.messages;
+                        if (!messages[chatKey]) messages[chatKey] = [];
+                        messages[chatKey].push({
+                            sender: state.currentUser.username,
+                            timestamp: Date.now(),
+                            text: '🎮 Tic Tac Toe: ' + winner + ' wins!',
+                            reactions: []
+                        });
+                        state.localCache.messages = messages;
+                        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                        pushToRemote();
+                        renderMessages(messages[chatKey]);
+                        renderChatList();
+                        scrollToBottom();
+                    }
+                }
+            });
+        });
+        renderBoard();
+    }
+
+    function playRPS() {
+        const choices = ['🪨 Rock', '📄 Paper', '✂️ Scissors'];
+        const playerChoice = prompt('🎮 Rock Paper Scissors\n\n1. 🪨 Rock\n2. 📄 Paper\n3. ✂️ Scissors');
+        if (!playerChoice) return;
+        const playerIndex = parseInt(playerChoice) - 1;
+        if (playerIndex < 0 || playerIndex > 2) { alert('Invalid choice'); return; }
+        const botIndex = Math.floor(Math.random() * 3);
+        const result = (playerIndex - botIndex + 3) % 3;
+        let msg = '🎮 Rock Paper Scissors\n\nYou: ' + choices[playerIndex] + '\nBot: ' + choices[botIndex] + '\n\n';
+        if (result === 0) msg += '🤝 Draw!';
+        else if (result === 1) msg += '🎉 You win!';
+        else msg += '😔 You lose!';
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages;
+        if (!messages[chatKey]) messages[chatKey] = [];
+        messages[chatKey].push({ sender: state.currentUser.username, timestamp: Date.now(), text: msg, reactions: [] });
+        state.localCache.messages = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages[chatKey]);
+        renderChatList();
+        scrollToBottom();
+    }
+
+    function playTrivia() {
+        const questions = [
+            { q: 'What is the capital of France?', a: 'Paris' },
+            { q: 'What is 2+2?', a: '4' },
+            { q: 'What is the largest planet?', a: 'Jupiter' },
+            { q: 'What is the speed of light?', a: '299792458' }
+        ];
+        const q = questions[Math.floor(Math.random() * questions.length)];
+        const answer = prompt('🧠 Trivia\n\n' + q.q);
+        if (!answer) return;
+        const correct = answer.toLowerCase().trim() === q.a.toLowerCase();
+        const msg = '🧠 Trivia\n\nQ: ' + q.q + '\nYour answer: ' + answer + '\nCorrect answer: ' + q.a + '\n\n' + (correct ? '✅ Correct!' : '❌ Wrong!');
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages;
+        if (!messages[chatKey]) messages[chatKey] = [];
+        messages[chatKey].push({ sender: state.currentUser.username, timestamp: Date.now(), text: msg, reactions: [] });
+        state.localCache.messages = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages[chatKey]);
+        renderChatList();
+        scrollToBottom();
+    }
+
+    function votePoll(messageId, optionIndex) {
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        const parts = messageId.split('-');
+        const timestamp = parseInt(parts[0]);
+        const index = parseInt(parts[1]);
+        const msg = messages.find((m, i) => m.timestamp === timestamp && i === index);
+        if (!msg || !msg.poll) return;
+        if (msg.poll.options[optionIndex].votedBy && msg.poll.options[optionIndex].votedBy.includes(state.currentUser.username)) {
+            alert('You already voted on this option.');
+            return;
+        }
+        if (!msg.poll.options[optionIndex].votedBy) msg.poll.options[optionIndex].votedBy = [];
+        msg.poll.options[optionIndex].votedBy.push(state.currentUser.username);
+        msg.poll.options[optionIndex].votes++;
+        msg.poll.totalVotes++;
+        state.localCache.messages[chatKey] = messages;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        pushToRemote();
+        renderMessages(messages);
     }
 
     function setChatWallpaper() {
@@ -434,6 +775,7 @@
         };
         input.click();
     }
+
     function applyChatWallpaper() {
         if (chatSettings.wallpaper && DOM.chatMessages) {
             DOM.chatMessages.style.backgroundImage = 'url(' + chatSettings.wallpaper + ')';
@@ -458,6 +800,30 @@
         } else if (color) {
             alert('Invalid color format. Use #RRGGBB');
         }
+    }
+
+    function setFontSize(size) {
+        chatSettings.fontSize = size;
+        localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+        const sizes = { small: 'font-size-small', medium: 'font-size-medium', large: 'font-size-large', xl: 'font-size-xl' };
+        document.querySelectorAll('.message').forEach(el => {
+            el.classList.remove('font-size-small', 'font-size-medium', 'font-size-large', 'font-size-xl');
+            if (sizes[size]) el.classList.add(sizes[size]);
+        });
+        if (DOM.fontSizeSelect) DOM.fontSizeSelect.value = size;
+        alert('Font size updated to: ' + size);
+    }
+
+    function setFontFamily(family) {
+        chatSettings.fontFamily = family;
+        localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
+        const families = { inter: 'font-inter', sf: 'font-sf', roboto: 'font-roboto', poppins: 'font-poppins', helvetica: 'font-helvetica' };
+        document.querySelectorAll('.message, .chat-messages, .chat-item, .message-input').forEach(el => {
+            el.classList.remove('font-inter', 'font-sf', 'font-roboto', 'font-poppins', 'font-helvetica');
+            if (families[family]) el.classList.add(families[family]);
+        });
+        if (DOM.fontFamilySelect) DOM.fontFamilySelect.value = family;
+        alert('Font family updated to: ' + family);
     }
 
     function searchMessages() {
@@ -487,581 +853,34 @@
         alert('📊 Chat Info with ' + partner + '\n\nSent: ' + sent + '\nReceived: ' + received + '\nTotal: ' + total);
     }
 
-    function toggleGifStickerPanel() {
-        const panel = DOM.gifStickerPanel;
-        const smileBtn = DOM.smileBtn;
-        if (!panel) return;
-        if (panel.style.display === 'block') {
-            panel.style.display = 'none';
-            panel.classList.remove('active');
-            if (smileBtn) smileBtn.classList.remove('active');
-        } else {
-            panel.style.display = 'block';
-            panel.classList.add('active');
-            if (smileBtn) smileBtn.classList.add('active');
-            const firstTab = panel.querySelector('.panel-tab.active');
-            if (firstTab) {
-                switchPanelTab(firstTab.dataset.tab);
-            }
-        }
-    }
-
-    function switchPanelTab(tab) {
-        const tabs = document.querySelectorAll('.panel-tab');
-        const grids = {
-            stickers: document.getElementById('stickersGrid'),
-            gifs: document.getElementById('gifsGrid'),
-            polls: document.getElementById('pollsGrid'),
-            games: document.getElementById('gamesGrid')
-        };
-        tabs.forEach(t => t.classList.remove('active'));
-        document.querySelector('.panel-tab[data-tab="' + tab + '"]')?.classList.add('active');
-        Object.keys(grids).forEach(function(key) {
-            if (grids[key]) grids[key].style.display = key === tab ? 'grid' : 'none';
-        });
-    }
-
-    function insertSticker(emoji) {
-        const textarea = DOM.messageInput;
-        if (!textarea) return;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
-        textarea.value = text.substring(0, start) + emoji + text.substring(end);
-        textarea.focus();
-        textarea.selectionStart = textarea.selectionEnd = start + emoji.length;
-        autoResizeTextarea(textarea);
-        if (DOM.gifStickerPanel) {
-            DOM.gifStickerPanel.style.display = 'none';
-            DOM.gifStickerPanel.classList.remove('active');
-        }
-        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-    }
-
-    function sendGIF(gifUrl) {
-        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        const messages = state.localCache.messages;
-        if (!messages[chatKey]) messages[chatKey] = [];
-        messages[chatKey].push({
-            sender: state.currentUser.username,
-            timestamp: Date.now(),
-            file: {
-                type: 'image',
-                data: gifUrl,
-                caption: 'GIF',
-                name: 'gif.gif',
-                size: '0 KB'
-            },
-            reactions: []
-        });
-        state.localCache.messages = messages;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        pushToRemote();
-        renderMessages(messages[chatKey]);
-        renderChatList();
-        scrollToBottom();
-        if (DOM.gifStickerPanel) {
-            DOM.gifStickerPanel.style.display = 'none';
-            DOM.gifStickerPanel.classList.remove('active');
-        }
-        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-    }
-
-    function createPollFromPanel(type) {
-        const question = prompt('Enter poll question:');
-        if (!question) return;
-        let options = [];
-        if (type === 'yesno') {
-            options = ['Yes', 'No'];
-        } else if (type === 'quick') {
-            options = ['Option 1', 'Option 2'];
-        } else {
-            for (let i = 0; i < 4; i++) {
-                const opt = prompt('Option ' + (i+1) + ' (leave empty to stop):');
-                if (!opt) break;
-                options.push(opt);
-            }
-        }
-        if (options.length < 2) { alert('Need at least 2 options'); return; }
-        const pollData = { question: question, options: options.map(function(o) { return { text: o, votes: 0, votedBy: [] }; }), totalVotes: 0 };
-        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        const messages = state.localCache.messages;
-        if (!messages[chatKey]) messages[chatKey] = [];
-        messages[chatKey].push({
-            sender: state.currentUser.username,
-            timestamp: Date.now(),
-            poll: pollData,
-            text: '📊 Poll: ' + question,
-            reactions: []
-        });
-        state.localCache.messages = messages;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        pushToRemote();
-        renderMessages(messages[chatKey]);
-        renderChatList();
-        scrollToBottom();
-        if (DOM.gifStickerPanel) {
-            DOM.gifStickerPanel.style.display = 'none';
-            DOM.gifStickerPanel.classList.remove('active');
-        }
-        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-    }
-
-    function startGameFromPanel(game) {
-        if (DOM.gifStickerPanel) {
-            DOM.gifStickerPanel.style.display = 'none';
-            DOM.gifStickerPanel.classList.remove('active');
-        }
-        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        if (game === 'tictactoe') playTicTacToe();
-        else if (game === 'rps') playRPS();
-        else if (game === 'trivia') playTrivia();
-    }
-
-    function autoResizeTextarea(textarea) {
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-    }
-
-    function handleTextareaInput(e) {
-        const textarea = e.target;
-        autoResizeTextarea(textarea);
-        const sendBtn = DOM.sendBtn;
-        if (sendBtn) {
-            const hasText = textarea.value.trim().length > 0;
-            sendBtn.classList.toggle('has-text', hasText);
-        }
-    }
-
-    function playTicTacToe() {
-        const modal = document.createElement('div');
-        modal.className = 'modal active';
-        let board = Array(9).fill('');
-        let currentPlayer = 'X';
-        let gameOver = false;
-        var renderBoard = function() {
-            var cells = modal.querySelectorAll('.game-cell');
-            cells.forEach(function(cell, i) {
-                cell.textContent = board[i];
-                cell.className = 'game-cell ' + (board[i] === 'X' ? 'x' : board[i] === 'O' ? 'o' : '');
-            });
-            var result = modal.querySelector('.game-result');
-            var winner = checkWinner();
-            if (winner) {
-                result.textContent = winner === 'draw' ? '🤝 Draw!' : '🏆 ' + winner + ' wins!';
-                gameOver = true;
-            } else {
-                result.textContent = currentPlayer + '\'s turn';
-            }
-        };
-        var checkWinner = function() {
-            var winPatterns = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-            for (var i = 0; i < winPatterns.length; i++) {
-                var pattern = winPatterns[i];
-                var a = pattern[0], b = pattern[1], c = pattern[2];
-                if (board[a] && board[a] === board[b] && board[a] === board[c]) return board[a];
-            }
-            if (board.every(function(cell) { return cell; })) return 'draw';
-            return null;
-        };
-        modal.innerHTML = '<div class="modal-overlay" onclick="this.parentElement.remove()"></div><div class="modal-content glass-card" style="max-width:340px;"><button class="modal-close" onclick="this.closest(\'.modal\').remove()">✕</button><h3>🎮 Tic Tac Toe</h3><div class="game-container"><div class="game-board">' + Array(9).fill(0).map(function(_, i) { return '<div class="game-cell" data-index="' + i + '"></div>'; }).join('') + '</div><div class="game-result">X\'s turn</div><button class="btn-secondary" onclick="this.closest(\'.modal\').remove()" style="margin-top:8px;">Close</button></div></div>';
-        document.body.appendChild(modal);
-        modal.querySelectorAll('.game-cell').forEach(function(cell) {
-            cell.addEventListener('click', function() {
-                if (gameOver) return;
-                var index = parseInt(this.dataset.index);
-                if (board[index]) return;
-                board[index] = currentPlayer;
-                currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-                renderBoard();
-                var winner = checkWinner();
-                if (winner) {
-                    gameOver = true;
-                    if (winner !== 'draw') {
-                        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-                        var messages = state.localCache.messages;
-                        if (!messages[chatKey]) messages[chatKey] = [];
-                        messages[chatKey].push({
-                            sender: state.currentUser.username,
-                            timestamp: Date.now(),
-                            text: '🎮 Tic Tac Toe: ' + winner + ' wins!',
-                            reactions: []
-                        });
-                        state.localCache.messages = messages;
-                        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-                        pushToRemote();
-                        renderMessages(messages[chatKey]);
-                        renderChatList();
-                        scrollToBottom();
-                    }
+    function setCustomStatus() {
+        const status = prompt('Set your custom status:', state.currentUser?.status || '');
+        if (status !== null) {
+            const user = state.currentUser;
+            if (user) {
+                user.status = status.trim() || '';
+                const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
+                if (userIndex !== -1) {
+                    state.localCache.users[userIndex] = user;
+                    localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                    pushToRemote();
+                    if (DOM.settingsStatus) DOM.settingsStatus.value = status.trim() || '';
+                    alert('Status updated!');
                 }
-            });
-        });
-        renderBoard();
-    }
-
-    function playRPS() {
-        var choices = ['🪨 Rock', '📄 Paper', '✂️ Scissors'];
-        var playerChoice = prompt('🎮 Rock Paper Scissors\n\n1. 🪨 Rock\n2. 📄 Paper\n3. ✂️ Scissors');
-        if (!playerChoice) return;
-        var playerIndex = parseInt(playerChoice) - 1;
-        if (playerIndex < 0 || playerIndex > 2) { alert('Invalid choice'); return; }
-        var botIndex = Math.floor(Math.random() * 3);
-        var result = (playerIndex - botIndex + 3) % 3;
-        var msg = '🎮 Rock Paper Scissors\n\nYou: ' + choices[playerIndex] + '\nBot: ' + choices[botIndex] + '\n\n';
-        if (result === 0) msg += '🤝 Draw!';
-        else if (result === 1) msg += '🎉 You win!';
-        else msg += '😔 You lose!';
-        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var messages = state.localCache.messages;
-        if (!messages[chatKey]) messages[chatKey] = [];
-        messages[chatKey].push({ sender: state.currentUser.username, timestamp: Date.now(), text: msg, reactions: [] });
-        state.localCache.messages = messages;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        pushToRemote();
-        renderMessages(messages[chatKey]);
-        renderChatList();
-        scrollToBottom();
-    }
-
-    function playTrivia() {
-        var questions = [
-            { q: 'What is the capital of France?', a: 'Paris' },
-            { q: 'What is 2+2?', a: '4' },
-            { q: 'What is the largest planet?', a: 'Jupiter' }
-        ];
-        var q = questions[Math.floor(Math.random() * questions.length)];
-        var answer = prompt('🧠 Trivia\n\n' + q.q);
-        if (!answer) return;
-        var correct = answer.toLowerCase().trim() === q.a.toLowerCase();
-        var msg = '🧠 Trivia\n\nQ: ' + q.q + '\nYour answer: ' + answer + '\nCorrect answer: ' + q.a + '\n\n' + (correct ? '✅ Correct!' : '❌ Wrong!');
-        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var messages = state.localCache.messages;
-        if (!messages[chatKey]) messages[chatKey] = [];
-        messages[chatKey].push({ sender: state.currentUser.username, timestamp: Date.now(), text: msg, reactions: [] });
-        state.localCache.messages = messages;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        pushToRemote();
-        renderMessages(messages[chatKey]);
-        renderChatList();
-        scrollToBottom();
-    }
-
-    function votePoll(messageId, optionIndex) {
-        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var messages = state.localCache.messages[chatKey] || [];
-        var parts = messageId.split('-');
-        var timestamp = parseInt(parts[0]);
-        var index = parseInt(parts[1]);
-        var msg = messages.find(function(m, i) { return m.timestamp === timestamp && i === index; });
-        if (!msg || !msg.poll) return;
-        if (msg.poll.options[optionIndex].votedBy && msg.poll.options[optionIndex].votedBy.indexOf(state.currentUser.username) !== -1) {
-            alert('You already voted on this option.');
-            return;
-        }
-        if (!msg.poll.options[optionIndex].votedBy) msg.poll.options[optionIndex].votedBy = [];
-        msg.poll.options[optionIndex].votedBy.push(state.currentUser.username);
-        msg.poll.options[optionIndex].votes++;
-        msg.poll.totalVotes++;
-        state.localCache.messages[chatKey] = messages;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        pushToRemote();
-        renderMessages(messages);
-    }
-
-    async function loginUser(username, password) {
-        var users = state.localCache.users;
-        var user = users.find(function(u) { return u.username === username && u.password === password; });
-        if (!user) {
-            if (DOM.authError) { DOM.authError.textContent = 'Incorrect username or password'; DOM.authError.style.display = 'block'; }
-            return false;
-        }
-        localStorage.setItem('vvn_session', JSON.stringify({ username: user.username }));
-        state.currentUser = user;
-        renderMessenger();
-        resetAutoLock();
-        return true;
-    }
-    async function registerUser(username, displayName, password) {
-        var users = state.localCache.users;
-        if (users.find(function(u) { return u.username === username; })) {
-            if (DOM.regError) { DOM.regError.textContent = 'Username already taken'; DOM.regError.style.display = 'block'; }
-            return false;
-        }
-        var newUser = {
-            username: username,
-            displayName: displayName || username,
-            password: password,
-            bio: '',
-            status: '',
-            online: true,
-            created: Date.now(),
-            avatar: '',
-            rainbow: false
-        };
-        users.push(newUser);
-        state.localCache.users = users;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        await pushToRemote();
-        localStorage.setItem('vvn_session', JSON.stringify({ username: newUser.username }));
-        state.currentUser = newUser;
-        renderMessenger();
-        resetAutoLock();
-        return true;
-    }
-
-    function renderMessenger() {
-        if (DOM.authScreen) DOM.authScreen.style.display = 'none';
-        if (DOM.messenger) DOM.messenger.style.display = 'flex';
-        var session = JSON.parse(localStorage.getItem('vvn_session'));
-        if (!session) { logout(); return; }
-        var user = state.localCache.users.find(function(u) { return u.username === session.username; });
-        if (!user) { logout(); return; }
-        state.currentUser = user;
-        if (DOM.sidebarUsername) DOM.sidebarUsername.textContent = user.displayName || user.username;
-        renderChatList();
-        if (state.currentChatPartner) openChat(state.currentChatPartner);
-        else showPlaceholder();
-        updateMobileView();
-    }
-
-    function logout() {
-        localStorage.removeItem('vvn_session');
-        state.currentUser = null;
-        state.currentChatPartner = null;
-        if (state.syncInterval) clearInterval(state.syncInterval);
-        if (autoLockTimeout) clearTimeout(autoLockTimeout);
-        showDeviceSelection();
-    }
-
-    function resetAutoLock() {
-        if (autoLockTimeout) clearTimeout(autoLockTimeout);
-        var lockTime = parseInt(state.settings.autoLock);
-        if (lockTime && lockTime !== 'never') {
-            autoLockTimeout = setTimeout(function() {
-                if (state.currentUser) { logout(); alert('Auto-locked due to inactivity.'); }
-            }, lockTime * 60 * 1000);
-        }
-    }
-    function updateActivity() { lastActivity = Date.now(); resetAutoLock(); }
-
-    function renderChatList() {
-        if (!state.currentUser || !DOM.chatList) return;
-        var chats = state.localCache.chats;
-        var messages = state.localCache.messages;
-        var chatKeys = Object.keys(chats).filter(function(k) { return k.indexOf(state.currentUser.username) !== -1; });
-        blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
-        chatKeys = chatKeys.filter(function(k) {
-            var parts = k.split('_');
-            var partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
-            return blockedUsers.indexOf(partner) === -1;
-        });
-        var pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
-        var html = '';
-        if (chatKeys.length === 0) {
-            html = '<div class="empty-chats">No chats yet. Search for users above.</div>';
-        } else {
-            var sorted = chatKeys.sort(function(a, b) {
-                var partsA = a.split('_'); var partsB = b.split('_');
-                var partnerA = partsA[0] === state.currentUser.username ? partsA[1] : partsA[0];
-                var partnerB = partsB[0] === state.currentUser.username ? partsB[1] : partsB[0];
-                var isPinnedA = pinnedContacts.indexOf(partnerA) !== -1;
-                var isPinnedB = pinnedContacts.indexOf(partnerB) !== -1;
-                if (isPinnedA && !isPinnedB) return -1;
-                if (!isPinnedA && isPinnedB) return 1;
-                var ma = messages[a] || []; var mb = messages[b] || [];
-                return (mb.length ? mb[mb.length-1].timestamp : 0) - (ma.length ? ma[ma.length-1].timestamp : 0);
-            });
-            for (var i = 0; i < sorted.length; i++) {
-                var key = sorted[i];
-                var parts = key.split('_');
-                var partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
-                var msgs = messages[key] || [];
-                var last = msgs.length ? msgs[msgs.length-1] : null;
-                var preview = last ? (last.text || '📎 File') : 'Start chatting';
-                var time = last ? formatTime(last.timestamp) : '';
-                var pUser = getUserByUsername(partner);
-                var tags = getUserTags(partner);
-                var tagHtml = tags.map(function(t) { return '<span class="tag">' + t.label + '</span>'; }).join('');
-                var isPinned = pinnedContacts.indexOf(partner) !== -1;
-                var displayName = getDisplayName(partner);
-                var isRainbow = pUser && pUser.rainbow;
-                html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="avatar">' + partner.charAt(0).toUpperCase() + '</div>';
-                html += '<div class="chat-info">';
-                html += '<div class="cname"><span' + (isRainbow ? ' class="rainbow-name"' : '') + '>' + displayName + '</span> ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
-                html += '<div class="preview">' + preview + '</div>';
-                html += '</div>';
-                html += '<div class="time">' + time + '</div>';
-                html += '</div>';
             }
-        }
-        DOM.chatList.innerHTML = html;
-        document.querySelectorAll('.chat-item').forEach(function(el) {
-            el.addEventListener('click', function() { openChat(this.dataset.partner); updateActivity(); });
-        });
-    }
-
-    function openChat(partnerUsername) {
-        if (!state.currentUser) return;
-        if (blockedUsers.indexOf(partnerUsername) !== -1) { alert('This user is blocked. Unblock them to chat.'); return; }
-        state.currentChatPartner = partnerUsername;
-        var partner = getUserByUsername(partnerUsername);
-        if (!partner) return;
-        if (DOM.chatActive) DOM.chatActive.style.display = 'flex';
-        if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'none';
-        if (DOM.chatHeader) DOM.chatHeader.style.display = 'flex';
-        if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
-        var displayName = getDisplayName(partnerUsername);
-        if (DOM.chatPartnerName) {
-            DOM.chatPartnerName.textContent = displayName;
-            if (partner.rainbow) DOM.chatPartnerName.classList.add('rainbow-name');
-            else DOM.chatPartnerName.classList.remove('rainbow-name');
-        }
-        if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
-        if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
-        var chatKey = getChatKey(state.currentUser.username, partnerUsername);
-        var msgs = state.localCache.messages[chatKey] || [];
-        renderMessages(msgs);
-        var chats = state.localCache.chats;
-        if (!chats[chatKey]) {
-            chats[chatKey] = { participants: [state.currentUser.username, partnerUsername], created: Date.now() };
-            state.localCache.chats = chats;
-            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-            pushToRemote();
-        }
-        var pinned = pinnedMessages[chatKey] || [];
-        if (pinned.length > 0) showPinnedDock(chatKey);
-        else DOM.pinnedDock.style.display = 'none';
-        applyChatBackground();
-        applyChatWallpaper();
-        renderChatList();
-        updateMobileView();
-        scrollToBottom();
-        clearSelection();
-        closeDropdown();
-    }
-
-    function renderMessages(msgs) {
-        if (!DOM.chatMessages) return;
-        DOM.chatMessages.innerHTML = '';
-        if (!msgs.length) {
-            DOM.chatMessages.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">No messages yet</div>';
-            return;
-        }
-        for (var i = 0; i < msgs.length; i++) {
-            var msg = msgs[i];
-            var msgId = msg.timestamp + '-' + i;
-            var div = document.createElement('div');
-            var isOutgoing = msg.sender === state.currentUser.username;
-            var bubbleStyle = chatSettings.bubbleStyle || 'rounded';
-            div.className = 'message ' + (isOutgoing ? 'outgoing' : 'incoming') + ' bubble-' + bubbleStyle + ' ' + (chatSettings.messageAnimations || 'slide') + '-in';
-            if (chatSettings.fontSize) {
-                var sizes = { small: 'font-size-small', medium: 'font-size-medium', large: 'font-size-large', xl: 'font-size-xl' };
-                if (sizes[chatSettings.fontSize]) div.classList.add(sizes[chatSettings.fontSize]);
-            }
-            if (chatSettings.fontFamily) {
-                var families = { inter: 'font-inter', sf: 'font-sf', roboto: 'font-roboto', poppins: 'font-poppins', helvetica: 'font-helvetica' };
-                if (families[chatSettings.fontFamily]) div.classList.add(families[chatSettings.fontFamily]);
-            }
-            div.dataset.msgId = msgId;
-            if (chatSettings.bubbleColor && isOutgoing) {
-                div.style.background = chatSettings.bubbleColor;
-            }
-            var content = '';
-            if (msg.poll) {
-                content += '<div class="poll-container">';
-                content += '<div class="poll-question">📊 ' + msg.poll.question + '</div>';
-                msg.poll.options.forEach(function(opt, idx) {
-                    var pct = msg.poll.totalVotes > 0 ? Math.round((opt.votes / msg.poll.totalVotes) * 100) : 0;
-                    var hasVoted = opt.votedBy && opt.votedBy.indexOf(state.currentUser.username) !== -1;
-                    content += '<div class="poll-option" data-msg="' + msgId + '" data-opt="' + idx + '">';
-                    content += '<span>' + opt.text + '</span>';
-                    content += '<div class="poll-bar"><div class="poll-fill" style="width:' + pct + '%"></div></div>';
-                    content += '<span class="poll-votes">' + opt.votes + '</span>';
-                    content += '</div>';
-                });
-                content += '</div>';
-            } else if (msg.file) {
-                if (msg.file.type === 'image') {
-                    content += '<div class="file-content"><img src="' + msg.file.data + '" alt="Image" onclick="window.open(this.src)" /></div>';
-                } else if (msg.file.type === 'video') {
-                    content += '<div class="file-content"><video controls><source src="' + msg.file.data + '" /></video></div>';
-                } else if (msg.file.type === 'audio') {
-                    content += '<div class="file-content"><div class="voice-message">';
-                    content += '<button class="play-btn" onclick="this.querySelector(\'img\').style.display=this.querySelector(\'img\').style.display===\'none\'?\'block\':\'none\'"><img src="icons/play.png" alt="Play" width="16" height="16" /></button>';
-                    content += '<div class="waveform">';
-                    for (var w = 0; w < 20; w++) content += '<div class="bar"></div>';
-                    content += '</div>';
-                    content += '<span class="duration">0:00</span>';
-                    content += '</div></div>';
-                } else {
-                    content += '<div class="file-content"><div class="file-info">';
-                    content += '<div class="file-icon">📄</div>';
-                    content += '<div class="file-name">' + (msg.file.name || 'File') + '</div>';
-                    content += '<div class="file-size">' + (msg.file.size || '0 KB') + '</div>';
-                    content += '</div></div>';
-                }
-                if (msg.file.caption) content += '<div class="file-caption">' + msg.file.caption + '</div>';
-            } else {
-                content = msg.text || '';
-            }
-            if (msg.reactions && msg.reactions.length > 0) {
-                content += '<div class="reactions">';
-                var reactionCounts = {};
-                msg.reactions.forEach(function(r) { reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1; });
-                Object.keys(reactionCounts).forEach(function(emoji) {
-                    var count = reactionCounts[emoji];
-                    var isUserReacted = msg.reactions.some(function(r) { return r.user === state.currentUser.username && r.emoji === emoji; });
-                    content += '<span class="reaction' + (isUserReacted ? ' active' : '') + '" data-msg="' + msgId + '" data-emoji="' + emoji + '">' + emoji + ' ' + count + '</span>';
-                });
-                content += '</div>';
-            }
-            if (msg.edited) div.classList.add('edited');
-            div.innerHTML = '<div class="selection-circle"></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
-            DOM.chatMessages.appendChild(div);
-        }
-        document.querySelectorAll('.reaction').forEach(function(el) {
-            el.addEventListener('click', function() {
-                var msgId = this.dataset.msg;
-                var emoji = this.dataset.emoji;
-                addReaction(msgId, emoji);
-            });
-        });
-        document.querySelectorAll('.poll-option').forEach(function(el) {
-            el.addEventListener('click', function() {
-                var msgId = this.dataset.msg;
-                var opt = parseInt(this.dataset.opt);
-                votePoll(msgId, opt);
-            });
-        });
-        scrollToBottom();
-    }
-
-    function scrollToBottom() {
-        setTimeout(function() { if (DOM.chatMessages) DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight; }, 50);
-    }
-
-    function showPlaceholder() {
-        if (DOM.chatActive) DOM.chatActive.style.display = 'none';
-        if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'flex';
-        if (state.isMobile) {
-            var sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.remove('hide-mobile');
-            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
 
     function addReaction(msgId, emoji) {
-        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var messages = state.localCache.messages[chatKey] || [];
-        var parts = msgId.split('-');
-        var timestamp = parseInt(parts[0]);
-        var index = parseInt(parts[1]);
-        var msg = messages.find(function(m, i) { return m.timestamp === timestamp && i === index; });
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        const parts = msgId.split('-');
+        const timestamp = parseInt(parts[0]);
+        const index = parseInt(parts[1]);
+        const msg = messages.find((m, i) => m.timestamp === timestamp && i === index);
         if (!msg) return;
         if (!msg.reactions) msg.reactions = [];
-        var existing = msg.reactions.find(function(r) { return r.user === state.currentUser.username; });
+        const existing = msg.reactions.find(r => r.user === state.currentUser.username);
         if (existing) { existing.emoji = emoji; }
         else { msg.reactions.push({ user: state.currentUser.username, emoji: emoji }); }
         state.localCache.messages[chatKey] = messages;
@@ -1073,15 +892,14 @@
     async function sendMessage() {
         if (!state.currentUser || !state.currentChatPartner) return;
         if (!DOM.messageInput) return;
-        var text = DOM.messageInput.value.trim();
+        const text = DOM.messageInput.value.trim();
         if (!text && pendingFiles.length === 0) return;
-        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var messages = state.localCache.messages;
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
         if (pendingFiles.length > 0) {
-            var caption = DOM.fileCaption ? DOM.fileCaption.value.trim() : '';
-            for (var f = 0; f < pendingFiles.length; f++) {
-                var file = pendingFiles[f];
+            const caption = DOM.fileCaption ? DOM.fileCaption.value.trim() : '';
+            for (const file of pendingFiles) {
                 messages[chatKey].push({
                     sender: state.currentUser.username,
                     timestamp: Date.now(),
@@ -1095,11 +913,11 @@
             if (DOM.fileCaption) DOM.fileCaption.value = '';
             if (DOM.fileModal) DOM.fileModal.classList.remove('active');
         } else {
-            var replyData = null;
+            let replyData = null;
             if (replyToMessage) {
                 replyData = { sender: replyToMessage.sender, text: replyToMessage.text || '📎 File' };
                 replyToMessage = null;
-                var indicator = document.getElementById('replyIndicator');
+                const indicator = document.getElementById('replyIndicator');
                 if (indicator) indicator.remove();
                 DOM.messageInput.placeholder = 'Type a message...';
             }
@@ -1113,7 +931,7 @@
         }
         state.localCache.messages = messages;
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        var chats = state.localCache.chats;
+        const chats = state.localCache.chats;
         if (!chats[chatKey]) {
             chats[chatKey] = { participants: [state.currentUser.username, state.currentChatPartner], created: Date.now() };
             state.localCache.chats = chats;
@@ -1122,48 +940,58 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         if (DOM.messageInput) DOM.messageInput.value = '';
-        autoResizeTextarea(DOM.messageInput);
         scrollToBottom();
         updateActivity();
         hideTypingIndicator();
+        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
+        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
     }
 
-    async function startVoiceRecording() {
+    function startVoiceRecording() {
         if (isRecording) return;
         try {
-            var stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-            mediaRecorder.ondataavailable = function(event) { audioChunks.push(event.data); };
-            mediaRecorder.onstop = function() {
-                var audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                var reader = new FileReader();
-                reader.onload = function() {
-                    var audioData = reader.result;
-                    var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-                    var messages = state.localCache.messages;
-                    if (!messages[chatKey]) messages[chatKey] = [];
-                    messages[chatKey].push({
-                        sender: state.currentUser.username,
-                        timestamp: Date.now(),
-                        file: { type: 'audio', data: audioData, caption: 'Voice message' },
-                        reactions: []
-                    });
-                    state.localCache.messages = messages;
-                    localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-                    pushToRemote();
-                    renderMessages(messages[chatKey]);
-                    renderChatList();
-                    scrollToBottom();
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                recordingSeconds = 0;
+                mediaRecorder.ondataavailable = function(event) { audioChunks.push(event.data); };
+                mediaRecorder.onstop = function() {
+                    clearInterval(recordingInterval);
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const reader = new FileReader();
+                    reader.onload = function() {
+                        const audioData = reader.result;
+                        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+                        const messages = state.localCache.messages;
+                        if (!messages[chatKey]) messages[chatKey] = [];
+                        messages[chatKey].push({
+                            sender: state.currentUser.username,
+                            timestamp: Date.now(),
+                            file: { type: 'audio', data: audioData, caption: 'Voice message' },
+                            reactions: []
+                        });
+                        state.localCache.messages = messages;
+                        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                        pushToRemote();
+                        renderMessages(messages[chatKey]);
+                        renderChatList();
+                        scrollToBottom();
+                    };
+                    reader.readAsDataURL(audioBlob);
+                    if (DOM.micBtn) DOM.micBtn.style.background = '';
+                    setStatus('Connected', 'green');
+                    isRecording = false;
+                    DOM.messageInput.placeholder = 'Type a message...';
                 };
-                reader.readAsDataURL(audioBlob);
-            };
-            mediaRecorder.start();
-            isRecording = true;
-            if (DOM.micBtn) {
-                DOM.micBtn.classList.add('recording');
-            }
-            setStatus('Recording...', 'red');
+                mediaRecorder.start();
+                isRecording = true;
+                recordingInterval = setInterval(() => { recordingSeconds++; }, 1000);
+                if (DOM.micBtn) DOM.micBtn.style.background = 'rgba(255,0,0,0.2)';
+                DOM.messageInput.placeholder = 'Recording... ' + recordingSeconds + 's';
+                setStatus('Recording...', 'red');
+            }).catch(err => {
+                alert('Could not access microphone. Please allow microphone access.');
+            });
         } catch (err) {
             alert('Could not access microphone. Please allow microphone access.');
         }
@@ -1172,33 +1000,30 @@
     function stopVoiceRecording() {
         if (mediaRecorder && isRecording) {
             mediaRecorder.stop();
-            mediaRecorder.stream.getTracks().forEach(function(track) { track.stop(); });
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            clearInterval(recordingInterval);
             isRecording = false;
-            if (DOM.micBtn) {
-                DOM.micBtn.classList.remove('recording');
-            }
+            if (DOM.micBtn) DOM.micBtn.style.background = '';
             setStatus('Connected', 'green');
+            DOM.messageInput.placeholder = 'Type a message...';
         }
     }
 
     function searchUsers(query) {
         if (!query.trim() || !DOM.searchResults) { DOM.searchResults.style.display = 'none'; return; }
-        var users = state.localCache.users;
-        var q = query.toLowerCase();
-        var found = users.filter(function(u) {
-            return u.username !== state.currentUser.username && blockedUsers.indexOf(u.username) === -1 &&
-                (u.username.toLowerCase().indexOf(q) !== -1 || (u.displayName && u.displayName.toLowerCase().indexOf(q) !== -1));
-        });
+        const users = state.localCache.users;
+        const q = query.toLowerCase();
+        const found = users.filter(u => u.username !== state.currentUser.username && !blockedUsers.includes(u.username) &&
+            (u.username.toLowerCase().includes(q) || (u.displayName && u.displayName.toLowerCase().includes(q))));
         if (found.length === 0) {
             DOM.searchResults.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:0.85rem;">No users found</div>';
             DOM.searchResults.style.display = 'block';
             return;
         }
-        var html = '';
-        for (var i = 0; i < found.length; i++) {
-            var u = found[i];
-            var tags = getUserTags(u.username);
-            var tagHtml = tags.map(function(t) { return '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>'; }).join('');
+        let html = '';
+        for (const u of found) {
+            const tags = getUserTags(u.username);
+            const tagHtml = tags.map(t => '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>').join('');
             html += '<div class="search-result-item" data-username="' + u.username + '">';
             html += '<div class="avatar">' + u.username.charAt(0).toUpperCase() + '</div>';
             html += '<div class="info">';
@@ -1208,21 +1033,21 @@
         }
         DOM.searchResults.innerHTML = html;
         DOM.searchResults.style.display = 'block';
-        document.querySelectorAll('.search-result-item').forEach(function(el) {
+        document.querySelectorAll('.search-result-item').forEach(el => {
             el.addEventListener('click', function() { openChat(this.dataset.username); DOM.searchResults.style.display = 'none'; if (DOM.searchInput) DOM.searchInput.value = ''; updateActivity(); });
         });
     }
 
     function showProfile(username) {
-        var user = getUserByUsername(username);
+        const user = getUserByUsername(username);
         if (!user) return;
-        var tags = getUserTags(username);
+        const tags = getUserTags(username);
         if (DOM.profileTags) {
-            DOM.profileTags.innerHTML = tags.map(function(t) { return '<span class="tag ' + t.class + '">' + t.label + '</span>'; }).join('');
+            DOM.profileTags.innerHTML = tags.map(t => '<span class="tag ' + t.class + '">' + t.label + '</span>').join('');
         }
-        var badges = getBadges(user);
+        const badges = getBadges(user);
         if (DOM.profileBadges) {
-            DOM.profileBadges.innerHTML = badges.map(function(b) { return '<span class="badge ' + b.class + '">' + b.label + '</span>'; }).join('');
+            DOM.profileBadges.innerHTML = badges.map(b => '<span class="badge ' + b.class + '">' + b.label + '</span>').join('');
         }
         if (DOM.profileDisplayName) DOM.profileDisplayName.textContent = user.displayName || user.username;
         if (DOM.profileUsername) DOM.profileUsername.textContent = '@' + user.username;
@@ -1233,7 +1058,7 @@
         if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
         if (DOM.profileUserID) DOM.profileUserID.textContent = 'ID: ' + user.username + '-' + (user.created || '').toString().slice(-6);
         if (state.settings.devMode && CONFIG.DEV_PIN) {
-            var pinCheck = prompt('Enter developer PIN to view password:');
+            const pinCheck = prompt('Enter developer PIN to view password:');
             if (pinCheck === CONFIG.DEV_PIN && DOM.profilePassword) {
                 DOM.profilePassword.style.display = 'block';
                 DOM.profilePassword.textContent = 'Password: ' + user.password;
@@ -1246,7 +1071,7 @@
     }
 
     function openSettings() {
-        var user = state.currentUser;
+        const user = state.currentUser;
         if (!user) return;
         if (DOM.settingsDisplayName) DOM.settingsDisplayName.value = user.displayName || '';
         if (DOM.settingsUsername) DOM.settingsUsername.value = user.username;
@@ -1254,7 +1079,7 @@
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
         if (DOM.settingsStatus) DOM.settingsStatus.value = user.status || '';
         if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
-        var savedSettings = localStorage.getItem('vvn_settings');
+        const savedSettings = localStorage.getItem('vvn_settings');
         if (savedSettings) state.settings = JSON.parse(savedSettings);
         if (DOM.e2eeToggle) DOM.e2eeToggle.checked = state.settings.e2ee;
         if (DOM.twofaToggle) DOM.twofaToggle.checked = state.settings.twofa;
@@ -1279,18 +1104,18 @@
     }
 
     async function saveSettings() {
-        var user = state.currentUser;
+        const user = state.currentUser;
         if (!user) return;
-        var displayName = DOM.settingsDisplayName ? DOM.settingsDisplayName.value.trim() || user.username : user.username;
-        var username = DOM.settingsUsername ? DOM.settingsUsername.value.trim() : user.username;
-        var password = DOM.settingsPassword ? DOM.settingsPassword.value.trim() : '';
-        var bio = DOM.settingsBio ? DOM.settingsBio.value.trim() : '';
-        var status = DOM.settingsStatus ? DOM.settingsStatus.value.trim() : '';
+        const displayName = DOM.settingsDisplayName ? DOM.settingsDisplayName.value.trim() || user.username : user.username;
+        const username = DOM.settingsUsername ? DOM.settingsUsername.value.trim() : user.username;
+        const password = DOM.settingsPassword ? DOM.settingsPassword.value.trim() : '';
+        const bio = DOM.settingsBio ? DOM.settingsBio.value.trim() : '';
+        const status = DOM.settingsStatus ? DOM.settingsStatus.value.trim() : '';
         if (username !== user.username) {
-            var existing = state.localCache.users.find(function(u) { return u.username === username && u.username !== user.username; });
+            const existing = state.localCache.users.find(u => u.username === username && u.username !== user.username);
             if (existing) { alert('Username already taken'); return; }
         }
-        var userIndex = state.localCache.users.findIndex(function(u) { return u.username === user.username; });
+        const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
         if (userIndex !== -1) {
             state.localCache.users[userIndex] = {
                 ...state.localCache.users[userIndex],
@@ -1302,7 +1127,7 @@
             };
             state.currentUser = state.localCache.users[userIndex];
             if (username !== user.username) {
-                var session = JSON.parse(localStorage.getItem('vvn_session'));
+                const session = JSON.parse(localStorage.getItem('vvn_session'));
                 if (session) { session.username = username; localStorage.setItem('vvn_session', JSON.stringify(session)); }
             }
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -1316,11 +1141,11 @@
     function applyTheme(theme) {
         state.settings.theme = theme;
         localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
-        document.querySelectorAll('.theme-card').forEach(function(card) {
+        document.querySelectorAll('.theme-card').forEach(card => {
             card.classList.remove('active');
             if (card.dataset.theme === theme) card.classList.add('active');
         });
-        var root = document.documentElement;
+        const root = document.documentElement;
         root.style.setProperty('--bg-primary', '');
         root.style.setProperty('--bg-secondary', '');
         root.style.setProperty('--bg-tertiary', '');
@@ -1366,38 +1191,32 @@
     }
 
     function applyCustomTheme() {
-        var primary = document.getElementById('primaryColor')?.value || '#36454F';
-        var secondary = document.getElementById('secondaryColor')?.value || '#121212';
-        var text = document.getElementById('textColor')?.value || '#FFFFFF';
-        var accent = document.getElementById('accentColor')?.value || '#36454F';
-        var root = document.documentElement;
+        const primary = document.getElementById('primaryColor')?.value || '#36454F';
+        const secondary = document.getElementById('secondaryColor')?.value || '#121212';
+        const text = document.getElementById('textColor')?.value || '#FFFFFF';
+        const accent = document.getElementById('accentColor')?.value || '#36454F';
+        const root = document.documentElement;
         root.style.setProperty('--charcoal', primary);
         root.style.setProperty('--bg-secondary', secondary);
         root.style.setProperty('--text-primary', text);
         root.style.setProperty('--accent', accent);
         root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.3)');
-        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary: primary, secondary: secondary, text: text, accent: accent }));
+        localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text, accent }));
         state.settings.theme = 'custom';
         localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
         alert('Custom theme applied!');
-    }
-
-    function applyChatTheme() {
-        if (DOM.chatMessages && chatSettings.chatTheme) {
-            DOM.chatMessages.className = 'chat-messages ' + chatSettings.chatTheme;
-        }
     }
 
     function toggleSelectionMode() {
         selectionMode = !selectionMode;
         if (selectionMode) {
             if (DOM.selectBtn) DOM.selectBtn.classList.add('active');
-            document.querySelectorAll('.message').forEach(function(msg) { msg.classList.add('selectable'); });
+            document.querySelectorAll('.message').forEach(msg => msg.classList.add('selectable'));
             if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('active');
         } else {
             clearSelection();
             if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
-            document.querySelectorAll('.message').forEach(function(msg) { msg.classList.remove('selectable'); });
+            document.querySelectorAll('.message').forEach(msg => msg.classList.remove('selectable'));
             if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
         }
         closeDropdown();
@@ -1405,7 +1224,7 @@
 
     function toggleMessageSelection(messageId) {
         if (!selectionMode) return;
-        var msgElement = document.querySelector('[data-msg-id="' + messageId + '"]');
+        const msgElement = document.querySelector('[data-msg-id="' + messageId + '"]');
         if (!msgElement) return;
         if (selectedMessages.has(messageId)) {
             selectedMessages.delete(messageId);
@@ -1419,11 +1238,11 @@
 
     function clearSelection() {
         selectedMessages.clear();
-        document.querySelectorAll('.message.selected').forEach(function(el) { el.classList.remove('selected'); });
+        document.querySelectorAll('.message.selected').forEach(el => el.classList.remove('selected'));
         updateSelectedCount();
         selectionMode = false;
         if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
-        document.querySelectorAll('.message').forEach(function(msg) { msg.classList.remove('selectable'); });
+        document.querySelectorAll('.message').forEach(msg => msg.classList.remove('selectable'));
         if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
     }
 
@@ -1437,10 +1256,10 @@
     }
 
     function deleteMessages(forEveryone) {
-        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var messages = state.localCache.messages[chatKey] || [];
-        var remaining = messages.filter(function(msg, index) {
-            var msgId = msg.timestamp + '-' + index;
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        const remaining = messages.filter((msg, index) => {
+            const msgId = msg.timestamp + '-' + index;
             return !selectedMessages.has(msgId);
         });
         state.localCache.messages[chatKey] = remaining;
@@ -1454,13 +1273,13 @@
 
     function pinSelectedMessages() {
         if (selectedMessages.size === 0) return;
-        var chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var messages = state.localCache.messages[chatKey] || [];
-        var firstSelected = Array.from(selectedMessages)[0];
-        var parts = firstSelected.split('-');
-        var timestamp = parseInt(parts[0]);
-        var index = parseInt(parts[1]);
-        var msg = messages.find(function(m, i) { return m.timestamp === timestamp && i === index; });
+        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const messages = state.localCache.messages[chatKey] || [];
+        const firstSelected = Array.from(selectedMessages)[0];
+        const parts = firstSelected.split('-');
+        const timestamp = parseInt(parts[0]);
+        const index = parseInt(parts[1]);
+        const msg = messages.find((m, i) => m.timestamp === timestamp && i === index);
         if (msg) {
             if (!pinnedMessages[chatKey]) pinnedMessages[chatKey] = [];
             pinnedMessages[chatKey].push(msg);
@@ -1472,25 +1291,25 @@
 
     function forwardSelectedMessages() {
         if (selectedMessages.size === 0) { alert('Select messages first.'); return; }
-        var contacts = state.localCache.users.filter(function(u) { return u.username !== state.currentUser.username; });
+        const contacts = state.localCache.users.filter(u => u.username !== state.currentUser.username);
         if (contacts.length === 0) { alert('No contacts to forward to.'); return; }
-        var contactList = 'Forward to:\n\n';
-        contacts.forEach(function(c, i) { contactList += (i+1) + '. ' + (c.displayName || c.username) + '\n'; });
-        var choice = prompt(contactList + '\nEnter number:');
+        let contactList = 'Forward to:\n\n';
+        contacts.forEach((c, i) => { contactList += (i+1) + '. ' + (c.displayName || c.username) + '\n'; });
+        const choice = prompt(contactList + '\nEnter number:');
         if (!choice) return;
-        var idx = parseInt(choice) - 1;
-        if (idx < 0 || idx >= contacts.length) { alert('Invalid choice.'); return; }
-        var target = contacts[idx].username;
-        var chatKey = getChatKey(state.currentUser.username, target);
-        var messages = state.localCache.messages;
+        const index = parseInt(choice) - 1;
+        if (index < 0 || index >= contacts.length) { alert('Invalid choice.'); return; }
+        const target = contacts[index].username;
+        const chatKey = getChatKey(state.currentUser.username, target);
+        const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
-        var sourceKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        var sourceMsgs = state.localCache.messages[sourceKey] || [];
-        selectedMessages.forEach(function(msgId) {
-            var parts = msgId.split('-');
-            var timestamp = parseInt(parts[0]);
-            var index = parseInt(parts[1]);
-            var msg = sourceMsgs.find(function(m, i) { return m.timestamp === timestamp && i === index; });
+        const sourceKey = getChatKey(state.currentUser.username, state.currentChatPartner);
+        const sourceMsgs = state.localCache.messages[sourceKey] || [];
+        selectedMessages.forEach(msgId => {
+            const parts = msgId.split('-');
+            const timestamp = parseInt(parts[0]);
+            const idx = parseInt(parts[1]);
+            const msg = sourceMsgs.find((m, i) => m.timestamp === timestamp && i === idx);
             if (msg) {
                 messages[chatKey].push({
                     sender: state.currentUser.username,
@@ -1508,10 +1327,10 @@
     }
 
     function showPinnedDock(chatKey) {
-        var pinned = pinnedMessages[chatKey] || [];
+        const pinned = pinnedMessages[chatKey] || [];
         if (pinned.length === 0 || !DOM.pinnedDock) { DOM.pinnedDock.style.display = 'none'; return; }
         DOM.pinnedDock.style.display = 'block';
-        var lastPinned = pinned[pinned.length - 1];
+        const lastPinned = pinned[pinned.length - 1];
         if (DOM.pinnedMessagePreview) {
             DOM.pinnedMessagePreview.textContent = getDisplayName(lastPinned.sender) + ': ' + (lastPinned.text || '📎 File');
         }
@@ -1527,23 +1346,23 @@
     }
 
     function scrollToPinnedMessage() {
-        document.querySelectorAll('.message').forEach(function(el) { el.classList.remove('highlight'); });
-        var firstMsg = document.querySelector('.message');
+        document.querySelectorAll('.message').forEach(el => el.classList.remove('highlight'));
+        const firstMsg = document.querySelector('.message');
         if (firstMsg) {
             firstMsg.classList.add('highlight');
             firstMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(function() { firstMsg.classList.remove('highlight'); }, 2000);
+            setTimeout(() => { firstMsg.classList.remove('highlight'); }, 2000);
         }
     }
 
     function changeBubbleStyle(style) {
         chatSettings.bubbleStyle = style;
         localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-        document.querySelectorAll('.message').forEach(function(msg) {
+        document.querySelectorAll('.message').forEach(msg => {
             msg.className = msg.className.replace(/bubble-\w+/g, '');
             msg.classList.add('bubble-' + style);
         });
-        document.querySelectorAll('.bubble-style').forEach(function(btn) {
+        document.querySelectorAll('.bubble-style').forEach(btn => {
             btn.classList.remove('active');
             if (btn.dataset.style === style) btn.classList.add('active');
         });
@@ -1563,9 +1382,9 @@
     }
 
     function handleBackgroundUpload(e) {
-        var file = e.target.files[0];
+        const file = e.target.files[0];
         if (file) {
-            var reader = new FileReader();
+            const reader = new FileReader();
             reader.onload = function(ev) {
                 chatSettings.background = 'custom';
                 chatSettings.bgImage = ev.target.result;
@@ -1602,41 +1421,38 @@
     function handleFileSelect() { if (DOM.fileInput) DOM.fileInput.click(); }
 
     function handleFileInput(e) {
-        var files = e.target.files;
+        const files = e.target.files;
         if (!files.length) return;
-        for (var i = 0; i < files.length; i++) {
-            var file = files[i];
-            (function(file) {
-                var reader = new FileReader();
-                reader.onload = function(ev) {
-                    var data = ev.target.result;
-                    var fileType = 'file';
-                    if (file.type.startsWith('image/')) fileType = 'image';
-                    else if (file.type.startsWith('video/')) fileType = 'video';
-                    else if (file.type.startsWith('audio/')) fileType = 'audio';
-                    pendingFiles.push({ data: data, type: fileType, name: file.name, size: (file.size / 1024).toFixed(1) + ' KB' });
-                    if (DOM.filePreviewContainer) {
-                        var item = document.createElement('div');
-                        item.className = 'file-preview-item';
-                        var index = pendingFiles.length - 1;
-                        var preview = '';
-                        if (fileType === 'image') preview = '<img src="' + data + '" />';
-                        else if (fileType === 'video') preview = '<video controls><source src="' + data + '" /></video>';
-                        else if (fileType === 'audio') preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">🎵 ' + file.name + '</div>';
-                        else preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">📄 ' + file.name + '</div>';
-                        item.innerHTML = preview + '<button class="remove-file" data-index="' + index + '">×</button>';
-                        DOM.filePreviewContainer.appendChild(item);
-                        item.querySelector('.remove-file').addEventListener('click', function() {
-                            var idx = parseInt(this.dataset.index);
-                            pendingFiles.splice(idx, 1);
-                            this.parentElement.remove();
-                            if (pendingFiles.length === 0 && DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
-                        });
-                    }
-                    if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'inline-flex';
-                };
-                reader.readAsDataURL(file);
-            })(file);
+        for (const file of files) {
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const data = ev.target.result;
+                let fileType = 'file';
+                if (file.type.startsWith('image/')) fileType = 'image';
+                else if (file.type.startsWith('video/')) fileType = 'video';
+                else if (file.type.startsWith('audio/')) fileType = 'audio';
+                pendingFiles.push({ data: data, type: fileType, name: file.name, size: (file.size / 1024).toFixed(1) + ' KB' });
+                if (DOM.filePreviewContainer) {
+                    const item = document.createElement('div');
+                    item.className = 'file-preview-item';
+                    const index = pendingFiles.length - 1;
+                    let preview = '';
+                    if (fileType === 'image') preview = '<img src="' + data + '" />';
+                    else if (fileType === 'video') preview = '<video controls><source src="' + data + '" /></video>';
+                    else if (fileType === 'audio') preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">🎵 ' + file.name + '</div>';
+                    else preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">📄 ' + file.name + '</div>';
+                    item.innerHTML = preview + '<button class="remove-file" data-index="' + index + '">×</button>';
+                    DOM.filePreviewContainer.appendChild(item);
+                    item.querySelector('.remove-file').addEventListener('click', function() {
+                        const idx = parseInt(this.dataset.index);
+                        pendingFiles.splice(idx, 1);
+                        this.parentElement.remove();
+                        if (pendingFiles.length === 0 && DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
+                    });
+                }
+                if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'inline-flex';
+            };
+            reader.readAsDataURL(file);
         }
         e.target.value = '';
     }
@@ -1649,15 +1465,15 @@
     }
 
     function loadSavedSettings() {
-        var names = localStorage.getItem('vvn_contact_names');
+        const names = localStorage.getItem('vvn_contact_names');
         if (names) contactCustomNames = JSON.parse(names);
-        var pinned = localStorage.getItem('vvn_pinned');
+        const pinned = localStorage.getItem('vvn_pinned');
         if (pinned) pinnedMessages = JSON.parse(pinned);
-        var settings = localStorage.getItem('vvn_chat_settings');
+        const settings = localStorage.getItem('vvn_chat_settings');
         if (settings) chatSettings = JSON.parse(settings);
-        var blocked = localStorage.getItem('vvn_blocked');
+        const blocked = localStorage.getItem('vvn_blocked');
         if (blocked) blockedUsers = JSON.parse(blocked);
-        var savedSettings = localStorage.getItem('vvn_settings');
+        const savedSettings = localStorage.getItem('vvn_settings');
         if (savedSettings) state.settings = JSON.parse(savedSettings);
         if (chatSettings.bubbleColor) {
             document.documentElement.style.setProperty('--bubble-color', chatSettings.bubbleColor);
@@ -1666,7 +1482,7 @@
 
     function updateMobileView() {
         state.isMobile = window.innerWidth < 768;
-        var sidebar = document.getElementById('sidebar');
+        const sidebar = document.getElementById('sidebar');
         if (state.isMobile) {
             if (state.currentChatPartner) {
                 if (sidebar) sidebar.classList.add('hide-mobile');
@@ -1681,24 +1497,314 @@
         }
     }
 
+    function renderChatList() {
+        if (!state.currentUser || !DOM.chatList) return;
+        const chats = state.localCache.chats;
+        const messages = state.localCache.messages;
+        let chatKeys = Object.keys(chats).filter(k => k.includes(state.currentUser.username));
+        blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
+        chatKeys = chatKeys.filter(k => {
+            const parts = k.split('_');
+            const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
+            return !blockedUsers.includes(partner);
+        });
+        const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
+        let html = '';
+        if (chatKeys.length === 0) {
+            html = '<div class="empty-chats">No chats yet. Search for users above.</div>';
+        } else {
+            const sorted = chatKeys.sort((a, b) => {
+                const partsA = a.split('_'); const partsB = b.split('_');
+                const partnerA = partsA[0] === state.currentUser.username ? partsA[1] : partsA[0];
+                const partnerB = partsB[0] === state.currentUser.username ? partsB[1] : partsB[0];
+                const isPinnedA = pinnedContacts.includes(partnerA);
+                const isPinnedB = pinnedContacts.includes(partnerB);
+                if (isPinnedA && !isPinnedB) return -1;
+                if (!isPinnedA && isPinnedB) return 1;
+                const ma = messages[a] || []; const mb = messages[b] || [];
+                return (mb.length ? mb[mb.length-1].timestamp : 0) - (ma.length ? ma[ma.length-1].timestamp : 0);
+            });
+            for (const key of sorted) {
+                const parts = key.split('_');
+                const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
+                const msgs = messages[key] || [];
+                const last = msgs.length ? msgs[msgs.length-1] : null;
+                const preview = last ? (last.text || '📎 File') : 'Start chatting';
+                const time = last ? formatTime(last.timestamp) : '';
+                const pUser = getUserByUsername(partner);
+                const tags = getUserTags(partner);
+                const tagHtml = tags.map(t => '<span class="tag">' + t.label + '</span>').join('');
+                const isPinned = pinnedContacts.includes(partner);
+                const displayName = getDisplayName(partner);
+                const isRainbow = pUser && pUser.rainbow;
+                html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
+                html += '<div class="avatar">' + partner.charAt(0).toUpperCase() + '</div>';
+                html += '<div class="chat-info">';
+                html += '<div class="cname"><span' + (isRainbow ? ' class="rainbow-name"' : '') + '>' + displayName + '</span> ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
+                html += '<div class="preview">' + preview + '</div>';
+                html += '</div>';
+                html += '<div class="time">' + time + '</div>';
+                html += '</div>';
+            }
+        }
+        DOM.chatList.innerHTML = html;
+        document.querySelectorAll('.chat-item').forEach(el => {
+            el.addEventListener('click', function() { openChat(this.dataset.partner); updateActivity(); });
+        });
+    }
+
+    function renderMessages(msgs) {
+        if (!DOM.chatMessages) return;
+        DOM.chatMessages.innerHTML = '';
+        if (!msgs.length) {
+            DOM.chatMessages.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">No messages yet</div>';
+            return;
+        }
+        for (let i = 0; i < msgs.length; i++) {
+            const msg = msgs[i];
+            const msgId = msg.timestamp + '-' + i;
+            const div = document.createElement('div');
+            const isOutgoing = msg.sender === state.currentUser.username;
+            const bubbleStyle = chatSettings.bubbleStyle || 'rounded';
+            div.className = 'message ' + (isOutgoing ? 'outgoing' : 'incoming') + ' bubble-' + bubbleStyle + ' ' + (chatSettings.messageAnimations || 'slide') + '-in';
+            if (chatSettings.fontSize) {
+                const sizes = { small: 'font-size-small', medium: 'font-size-medium', large: 'font-size-large', xl: 'font-size-xl' };
+                if (sizes[chatSettings.fontSize]) div.classList.add(sizes[chatSettings.fontSize]);
+            }
+            if (chatSettings.fontFamily) {
+                const families = { inter: 'font-inter', sf: 'font-sf', roboto: 'font-roboto', poppins: 'font-poppins', helvetica: 'font-helvetica' };
+                if (families[chatSettings.fontFamily]) div.classList.add(families[chatSettings.fontFamily]);
+            }
+            div.dataset.msgId = msgId;
+            if (chatSettings.bubbleColor && isOutgoing) {
+                div.style.background = chatSettings.bubbleColor;
+            }
+            let content = '';
+            if (msg.poll) {
+                content += '<div class="poll-container">';
+                content += '<div class="poll-question">📊 ' + msg.poll.question + '</div>';
+                msg.poll.options.forEach((opt, idx) => {
+                    const pct = msg.poll.totalVotes > 0 ? Math.round((opt.votes / msg.poll.totalVotes) * 100) : 0;
+                    const hasVoted = opt.votedBy && opt.votedBy.includes(state.currentUser.username);
+                    content += '<div class="poll-option" data-msg="' + msgId + '" data-opt="' + idx + '">';
+                    content += '<span>' + opt.text + '</span>';
+                    content += '<div class="poll-bar"><div class="poll-fill" style="width:' + pct + '%"></div></div>';
+                    content += '<span class="poll-votes">' + opt.votes + '</span>';
+                    content += '</div>';
+                });
+                content += '</div>';
+            } else if (msg.file) {
+                if (msg.file.type === 'image') {
+                    content += '<div class="file-content"><img src="' + msg.file.data + '" alt="Image" onclick="window.open(this.src)" /></div>';
+                } else if (msg.file.type === 'video') {
+                    content += '<div class="file-content"><video controls><source src="' + msg.file.data + '" /></video></div>';
+                } else if (msg.file.type === 'audio') {
+                    content += '<div class="file-content"><div class="voice-message">';
+                    content += '<button class="play-btn" onclick="this.querySelector(\'img\').style.display=this.querySelector(\'img\').style.display===\'none\'?\'block\':\'none\'"><img src="icons/play.png" alt="Play" width="16" height="16" /></button>';
+                    content += '<div class="waveform">';
+                    for (let w = 0; w < 20; w++) content += '<div class="bar"></div>';
+                    content += '</div>';
+                    content += '<span class="duration">0:00</span>';
+                    content += '</div></div>';
+                } else {
+                    content += '<div class="file-content"><div class="file-info">';
+                    content += '<div class="file-icon">📄</div>';
+                    content += '<div class="file-name">' + (msg.file.name || 'File') + '</div>';
+                    content += '<div class="file-size">' + (msg.file.size || '0 KB') + '</div>';
+                    content += '</div></div>';
+                }
+                if (msg.file.caption) content += '<div class="file-caption">' + msg.file.caption + '</div>';
+            } else {
+                content = msg.text || '';
+            }
+            if (msg.reactions && msg.reactions.length > 0) {
+                content += '<div class="reactions">';
+                const reactionCounts = {};
+                msg.reactions.forEach(r => { reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1; });
+                Object.entries(reactionCounts).forEach(([emoji, count]) => {
+                    const isUserReacted = msg.reactions.some(r => r.user === state.currentUser.username && r.emoji === emoji);
+                    content += '<span class="reaction' + (isUserReacted ? ' active' : '') + '" data-msg="' + msgId + '" data-emoji="' + emoji + '">' + emoji + ' ' + count + '</span>';
+                });
+                content += '</div>';
+            }
+            if (msg.edited) div.classList.add('edited');
+            if (msg.reply) {
+                const replySender = msg.reply.sender === state.currentUser.username ? 'You' : getDisplayName(msg.reply.sender);
+                div.innerHTML = '<div class="reply-container"><span class="reply-sender">' + replySender + '</span>: <span class="reply-text">' + msg.reply.text + '</span></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
+            } else {
+                div.innerHTML = '<div class="selection-circle"></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
+            }
+            DOM.chatMessages.appendChild(div);
+        }
+        document.querySelectorAll('.reaction').forEach(el => {
+            el.addEventListener('click', function() {
+                const msgId = this.dataset.msg;
+                const emoji = this.dataset.emoji;
+                addReaction(msgId, emoji);
+            });
+        });
+        document.querySelectorAll('.poll-option').forEach(el => {
+            el.addEventListener('click', function() {
+                const msgId = this.dataset.msg;
+                const opt = parseInt(this.dataset.opt);
+                votePoll(msgId, opt);
+            });
+        });
+        scrollToBottom();
+    }
+
+    function scrollToBottom() {
+        setTimeout(() => { if (DOM.chatMessages) DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight; }, 50);
+    }
+
+    function showPlaceholder() {
+        if (DOM.chatActive) DOM.chatActive.style.display = 'none';
+        if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'flex';
+        if (state.isMobile) {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) sidebar.classList.remove('hide-mobile');
+            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
+        }
+    }
+
+    function openChat(partnerUsername) {
+        if (!state.currentUser) return;
+        if (blockedUsers.includes(partnerUsername)) { alert('This user is blocked. Unblock them to chat.'); return; }
+        state.currentChatPartner = partnerUsername;
+        const partner = getUserByUsername(partnerUsername);
+        if (!partner) return;
+        if (DOM.chatActive) DOM.chatActive.style.display = 'flex';
+        if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'none';
+        if (DOM.chatHeader) DOM.chatHeader.style.display = 'flex';
+        if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
+        const displayName = getDisplayName(partnerUsername);
+        if (DOM.chatPartnerName) {
+            DOM.chatPartnerName.textContent = displayName;
+            if (partner.rainbow) DOM.chatPartnerName.classList.add('rainbow-name');
+            else DOM.chatPartnerName.classList.remove('rainbow-name');
+        }
+        if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
+        if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
+        const chatKey = getChatKey(state.currentUser.username, partnerUsername);
+        const msgs = state.localCache.messages[chatKey] || [];
+        renderMessages(msgs);
+        const chats = state.localCache.chats;
+        if (!chats[chatKey]) {
+            chats[chatKey] = { participants: [state.currentUser.username, partnerUsername], created: Date.now() };
+            state.localCache.chats = chats;
+            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+            pushToRemote();
+        }
+        const pinned = pinnedMessages[chatKey] || [];
+        if (pinned.length > 0) showPinnedDock(chatKey);
+        else DOM.pinnedDock.style.display = 'none';
+        applyChatBackground();
+        applyChatWallpaper();
+        renderChatList();
+        updateMobileView();
+        scrollToBottom();
+        clearSelection();
+        closeDropdown();
+        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
+        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+    }
+
     function showTypingIndicator() {
         if (state.isTyping) return;
         state.isTyping = true;
-        var typingEl = document.createElement('div');
+        const typingEl = document.createElement('div');
         typingEl.className = 'typing-indicator';
         typingEl.id = 'typingIndicator';
         typingEl.innerHTML = '<span>' + getDisplayName(state.currentChatPartner) + ' is typing</span><div class="dots"><span></span><span></span><span></span></div>';
         DOM.chatMessages.appendChild(typingEl);
         scrollToBottom();
         clearTimeout(state.typingTimeout);
-        state.typingTimeout = setTimeout(function() { hideTypingIndicator(); }, 3000);
+        state.typingTimeout = setTimeout(() => { hideTypingIndicator(); }, 3000);
     }
 
     function hideTypingIndicator() {
-        var el = document.getElementById('typingIndicator');
+        const el = document.getElementById('typingIndicator');
         if (el) el.remove();
         state.isTyping = false;
     }
+
+    async function loginUser(username, password) {
+        const users = state.localCache.users;
+        const user = users.find(u => u.username === username && u.password === password);
+        if (!user) {
+            if (DOM.authError) { DOM.authError.textContent = 'Incorrect username or password'; DOM.authError.style.display = 'block'; }
+            return false;
+        }
+        localStorage.setItem('vvn_session', JSON.stringify({ username: user.username }));
+        state.currentUser = user;
+        renderMessenger();
+        resetAutoLock();
+        return true;
+    }
+
+    async function registerUser(username, displayName, password) {
+        const users = state.localCache.users;
+        if (users.find(u => u.username === username)) {
+            if (DOM.regError) { DOM.regError.textContent = 'Username already taken'; DOM.regError.style.display = 'block'; }
+            return false;
+        }
+        const newUser = {
+            username: username,
+            displayName: displayName || username,
+            password: password,
+            bio: '',
+            status: '',
+            online: true,
+            created: Date.now(),
+            avatar: '',
+            rainbow: false
+        };
+        users.push(newUser);
+        state.localCache.users = users;
+        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        await pushToRemote();
+        localStorage.setItem('vvn_session', JSON.stringify({ username: newUser.username }));
+        state.currentUser = newUser;
+        renderMessenger();
+        resetAutoLock();
+        return true;
+    }
+
+    function renderMessenger() {
+        if (DOM.authScreen) DOM.authScreen.style.display = 'none';
+        if (DOM.messenger) DOM.messenger.style.display = 'flex';
+        const session = JSON.parse(localStorage.getItem('vvn_session'));
+        if (!session) { logout(); return; }
+        const user = state.localCache.users.find(u => u.username === session.username);
+        if (!user) { logout(); return; }
+        state.currentUser = user;
+        if (DOM.sidebarUsername) DOM.sidebarUsername.textContent = user.displayName || user.username;
+        renderChatList();
+        if (state.currentChatPartner) openChat(state.currentChatPartner);
+        else showPlaceholder();
+        updateMobileView();
+    }
+
+    function logout() {
+        localStorage.removeItem('vvn_session');
+        state.currentUser = null;
+        state.currentChatPartner = null;
+        if (state.syncInterval) clearInterval(state.syncInterval);
+        if (autoLockTimeout) clearTimeout(autoLockTimeout);
+        showDeviceSelection();
+    }
+
+    function resetAutoLock() {
+        if (autoLockTimeout) clearTimeout(autoLockTimeout);
+        const lockTime = parseInt(state.settings.autoLock);
+        if (lockTime && lockTime !== 'never') {
+            autoLockTimeout = setTimeout(function() {
+                if (state.currentUser) { logout(); alert('Auto-locked due to inactivity.'); }
+            }, lockTime * 60 * 1000);
+        }
+    }
+
+    function updateActivity() { lastActivity = Date.now(); resetAutoLock(); }
 
     async function init() {
         console.log('🚀 Initializing VVN...');
@@ -1708,16 +1814,16 @@
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
-        var savedDevice = localStorage.getItem('vvn_device');
+        const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && typeof applyDeviceLayout === 'function') {
             state.deviceType = savedDevice;
             applyDeviceLayout(savedDevice);
         } else if (typeof detectDevice === 'function') {
-            var detected = detectDevice();
+            const detected = detectDevice();
             state.deviceType = detected;
             applyDeviceLayout(detected);
         }
-        var cached = localStorage.getItem('vvn_cache');
+        const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
                 state.localCache = JSON.parse(cached);
@@ -1728,7 +1834,7 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
+            if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
                 state.localCache.users.push({
                     username: 'vaultnet',
                     displayName: 'VaultNet',
@@ -1745,10 +1851,10 @@
         }
         updateLoading(50);
         try {
-            var remote = await fetchFromBin();
+            const remote = await fetchFromBin();
             if (remote) {
                 state.localCache = { users: remote.users || [], chats: remote.chats || {}, messages: remote.messages || {} };
-                if (!state.localCache.users.find(function(u) { return u.username === 'vaultnet'; })) {
+                if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
                     state.localCache.users.push({
                         username: 'vaultnet',
                         displayName: 'VaultNet',
@@ -1768,9 +1874,9 @@
         updateLoading(80);
         if (state.settings.theme) applyTheme(state.settings.theme);
         updateLoading(90);
-        var session = JSON.parse(localStorage.getItem('vvn_session'));
+        const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
-            var user = state.localCache.users.find(function(u) { return u.username === session.username; });
+            const user = state.localCache.users.find(u => u.username === session.username);
             if (user) {
                 state.currentUser = user;
                 renderMessenger();
@@ -1787,20 +1893,20 @@
     }
 
     document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('.auth-tab').forEach(function(tab) {
+        document.querySelectorAll('.auth-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                document.querySelectorAll('.auth-tab').forEach(function(t) { t.classList.remove('active'); });
+                document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                document.querySelectorAll('.auth-form').forEach(function(f) { f.classList.remove('active'); });
-                var form = document.getElementById(this.dataset.tab + 'Form');
+                document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+                const form = document.getElementById(this.dataset.tab + 'Form');
                 if (form) form.classList.add('active');
             });
         });
         if (DOM.loginForm) {
             DOM.loginForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                var username = DOM.loginUsername ? DOM.loginUsername.value.trim() : '';
-                var password = DOM.loginPassword ? DOM.loginPassword.value.trim() : '';
+                const username = DOM.loginUsername ? DOM.loginUsername.value.trim() : '';
+                const password = DOM.loginPassword ? DOM.loginPassword.value.trim() : '';
                 if (!username || !password) {
                     if (DOM.authError) { DOM.authError.textContent = 'Please fill in all fields'; DOM.authError.style.display = 'block'; }
                     return;
@@ -1811,9 +1917,9 @@
         if (DOM.registerForm) {
             DOM.registerForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
-                var username = DOM.regUsername ? DOM.regUsername.value.trim() : '';
-                var displayName = DOM.regDisplayName ? DOM.regDisplayName.value.trim() : '';
-                var password = DOM.regPassword ? DOM.regPassword.value.trim() : '';
+                const username = DOM.regUsername ? DOM.regUsername.value.trim() : '';
+                const displayName = DOM.regDisplayName ? DOM.regDisplayName.value.trim() : '';
+                const password = DOM.regPassword ? DOM.regPassword.value.trim() : '';
                 if (!username || !password) {
                     if (DOM.regError) { DOM.regError.textContent = 'Username and password required'; DOM.regError.style.display = 'block'; }
                     return;
@@ -1828,15 +1934,11 @@
         if (DOM.sendBtn) DOM.sendBtn.addEventListener('click', sendMessage);
         if (DOM.messageInput) {
             DOM.messageInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
+                if (e.key === 'Enter') sendMessage();
                 updateActivity();
                 if (state.currentChatPartner) showTypingIndicator();
             });
             DOM.messageInput.addEventListener('blur', function() { hideTypingIndicator(); });
-            DOM.messageInput.addEventListener('input', handleTextareaInput);
         }
         if (DOM.micBtn) {
             DOM.micBtn.addEventListener('mousedown', startVoiceRecording);
@@ -1845,54 +1947,6 @@
             DOM.micBtn.addEventListener('touchstart', function(e) { e.preventDefault(); startVoiceRecording(); });
             DOM.micBtn.addEventListener('touchend', function(e) { e.preventDefault(); stopVoiceRecording(); });
         }
-        if (DOM.smileBtn) {
-            DOM.smileBtn.addEventListener('click', toggleGifStickerPanel);
-        }
-        if (DOM.panelClose) {
-            DOM.panelClose.addEventListener('click', function() {
-                if (DOM.gifStickerPanel) {
-                    DOM.gifStickerPanel.style.display = 'none';
-                    DOM.gifStickerPanel.classList.remove('active');
-                }
-                if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-            });
-        }
-        document.querySelectorAll('.panel-tab').forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                switchPanelTab(this.dataset.tab);
-            });
-        });
-        document.querySelectorAll('.sticker-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                insertSticker(this.dataset.sticker);
-            });
-        });
-        document.querySelectorAll('.gif-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                sendGIF(this.dataset.gif);
-            });
-        });
-        document.querySelectorAll('.poll-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                createPollFromPanel(this.dataset.poll);
-            });
-        });
-        document.querySelectorAll('.game-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                startGameFromPanel(this.dataset.game);
-            });
-        });
-        document.addEventListener('click', function(e) {
-            var panel = DOM.gifStickerPanel;
-            var smileBtn = DOM.smileBtn;
-            if (panel && panel.style.display === 'block') {
-                if (!e.target.closest('.gif-sticker-panel') && !e.target.closest('.smile-btn')) {
-                    panel.style.display = 'none';
-                    panel.classList.remove('active');
-                    if (smileBtn) smileBtn.classList.remove('active');
-                }
-            }
-        });
         if (DOM.searchInput) {
             DOM.searchInput.addEventListener('input', function() { searchUsers(this.value); });
         }
@@ -1902,7 +1956,7 @@
         if (DOM.backBtn) {
             DOM.backBtn.addEventListener('click', function() {
                 if (state.isMobile) {
-                    var sidebar = document.getElementById('sidebar');
+                    const sidebar = document.getElementById('sidebar');
                     if (sidebar) sidebar.classList.remove('hide-mobile');
                     if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
                     state.currentChatPartner = null;
@@ -1925,12 +1979,12 @@
         if (DOM.settingsClose) {
             DOM.settingsClose.addEventListener('click', function() { if (DOM.settingsModal) DOM.settingsModal.classList.remove('active'); });
         }
-        document.querySelectorAll('.settings-tab').forEach(function(tab) {
+        document.querySelectorAll('.settings-tab').forEach(tab => {
             tab.addEventListener('click', function() {
-                document.querySelectorAll('.settings-tab').forEach(function(t) { t.classList.remove('active'); });
+                document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                document.querySelectorAll('.settings-panel').forEach(function(p) { p.classList.remove('active'); });
-                var panel = document.getElementById(this.dataset.tab + 'Settings');
+                document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+                const panel = document.getElementById(this.dataset.tab + 'Settings');
                 if (panel) panel.classList.add('active');
             });
         });
@@ -1977,9 +2031,9 @@
                 resetAutoLock();
             });
         }
-        document.querySelectorAll('.theme-card').forEach(function(card) {
+        document.querySelectorAll('.theme-card').forEach(card => {
             card.addEventListener('click', function() {
-                var theme = this.dataset.theme;
+                const theme = this.dataset.theme;
                 applyTheme(theme);
                 if (theme !== 'custom') document.getElementById('customThemeOptions').style.display = 'none';
             });
@@ -1987,15 +2041,15 @@
         if (DOM.applyCustomTheme) DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
         if (DOM.avatarUpload) {
             DOM.avatarUpload.addEventListener('change', function(e) {
-                var file = e.target.files[0];
+                const file = e.target.files[0];
                 if (file) {
-                    var reader = new FileReader();
+                    const reader = new FileReader();
                     reader.onload = function(ev) {
                         if (DOM.settingsAvatar) DOM.settingsAvatar.src = ev.target.result;
-                        var user = state.currentUser;
+                        const user = state.currentUser;
                         if (user) {
                             user.avatar = ev.target.result;
-                            var userIndex = state.localCache.users.findIndex(function(u) { return u.username === user.username; });
+                            const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
                             if (userIndex !== -1) {
                                 state.localCache.users[userIndex] = user;
                                 localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
@@ -2011,24 +2065,24 @@
             DOM.modalClose.addEventListener('click', function() { if (DOM.profileModal) DOM.profileModal.classList.remove('active'); });
         }
         if (DOM.profileModal) {
-            var overlay = DOM.profileModal.querySelector('.modal-overlay');
+            const overlay = DOM.profileModal.querySelector('.modal-overlay');
             if (overlay) overlay.addEventListener('click', function() { DOM.profileModal.classList.remove('active'); });
         }
         if (DOM.manualSyncBtn) DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
-        document.querySelectorAll('.device-option').forEach(function(btn) {
+        document.querySelectorAll('.device-option').forEach(btn => {
             btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
         });
         if (DOM.autoDetectBtn) {
             DOM.autoDetectBtn.addEventListener('click', function() {
-                if (typeof detectDevice === 'function') { var detected = detectDevice(); selectDevice(detected); }
+                if (typeof detectDevice === 'function') { const detected = detectDevice(); selectDevice(detected); }
             });
         }
         if (DOM.autoDetectLayoutBtn) {
             DOM.autoDetectLayoutBtn.addEventListener('click', function() {
-                if (typeof detectDevice === 'function') { var detected = detectDevice(); selectDevice(detected); }
+                if (typeof detectDevice === 'function') { const detected = detectDevice(); selectDevice(detected); }
             });
         }
-        document.querySelectorAll('.device-layout-btn').forEach(function(btn) {
+        document.querySelectorAll('.device-layout-btn').forEach(btn => {
             btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
         });
         if (DOM.logoutBtn) {
@@ -2047,9 +2101,9 @@
         if (DOM.chatDropdownBtn) {
             DOM.chatDropdownBtn.addEventListener('click', function(e) { e.stopPropagation(); toggleDropdown(); });
         }
-        document.querySelectorAll('.dropdown-item').forEach(function(item) {
+        document.querySelectorAll('.dropdown-item').forEach(item => {
             item.addEventListener('click', function() {
-                var action = this.dataset.action;
+                const action = this.dataset.action;
                 handleDropdownAction(action);
                 closeDropdown();
             });
@@ -2059,9 +2113,9 @@
         });
         if (DOM.selectBtn) DOM.selectBtn.addEventListener('click', toggleSelectionMode);
         document.addEventListener('click', function(e) {
-            var msgEl = e.target.closest('.message');
+            const msgEl = e.target.closest('.message');
             if (msgEl && selectionMode) {
-                var msgId = msgEl.dataset.msgId;
+                const msgId = msgEl.dataset.msgId;
                 if (msgId) toggleMessageSelection(msgId);
             }
         });
@@ -2074,12 +2128,12 @@
         if (DOM.deleteModalClose) DOM.deleteModalClose.addEventListener('click', function() { DOM.deleteModal.classList.remove('active'); });
         if (DOM.unpinBtn) {
             DOM.unpinBtn.addEventListener('click', function() {
-                var chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
+                const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
                 if (chatKey) unpinMessage(chatKey);
             });
         }
         if (DOM.pinnedMessagePreview) DOM.pinnedMessagePreview.addEventListener('click', scrollToPinnedMessage);
-        document.querySelectorAll('.bubble-style').forEach(function(btn) {
+        document.querySelectorAll('.bubble-style').forEach(btn => {
             btn.addEventListener('click', function() { changeBubbleStyle(this.dataset.style); });
         });
         if (DOM.bgDefault) DOM.bgDefault.addEventListener('click', function() { changeChatBackground('default'); });
@@ -2094,11 +2148,11 @@
         if (DOM.applyBubbleColor) {
             DOM.applyBubbleColor.addEventListener('click', function() {
                 if (DOM.bubbleColorPicker) {
-                    var color = DOM.bubbleColorPicker.value;
+                    const color = DOM.bubbleColorPicker.value;
                     chatSettings.bubbleColor = color;
                     localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
                     document.documentElement.style.setProperty('--bubble-color', color);
-                    document.querySelectorAll('.message.outgoing').forEach(function(el) {
+                    document.querySelectorAll('.message.outgoing').forEach(el => {
                         el.style.background = color;
                     });
                     alert('Bubble color updated!');
@@ -2106,37 +2160,17 @@
             });
         }
         if (DOM.fontSizeSelect) {
-            DOM.fontSizeSelect.addEventListener('change', function() {
-                var size = this.value;
-                chatSettings.fontSize = size;
-                localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-                var sizes = { small: 'font-size-small', medium: 'font-size-medium', large: 'font-size-large', xl: 'font-size-xl' };
-                document.querySelectorAll('.message').forEach(function(el) {
-                    el.classList.remove('font-size-small', 'font-size-medium', 'font-size-large', 'font-size-xl');
-                    if (sizes[size]) el.classList.add(sizes[size]);
-                });
-                alert('Font size updated to: ' + size);
-            });
+            DOM.fontSizeSelect.addEventListener('change', function() { setFontSize(this.value); });
         }
         if (DOM.fontFamilySelect) {
-            DOM.fontFamilySelect.addEventListener('change', function() {
-                var family = this.value;
-                chatSettings.fontFamily = family;
-                localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-                var families = { inter: 'font-inter', sf: 'font-sf', roboto: 'font-roboto', poppins: 'font-poppins', helvetica: 'font-helvetica' };
-                document.querySelectorAll('.message, .chat-messages, .chat-item, .message-input').forEach(function(el) {
-                    el.classList.remove('font-inter', 'font-sf', 'font-roboto', 'font-poppins', 'font-helvetica');
-                    if (families[family]) el.classList.add(families[family]);
-                });
-                alert('Font family updated to: ' + family);
-            });
+            DOM.fontFamilySelect.addEventListener('change', function() { setFontFamily(this.value); });
         }
         if (DOM.chatSpacingSelect) {
             DOM.chatSpacingSelect.addEventListener('change', function() {
                 chatSettings.chatSpacing = this.value;
                 localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-                var spacings = { compact: 'chat-spacing-compact', comfortable: 'chat-spacing-comfortable', spacious: 'chat-spacing-spacious' };
-                document.querySelectorAll('.message').forEach(function(el) {
+                const spacings = { compact: 'chat-spacing-compact', comfortable: 'chat-spacing-comfortable', spacious: 'chat-spacing-spacious' };
+                document.querySelectorAll('.message').forEach(el => {
                     el.classList.remove('chat-spacing-compact', 'chat-spacing-comfortable', 'chat-spacing-spacious');
                     if (spacings[this.value]) el.classList.add(spacings[this.value]);
                 });
@@ -2147,9 +2181,9 @@
             DOM.timestampFormatSelect.addEventListener('change', function() {
                 chatSettings.timestampFormat = this.value;
                 localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-                var chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
+                const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
                 if (chatKey) {
-                    var msgs = state.localCache.messages[chatKey] || [];
+                    const msgs = state.localCache.messages[chatKey] || [];
                     renderMessages(msgs);
                 }
                 alert('Timestamp format updated!');
@@ -2162,7 +2196,26 @@
                 alert('Message animation updated to: ' + this.value);
             });
         }
-        document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+        if (DOM.funBtn) {
+            DOM.funBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleFunPanel();
+            });
+        }
+        DOM.panelTabs.forEach(tab => {
+            tab.addEventListener('click', function() {
+                switchPanelTab(this.dataset.tab);
+            });
+        });
+        if (DOM.pollBtn) DOM.pollBtn.addEventListener('click', function() { createPoll(); });
+        if (DOM.gameBtn) DOM.gameBtn.addEventListener('click', function() { playGame(); });
+        document.addEventListener('click', function(e) {
+            if (DOM.funPanel && DOM.funBtn && !e.target.closest('.fun-panel') && !e.target.closest('.fun-btn')) {
+                DOM.funPanel.style.display = 'none';
+                if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+            }
+        });
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function() { this.parentElement.classList.remove('active'); });
         });
         document.addEventListener('click', updateActivity);
@@ -2173,10 +2226,10 @@
             if (typeof applyDeviceLayout === 'function') applyDeviceLayout(state.deviceType);
         });
         document.addEventListener('mousemove', function(e) {
-            document.querySelectorAll('.shine-effect, .shine-hover').forEach(function(el) {
-                var rect = el.getBoundingClientRect();
-                var x = ((e.clientX - rect.left) / rect.width) * 100;
-                var y = ((e.clientY - rect.top) / rect.height) * 100;
+            document.querySelectorAll('.shine-effect, .shine-hover').forEach(el => {
+                const rect = el.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
                 el.style.setProperty('--mouse-x', x + '%');
                 el.style.setProperty('--mouse-y', y + '%');
             });
@@ -2187,6 +2240,7 @@
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-        console.log('🎮 Stickers, GIFs, Polls, and Games integrated!');
+        console.log('🎨 30+ Premium features available!');
+        console.log('🎮 Games, Stickers, GIFs, Polls and more!');
     });
 })();
