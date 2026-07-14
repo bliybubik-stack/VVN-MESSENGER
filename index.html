@@ -230,19 +230,25 @@
 
                         <div class="chat-input-bar" id="chatInputBar">
                             <div class="chat-input-row">
-                                <button class="clip-btn" id="clipBtn" title="Attach files">
-                                    <img src="icons/clip.png" alt="Attach" width="24" height="24" />
-                                </button>
-                                <button class="fun-btn" id="funBtn" title="Stickers, GIFs, Polls & Games">
-                                    <img src="icons/note.png" alt="Fun" width="24" height="24" />
-                                </button>
-                                <input id="messageInput" placeholder="Type a message..." />
-                                <button class="mic-btn" id="micBtn" title="Voice message">
-                                    <img src="icons/mic.png" alt="Mic" width="24" height="24" />
-                                </button>
-                                <button class="send-btn" id="sendBtn">
-                                    <img src="icons/send.png" alt="Send" width="26" height="26" />
-                                </button>
+                                <div class="message-input-wrapper">
+                                    <div class="input-left-icons">
+                                        <button class="icon-btn smile-btn" id="smileBtn" title="Stickers &amp; GIFs">
+                                            <img src="icons/note.png" alt="Fun" width="20" height="20" />
+                                        </button>
+                                        <button class="icon-btn" id="clipBtn" title="Attach files">
+                                            <img src="icons/clip.png" alt="Attach" width="20" height="20" />
+                                        </button>
+                                    </div>
+                                    <input id="messageInput" placeholder="Type a message..." />
+                                    <div class="input-right-icons">
+                                        <button class="icon-btn mic-btn" id="micBtn" title="Voice message">
+                                            <img src="icons/mic.png" alt="Mic" width="20" height="20" />
+                                        </button>
+                                        <button class="send-btn-inline" id="sendBtn">
+                                            <img src="icons/send.png" alt="Send" width="18" height="18" />
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="fun-panel" id="funPanel" style="display:none;">
@@ -628,4 +634,4 @@
     <script src="device-layouts.js"></script>
     <script src="app.js"></script>
 </body>
-    </html>
+</html>
