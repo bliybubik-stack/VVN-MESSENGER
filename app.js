@@ -28,7 +28,8 @@
         loadingComplete: false,
         deviceType: 'pc',
         typingTimeout: null,
-        isTyping: false
+        isTyping: false,
+        firstSyncDone: false
     };
     const CONFIG = window.CONFIG || {
         BIN_ID: '6a5222dbda38895dfe4ef18e',
@@ -163,14 +164,13 @@
         logoutBtn: document.getElementById('logoutBtn'),
         clearDataBtn: document.getElementById('clearDataBtn'),
         autoDetectLayoutBtn: document.getElementById('autoDetectLayoutBtn'),
-        funBtn: document.getElementById('funBtn'),
         funPanel: document.getElementById('funPanel'),
-        panelTabs: document.querySelectorAll('.panel-tab'),
-        panelContents: document.querySelectorAll('.panel-content'),
         stickerGrid: document.getElementById('stickerGrid'),
         gifGrid: document.getElementById('gifGrid'),
         pollBtn: document.getElementById('pollBtn'),
-        gameBtn: document.getElementById('gameBtn')
+        gameBtn: document.getElementById('gameBtn'),
+        funBtn: document.getElementById('funBtn'),
+        smileBtn: document.getElementById('smileBtn')
     };
     let selectionMode = false;
     let selectedMessages = new Set();
@@ -357,6 +357,10 @@
     }
 
     async function syncWithRemote() {
+        if (state.firstSyncDone) {
+            setStatus('Synced', 'green');
+            return true;
+        }
         setStatus('Syncing...', 'yellow');
         const remote = await fetchFromBin();
         if (remote) {
@@ -391,6 +395,7 @@
             state.localCache.messages = localMessages;
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
             setStatus('Synced: ' + state.localCache.users.length + ' users', 'green');
+            state.firstSyncDone = true;
             if (state.currentUser) {
                 renderMessenger();
                 if (state.currentChatPartner) openChat(state.currentChatPartner);
@@ -398,14 +403,15 @@
             return true;
         } else {
             setStatus('Offline mode', 'yellow');
+            state.firstSyncDone = true;
             return true;
         }
     }
 
     async function pushToRemote() {
-        setStatus('Pushing...', 'yellow');
+        setStatus('Saving...', 'yellow');
         const success = await updateBin(state.localCache);
-        if (success) setStatus('Pushed to cloud', 'green');
+        if (success) { setStatus('Saved', 'green'); }
         return success;
     }
 
@@ -465,16 +471,18 @@
         if (DOM.funPanel.style.display === 'block') {
             DOM.funPanel.style.display = 'none';
             if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+            if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
         } else {
             DOM.funPanel.style.display = 'block';
             if (DOM.funBtn) DOM.funBtn.classList.add('active');
+            if (DOM.smileBtn) DOM.smileBtn.classList.add('active');
             switchPanelTab('stickers');
         }
     }
 
     function switchPanelTab(tab) {
-        DOM.panelTabs.forEach(t => t.classList.remove('active'));
-        DOM.panelContents.forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel-content').forEach(c => c.classList.remove('active'));
         const tabEl = document.querySelector('.panel-tab[data-tab="' + tab + '"]');
         const contentEl = document.getElementById('panel-' + tab);
         if (tabEl) tabEl.classList.add('active');
@@ -541,6 +549,7 @@
         scrollToBottom();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     };
 
     window.sendGIF = function(data) {
@@ -561,6 +570,7 @@
         scrollToBottom();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     };
 
     function createPoll() {
@@ -592,11 +602,13 @@
         scrollToBottom();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     }
 
     function playGame() {
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
         const games = ['🎮 Tic Tac Toe', '🎯 Rock Paper Scissors', '🧠 Trivia'];
         const choice = prompt('Choose a game:\n1. Tic Tac Toe\n2. Rock Paper Scissors\n3. Trivia');
         if (!choice) return;
@@ -945,6 +957,7 @@
         hideTypingIndicator();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     }
 
     function startVoiceRecording() {
@@ -1707,6 +1720,7 @@
         closeDropdown();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     }
 
     function showTypingIndicator() {
@@ -2068,7 +2082,10 @@
             const overlay = DOM.profileModal.querySelector('.modal-overlay');
             if (overlay) overlay.addEventListener('click', function() { DOM.profileModal.classList.remove('active'); });
         }
-        if (DOM.manualSyncBtn) DOM.manualSyncBtn.addEventListener('click', syncWithRemote);
+        if (DOM.manualSyncBtn) DOM.manualSyncBtn.addEventListener('click', function() {
+            state.firstSyncDone = false;
+            syncWithRemote();
+        });
         document.querySelectorAll('.device-option').forEach(btn => {
             btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
         });
@@ -2202,7 +2219,13 @@
                 toggleFunPanel();
             });
         }
-        DOM.panelTabs.forEach(tab => {
+        if (DOM.smileBtn) {
+            DOM.smileBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                toggleFunPanel();
+            });
+        }
+        document.querySelectorAll('.panel-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 switchPanelTab(this.dataset.tab);
             });
@@ -2210,9 +2233,10 @@
         if (DOM.pollBtn) DOM.pollBtn.addEventListener('click', function() { createPoll(); });
         if (DOM.gameBtn) DOM.gameBtn.addEventListener('click', function() { playGame(); });
         document.addEventListener('click', function(e) {
-            if (DOM.funPanel && DOM.funBtn && !e.target.closest('.fun-panel') && !e.target.closest('.fun-btn')) {
+            if (DOM.funPanel && DOM.funBtn && !e.target.closest('.fun-panel') && !e.target.closest('.fun-btn') && !e.target.closest('.smile-btn')) {
                 DOM.funPanel.style.display = 'none';
                 if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+                if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
             }
         });
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
