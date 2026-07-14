@@ -34,11 +34,7 @@
     const CONFIG = window.CONFIG || {
         BIN_ID: '6a5222dbda38895dfe4ef18e',
         MASTER_KEY: '$2a$10$xpnzNbyjOgRS6s..YVAMhOqwuj/FOPnU15M2J9uSwHBsRJAygi1Lu',
-        OWNERS: ['vaultnet', 'vvnters'],
-        DEVS: ['vaultnet', 'vvnters'],
-        ADMINS: ['vaultnet'],
-        MODS: ['vaultnet'],
-        STAFF: ['vaultnet', 'vvnters'],
+        OWNER: 'vaultnet',
         DEV_PIN: '2356-23543-13451-78901-23456',
         SYNC_INTERVAL: 5000
     };
@@ -170,13 +166,15 @@
         pollBtn: document.getElementById('pollBtn'),
         gameBtn: document.getElementById('gameBtn'),
         funBtn: document.getElementById('funBtn'),
-        smileBtn: document.getElementById('smileBtn')
+        smileBtn: document.getElementById('smileBtn'),
+        manageUsersBtn: document.getElementById('manageUsersBtn')
     };
     let selectionMode = false;
     let selectedMessages = new Set();
     let pinnedMessages = {};
     let contactCustomNames = {};
     let blockedUsers = [];
+    let userRoles = {};
     let chatSettings = {
         bubbleStyle: 'rounded',
         background: 'default',
@@ -199,29 +197,176 @@
     let recordingSeconds = 0;
     let recordingInterval = null;
 
-    const GIF_STICKER_PANEL = [
-        { emoji: "😂", label: "lol" },
-        { emoji: "🔥", label: "fire" },
-        { emoji: "👍", label: "ok" },
-        { emoji: "❤️", label: "love" },
-        { emoji: "😮", label: "wow" },
-        { emoji: "🎉", label: "party" },
-        { emoji: "😭", label: "cry" },
-        { emoji: "🥺", label: "pls" },
-        { emoji: "🤣", label: "rofl" },
-        { emoji: "💯", label: "100" },
-        { emoji: "🙌", label: "yes" },
-        { emoji: "✨", label: "sparkle" }
-    ];
+    const ALL_TAGS = ['OWNER', 'CEO', 'DEV', 'ADMIN', 'MOD', 'STAFF', 'XTRA'];
+    const TAG_CLASSES = {
+        'OWNER': 'tag-owner',
+        'CEO': 'tag-ceo',
+        'DEV': 'tag-dev',
+        'ADMIN': 'tag-admin',
+        'MOD': 'tag-mod',
+        'STAFF': 'tag-staff',
+        'XTRA': 'tag-xtra'
+    };
 
-    const SAMPLE_GIFS = [
-        'https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif',
-        'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif',
-        'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
-        'https://media.giphy.com/media/3o6ZtqY0XUyP5qXqQo/giphy.gif',
-        'https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif',
-        'https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif'
-    ];
+    function getUserTags(username) {
+        const tags = [];
+        const u = username.toLowerCase();
+        if (u === CONFIG.OWNER.toLowerCase()) {
+            tags.push({ label: 'OWNER', class: 'tag-owner' });
+            tags.push({ label: 'CEO', class: 'tag-ceo' });
+            tags.push({ label: 'DEV', class: 'tag-dev' });
+            tags.push({ label: 'ADMIN', class: 'tag-admin' });
+            tags.push({ label: 'MOD', class: 'tag-mod' });
+            tags.push({ label: 'STAFF', class: 'tag-staff' });
+            tags.push({ label: 'XTRA', class: 'tag-xtra' });
+            return tags;
+        }
+        const roles = userRoles[username] || [];
+        for (const role of roles) {
+            if (role === 'CEO') tags.push({ label: 'CEO', class: 'tag-ceo' });
+            else if (role === 'DEV') tags.push({ label: 'DEV', class: 'tag-dev' });
+            else if (role === 'ADMIN') tags.push({ label: 'ADMIN', class: 'tag-admin' });
+            else if (role === 'MOD') tags.push({ label: 'MOD', class: 'tag-mod' });
+            else if (role === 'STAFF') tags.push({ label: 'STAFF', class: 'tag-staff' });
+            else if (role === 'XTRA') tags.push({ label: 'XTRA', class: 'tag-xtra' });
+        }
+        if (tags.length === 0) {
+            const user = getUserByUsername(username);
+            if (user && user.created) {
+                const age = Date.now() - user.created;
+                if (age > 30 * 24 * 60 * 60 * 1000) tags.push({ label: 'MEMBER', class: 'tag-member' });
+                else tags.push({ label: 'GUEST', class: 'tag-guest' });
+            } else {
+                tags.push({ label: 'MEMBER', class: 'tag-member' });
+            }
+        }
+        return tags;
+    }
+
+    function isOwner(username) {
+        return username.toLowerCase() === CONFIG.OWNER.toLowerCase();
+    }
+
+    function canManageRoles(username) {
+        return isOwner(username);
+    }
+
+    function assignRole(username, role) {
+        if (!canManageRoles(state.currentUser.username)) {
+            alert('Only the owner can assign roles.');
+            return false;
+        }
+        if (isOwner(username)) {
+            alert('Cannot modify the owner\'s roles.');
+            return false;
+        }
+        if (!userRoles[username]) userRoles[username] = [];
+        if (!userRoles[username].includes(role)) {
+            userRoles[username].push(role);
+            localStorage.setItem('vvn_roles', JSON.stringify(userRoles));
+            return true;
+        }
+        return false;
+    }
+
+    function removeRole(username, role) {
+        if (!canManageRoles(state.currentUser.username)) {
+            alert('Only the owner can remove roles.');
+            return false;
+        }
+        if (isOwner(username)) {
+            alert('Cannot modify the owner\'s roles.');
+            return false;
+        }
+        if (userRoles[username]) {
+            const index = userRoles[username].indexOf(role);
+            if (index > -1) {
+                userRoles[username].splice(index, 1);
+                if (userRoles[username].length === 0) delete userRoles[username];
+                localStorage.setItem('vvn_roles', JSON.stringify(userRoles));
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function loadUserRoles() {
+        const roles = localStorage.getItem('vvn_roles');
+        if (roles) userRoles = JSON.parse(roles);
+    }
+
+    function manageUserRoles() {
+        if (!canManageRoles(state.currentUser.username)) {
+            alert('Only the owner can manage user roles.');
+            return;
+        }
+        const users = state.localCache.users;
+        let userList = 'Manage User Roles\n\n';
+        users.forEach((u, i) => {
+            const tags = getUserTags(u.username);
+            const tagLabels = tags.map(t => t.label).join(', ');
+            userList += (i+1) + '. ' + u.username + ' - Tags: ' + (tagLabels || 'MEMBER') + '\n';
+        });
+        userList += '\nEnter number to manage:';
+        const choice = prompt(userList);
+        if (!choice) return;
+        const index = parseInt(choice) - 1;
+        if (index < 0 || index >= users.length) { alert('Invalid choice.'); return; }
+        const targetUser = users[index];
+        if (isOwner(targetUser.username)) {
+            alert('Cannot modify the owner.');
+            return;
+        }
+        const currentTags = getUserTags(targetUser.username);
+        const currentTagLabels = currentTags.map(t => t.label);
+        let action = 'Manage ' + targetUser.username + '\nCurrent Tags: ' + (currentTagLabels.join(', ') || 'MEMBER') + '\n\n';
+        action += '1. Add Role\n2. Remove Role\n3. View Roles\n';
+        const actionChoice = prompt(action);
+        if (!actionChoice) return;
+        if (actionChoice === '1') {
+            let roleMsg = 'Select role to add:\n';
+            ALL_TAGS.forEach((r, i) => {
+                if (r !== 'OWNER' && !currentTagLabels.includes(r)) {
+                    roleMsg += (i+1) + '. ' + r + '\n';
+                }
+            });
+            const roleChoice = prompt(roleMsg);
+            if (!roleChoice) return;
+            const roleIndex = parseInt(roleChoice) - 1;
+            if (roleIndex < 0 || roleIndex >= ALL_TAGS.length) { alert('Invalid choice.'); return; }
+            const role = ALL_TAGS[roleIndex];
+            if (role === 'OWNER') { alert('Cannot assign OWNER role.'); return; }
+            if (assignRole(targetUser.username, role)) {
+                alert('Role ' + role + ' assigned to ' + targetUser.username);
+                renderChatList();
+            } else {
+                alert('Failed to assign role.');
+            }
+        } else if (actionChoice === '2') {
+            const removable = currentTags.filter(t => t.label !== 'OWNER' && t.label !== 'MEMBER' && t.label !== 'GUEST');
+            if (removable.length === 0) {
+                alert('No removable roles found.');
+                return;
+            }
+            let removeMsg = 'Select role to remove:\n';
+            removable.forEach((r, i) => {
+                removeMsg += (i+1) + '. ' + r.label + '\n';
+            });
+            const removeChoice = prompt(removeMsg);
+            if (!removeChoice) return;
+            const removeIndex = parseInt(removeChoice) - 1;
+            if (removeIndex < 0 || removeIndex >= removable.length) { alert('Invalid choice.'); return; }
+            const roleToRemove = removable[removeIndex].label;
+            if (removeRole(targetUser.username, roleToRemove)) {
+                alert('Role ' + roleToRemove + ' removed from ' + targetUser.username);
+                renderChatList();
+            } else {
+                alert('Failed to remove role.');
+            }
+        } else if (actionChoice === '3') {
+            alert('Tags for ' + targetUser.username + ':\n' + (currentTagLabels.join(', ') || 'MEMBER'));
+        }
+    }
 
     function formatTime(ts) {
         const d = new Date(ts);
@@ -251,27 +396,6 @@
         return days + ' days';
     }
 
-    function getUserTags(username) {
-        const tags = [];
-        const u = username.toLowerCase();
-        if (CONFIG.OWNERS && CONFIG.OWNERS.map(o => o.toLowerCase()).includes(u)) tags.push({ label: 'OWNER', class: 'tag-owner' });
-        if (CONFIG.DEVS && CONFIG.DEVS.map(d => d.toLowerCase()).includes(u)) tags.push({ label: 'DEV', class: 'tag-dev' });
-        if (CONFIG.ADMINS && CONFIG.ADMINS.map(a => a.toLowerCase()).includes(u)) tags.push({ label: 'ADMIN', class: 'tag-admin' });
-        if (CONFIG.MODS && CONFIG.MODS.map(m => m.toLowerCase()).includes(u)) tags.push({ label: 'MOD', class: 'tag-mod' });
-        if (CONFIG.STAFF && CONFIG.STAFF.map(s => s.toLowerCase()).includes(u)) tags.push({ label: 'STAFF', class: 'tag-staff' });
-        if (tags.length === 0) {
-            const user = getUserByUsername(username);
-            if (user && user.created) {
-                const age = Date.now() - user.created;
-                if (age > 30 * 24 * 60 * 60 * 1000) tags.push({ label: 'MEMBER', class: 'tag-member' });
-                else tags.push({ label: 'GUEST', class: 'tag-guest' });
-            } else {
-                tags.push({ label: 'MEMBER', class: 'tag-member' });
-            }
-        }
-        return tags;
-    }
-
     function getBadges(user) {
         const badges = [];
         if (user && user.created) {
@@ -279,7 +403,7 @@
             if (age > 365 * 24 * 60 * 60 * 1000) badges.push({ label: 'OG', class: 'badge-og' });
             if (age > 180 * 24 * 60 * 60 * 1000) badges.push({ label: 'Early Adopter', class: 'badge-early-adopter' });
         }
-        if (CONFIG.OWNERS && CONFIG.OWNERS.includes(user.username)) badges.push({ label: 'Verified', class: 'badge-verified' });
+        if (isOwner(user.username)) badges.push({ label: 'Verified', class: 'badge-verified' });
         return badges;
     }
 
@@ -461,6 +585,7 @@
             case 'chatinfo': showChatInfo(); break;
             case 'status': setCustomStatus(); break;
             case 'theme': openSettings(); break;
+            case 'manageroles': manageUserRoles(); break;
             default: break;
         }
         closeDropdown();
@@ -505,7 +630,14 @@
 
     function loadGIFs() {
         if (!DOM.gifGrid) return;
-        DOM.gifGrid.innerHTML = SAMPLE_GIFS.map(g =>
+        const gifs = [
+            'https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif',
+            'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif',
+            'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
+            'https://media.giphy.com/media/3o6ZtqY0XUyP5qXqQo/giphy.gif',
+            'https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif'
+        ];
+        DOM.gifGrid.innerHTML = gifs.map(g =>
             '<img src="' + g + '" class="gif-item" onclick="window.sendGIF(\'' + g + '\')" />'
         ).join('');
     }
@@ -1491,6 +1623,7 @@
         if (chatSettings.bubbleColor) {
             document.documentElement.style.setProperty('--bubble-color', chatSettings.bubbleColor);
         }
+        loadUserRoles();
     }
 
     function updateMobileView() {
@@ -2260,11 +2393,11 @@
         });
         init();
         console.log('🚀 VVN Messenger started!');
-        console.log('👤 Default owner: vaultnet');
+        console.log('👤 Owner: VaultNet');
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
         console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-        console.log('🎨 30+ Premium features available!');
+        console.log('🏷️ VaultNet has all tags: OWNER, CEO, DEV, ADMIN, MOD, STAFF, XTRA');
         console.log('🎮 Games, Stickers, GIFs, Polls and more!');
     });
 })();
