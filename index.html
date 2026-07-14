@@ -179,37 +179,12 @@
                             <div class="dropdown-item" data-action="bubblecolor">
                                 <img src="icons/edit.png" alt="Color" width="18" height="18" /> Bubble Color
                             </div>
-                            <div class="dropdown-item" data-action="fontsize">
-                                <img src="icons/edit.png" alt="Font" width="18" height="18" /> Font Size
-                            </div>
-                            <div class="dropdown-item" data-action="fontfamily">
-                                <img src="icons/edit.png" alt="Font" width="18" height="18" /> Font Family
-                            </div>
                             <div class="dropdown-item" data-action="chatinfo">
                                 <img src="icons/settings.png" alt="Info" width="18" height="18" /> Chat Info
                             </div>
                             <div class="dropdown-divider"></div>
-                            <div class="dropdown-item" data-action="stickers">
-                                <img src="icons/note.png" alt="Stickers" width="18" height="18" /> Stickers
-                            </div>
-                            <div class="dropdown-item" data-action="gifs">
-                                <img src="icons/note.png" alt="GIFs" width="18" height="18" /> GIFs
-                            </div>
-                            <div class="dropdown-item" data-action="games">
-                                <img src="icons/note.png" alt="Games" width="18" height="18" /> Mini Games
-                            </div>
-                            <div class="dropdown-item" data-action="poll">
-                                <img src="icons/note.png" alt="Poll" width="18" height="18" /> Create Poll
-                            </div>
-                            <div class="dropdown-divider"></div>
                             <div class="dropdown-item" data-action="profile">
                                 <img src="icons/user.png" alt="Profile" width="18" height="18" /> View Profile
-                            </div>
-                            <div class="dropdown-item" data-action="status">
-                                <img src="icons/edit.png" alt="Status" width="18" height="18" /> Set Status
-                            </div>
-                            <div class="dropdown-item" data-action="theme">
-                                <img src="icons/settings.png" alt="Theme" width="18" height="18" /> Theme Settings
                             </div>
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-item" data-action="logout" style="color:#ff6b6b;">
@@ -244,17 +219,68 @@
                             </button>
                         </div>
 
-                        <div class="chat-input-bar" id="chatInputBar">
-                            <button class="clip-btn" id="clipBtn" title="Attach files">
-                                <img src="icons/clip.png" alt="Attach" width="28" height="28" />
-                            </button>
-                            <input id="messageInput" placeholder="Type a message..." />
-                            <button class="mic-btn" id="micBtn" title="Voice message">
-                                <img src="icons/mic.png" alt="Mic" width="24" height="24" />
-                            </button>
-                            <button id="sendBtn">
-                                <img src="icons/send.png" alt="Send" width="28" height="28" />
-                            </button>
+                        <div class="chat-input-container" id="chatInputContainer">
+                            <div class="chat-input-bar" id="chatInputBar">
+                                <button class="smile-btn" id="smileBtn" title="Stickers & GIFs">
+                                    <img src="icons/smile.png" alt="Smile" width="24" height="24" />
+                                </button>
+                                <div class="input-wrapper" id="inputWrapper">
+                                    <textarea id="messageInput" rows="1" placeholder="Message" class="message-textarea"></textarea>
+                                </div>
+                                <button class="clip-btn" id="clipBtn" title="Attach files">
+                                    <img src="icons/clip.png" alt="Attach" width="22" height="22" />
+                                </button>
+                                <button class="mic-btn" id="micBtn" title="Voice message">
+                                    <img src="icons/mic.png" alt="Mic" width="22" height="22" />
+                                </button>
+                                <button id="sendBtn" class="send-btn">
+                                    <img src="icons/send.png" alt="Send" width="22" height="22" />
+                                </button>
+                            </div>
+
+                            <div class="gif-sticker-panel" id="gifStickerPanel" style="display:none;">
+                                <div class="panel-tabs">
+                                    <button class="panel-tab active" data-tab="stickers">Stickers</button>
+                                    <button class="panel-tab" data-tab="gifs">GIFs</button>
+                                    <button class="panel-tab" data-tab="polls">Polls</button>
+                                    <button class="panel-tab" data-tab="games">Games</button>
+                                    <button class="panel-close" id="panelClose">✕</button>
+                                </div>
+                                <div class="panel-content" id="panelContent">
+                                    <div class="panel-grid stickers-grid" id="stickersGrid">
+                                        <div class="sticker-item" data-sticker="😂">😂</div>
+                                        <div class="sticker-item" data-sticker="🔥">🔥</div>
+                                        <div class="sticker-item" data-sticker="👍">👍</div>
+                                        <div class="sticker-item" data-sticker="❤️">❤️</div>
+                                        <div class="sticker-item" data-sticker="😮">😮</div>
+                                        <div class="sticker-item" data-sticker="🎉">🎉</div>
+                                        <div class="sticker-item" data-sticker="😭">😭</div>
+                                        <div class="sticker-item" data-sticker="🥺">🥺</div>
+                                        <div class="sticker-item" data-sticker="🤣">🤣</div>
+                                        <div class="sticker-item" data-sticker="💯">💯</div>
+                                        <div class="sticker-item" data-sticker="🙌">🙌</div>
+                                        <div class="sticker-item" data-sticker="✨">✨</div>
+                                    </div>
+                                    <div class="panel-grid gifs-grid" id="gifsGrid" style="display:none;">
+                                        <div class="gif-item" data-gif="https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif">🎬</div>
+                                        <div class="gif-item" data-gif="https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif">🎬</div>
+                                        <div class="gif-item" data-gif="https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif">🎬</div>
+                                        <div class="gif-item" data-gif="https://media.giphy.com/media/3o6ZtqY0XUyP5qXqQo/giphy.gif">🎬</div>
+                                        <div class="gif-item" data-gif="https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif">🎬</div>
+                                        <div class="gif-item" data-gif="https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif">🎬</div>
+                                    </div>
+                                    <div class="panel-grid polls-grid" id="pollsGrid" style="display:none;">
+                                        <div class="poll-item" data-poll="quick">📊 Quick Poll</div>
+                                        <div class="poll-item" data-poll="detailed">📊 Detailed Poll</div>
+                                        <div class="poll-item" data-poll="yesno">📊 Yes/No Poll</div>
+                                    </div>
+                                    <div class="panel-grid games-grid" id="gamesGrid" style="display:none;">
+                                        <div class="game-item" data-game="tictactoe">🎮 Tic Tac Toe</div>
+                                        <div class="game-item" data-game="rps">🎮 Rock Paper Scissors</div>
+                                        <div class="game-item" data-game="trivia">🧠 Trivia</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -316,10 +342,6 @@
                         <label>Bio</label>
                         <textarea id="settingsBio" placeholder="Tell us about yourself" rows="3"></textarea>
                     </div>
-                    <div class="settings-group">
-                        <label>Custom Status</label>
-                        <input type="text" id="settingsStatus" placeholder="What's on your mind?" />
-                    </div>
                     <button class="btn-primary" id="saveSettings">Save Changes</button>
                 </div>
 
@@ -339,51 +361,6 @@
                         <label>Bubble Color</label>
                         <input type="color" id="bubbleColorPicker" value="#36454F" />
                         <button class="btn-secondary" id="applyBubbleColor">Apply Color</button>
-                    </div>
-                    <div class="settings-group">
-                        <label>Font Size</label>
-                        <select id="fontSizeSelect">
-                            <option value="small">Small</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="large">Large</option>
-                            <option value="xl">Extra Large</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Font Family</label>
-                        <select id="fontFamilySelect">
-                            <option value="inter">Inter</option>
-                            <option value="sf">SF Pro</option>
-                            <option value="roboto">Roboto</option>
-                            <option value="poppins">Poppins</option>
-                            <option value="helvetica">Helvetica</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Chat Spacing</label>
-                        <select id="chatSpacingSelect">
-                            <option value="compact">Compact</option>
-                            <option value="comfortable" selected>Comfortable</option>
-                            <option value="spacious">Spacious</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Timestamp Format</label>
-                        <select id="timestampFormatSelect">
-                            <option value="12h">12 Hour</option>
-                            <option value="24h">24 Hour</option>
-                            <option value="relative">Relative</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Message Animations</label>
-                        <select id="messageAnimationSelect">
-                            <option value="slide">Slide</option>
-                            <option value="fade">Fade</option>
-                            <option value="pop">Pop</option>
-                            <option value="bounce">Bounce</option>
-                            <option value="none">None</option>
-                        </select>
                     </div>
                     <div class="settings-group">
                         <label>Chat Background</label>
@@ -406,17 +383,6 @@
                             <span id="e2eeStatus">Enabled</span>
                         </div>
                         <p class="setting-desc">Messages are encrypted and can only be read by you and the recipient.</p>
-                    </div>
-                    <div class="settings-group">
-                        <label>Read Receipts</label>
-                        <div class="toggle-group">
-                            <label class="toggle">
-                                <input type="checkbox" id="readReceiptsToggle" checked />
-                                <span class="toggle-slider"></span>
-                            </label>
-                            <span id="readReceiptsStatus">Enabled</span>
-                        </div>
-                        <p class="setting-desc">Show when messages have been read.</p>
                     </div>
                     <div class="settings-group">
                         <label>Two-Factor Authentication</label>
@@ -557,7 +523,6 @@
                             <div class="profile-name" id="profileDisplayName">Display Name</div>
                             <div class="profile-tags" id="profileTags"></div>
                             <div class="profile-badges" id="profileBadges"></div>
-                            <div class="custom-status" id="profileStatus">Available</div>
                         </div>
                     </div>
                     <div class="profile-section">
@@ -565,7 +530,6 @@
                         <div class="profile-username" id="profileUsername">@username</div>
                         <div class="profile-password" id="profilePassword" style="display:none;">Password: ********</div>
                         <div class="profile-userid" id="profileUserID">ID: loading...</div>
-                        <div class="profile-qr" id="profileQR"></div>
                     </div>
                     <div class="profile-section">
                         <div class="profile-label">About</div>
@@ -610,4 +574,4 @@
     <script src="device-layouts.js"></script>
     <script src="app.js"></script>
 </body>
-    </html>
+</html>
