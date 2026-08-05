@@ -1,5 +1,6 @@
 (function() {
     'use strict';
+
     let state = {
         currentUser: null,
         currentChatPartner: null,
@@ -29,15 +30,25 @@
         deviceType: 'pc',
         typingTimeout: null,
         isTyping: false,
-        firstSyncDone: false
+        firstSyncDone: false,
+        vantaEffect: null,
+        atroposInstances: []
     };
+
     const CONFIG = window.CONFIG || {
         BIN_ID: '6a5222dbda38895dfe4ef18e',
         MASTER_KEY: '$2a$10$xpnzNbyjOgRS6s..YVAMhOqwuj/FOPnU15M2J9uSwHBsRJAygi1Lu',
-        OWNER: 'vaultnet',
+        OWNERS: ['VaultNet'],
+        CEOS: ['VaultNet'],
+        DEVS: ['VaultNet'],
+        ADMINS: ['VaultNet'],
+        MODS: ['VaultNet'],
+        XTRA: ['VaultNet'],
+        STAFF: ['VaultNet'],
         DEV_PIN: '2356-23543-13451-78901-23456',
         SYNC_INTERVAL: 5000
     };
+
     const DOM = {
         loadingOverlay: document.getElementById('loadingOverlay'),
         loaderFill: document.getElementById('loaderFill'),
@@ -64,11 +75,9 @@
         chatPartnerName: document.getElementById('chatPartnerName'),
         chatPartnerStatus: document.getElementById('chatPartnerStatus'),
         chatMessages: document.getElementById('chatMessages'),
-        chatInputBar: document.getElementById('chatInputBar'),
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
         backBtn: document.getElementById('backBtn'),
-        profileBtn: document.getElementById('profileBtn'),
         settingsBtn: document.getElementById('settingsBtn'),
         syncDot: document.getElementById('syncDot'),
         syncStatus: document.getElementById('syncStatus'),
@@ -85,7 +94,6 @@
         profileStatus: document.getElementById('profileStatus'),
         profilePassword: document.getElementById('profilePassword'),
         profileUserID: document.getElementById('profileUserID'),
-        profileQR: document.getElementById('profileQR'),
         modalClose: document.getElementById('modalClose'),
         settingsModal: document.getElementById('settingsModal'),
         settingsClose: document.getElementById('settingsClose'),
@@ -94,7 +102,6 @@
         settingsUsername: document.getElementById('settingsUsername'),
         settingsPassword: document.getElementById('settingsPassword'),
         settingsBio: document.getElementById('settingsBio'),
-        settingsStatus: document.getElementById('settingsStatus'),
         avatarUpload: document.getElementById('avatarUpload'),
         saveSettings: document.getElementById('saveSettings'),
         e2eeToggle: document.getElementById('e2eeToggle'),
@@ -112,11 +119,7 @@
         chatDropdownBtn: document.getElementById('chatDropdownBtn'),
         dropdownMenu: document.getElementById('dropdownMenu'),
         autoDetectBtn: document.getElementById('autoDetectBtn'),
-        deviceIndicator: document.getElementById('deviceIndicator'),
         autoLockTimer: document.getElementById('autoLockTimer'),
-        sessionTimeout: document.getElementById('sessionTimeout'),
-        messageHistory: document.getElementById('messageHistory'),
-        messageDelivery: document.getElementById('messageDelivery'),
         primaryColor: document.getElementById('primaryColor'),
         secondaryColor: document.getElementById('secondaryColor'),
         textColor: document.getElementById('textColor'),
@@ -149,14 +152,9 @@
         bgDefault: document.getElementById('bgDefault'),
         bgCustom: document.getElementById('bgCustom'),
         bgUpload: document.getElementById('bgUpload'),
-        createNoteBtn: document.getElementById('createNoteBtn'),
         bubbleColorPicker: document.getElementById('bubbleColorPicker'),
         applyBubbleColor: document.getElementById('applyBubbleColor'),
         fontSizeSelect: document.getElementById('fontSizeSelect'),
-        fontFamilySelect: document.getElementById('fontFamilySelect'),
-        chatSpacingSelect: document.getElementById('chatSpacingSelect'),
-        timestampFormatSelect: document.getElementById('timestampFormatSelect'),
-        messageAnimationSelect: document.getElementById('messageAnimationSelect'),
         logoutBtn: document.getElementById('logoutBtn'),
         clearDataBtn: document.getElementById('clearDataBtn'),
         autoDetectLayoutBtn: document.getElementById('autoDetectLayoutBtn'),
@@ -166,15 +164,14 @@
         pollBtn: document.getElementById('pollBtn'),
         gameBtn: document.getElementById('gameBtn'),
         funBtn: document.getElementById('funBtn'),
-        smileBtn: document.getElementById('smileBtn'),
-        manageUsersBtn: document.getElementById('manageUsersBtn')
+        smileBtn: document.getElementById('smileBtn')
     };
+
     let selectionMode = false;
     let selectedMessages = new Set();
     let pinnedMessages = {};
     let contactCustomNames = {};
     let blockedUsers = [];
-    let userRoles = {};
     let chatSettings = {
         bubbleStyle: 'rounded',
         background: 'default',
@@ -197,176 +194,13 @@
     let recordingSeconds = 0;
     let recordingInterval = null;
 
-    const ALL_TAGS = ['OWNER', 'CEO', 'DEV', 'ADMIN', 'MOD', 'STAFF', 'XTRA'];
-    const TAG_CLASSES = {
-        'OWNER': 'tag-owner',
-        'CEO': 'tag-ceo',
-        'DEV': 'tag-dev',
-        'ADMIN': 'tag-admin',
-        'MOD': 'tag-mod',
-        'STAFF': 'tag-staff',
-        'XTRA': 'tag-xtra'
-    };
-
-    function getUserTags(username) {
-        const tags = [];
-        const u = username.toLowerCase();
-        if (u === CONFIG.OWNER.toLowerCase()) {
-            tags.push({ label: 'OWNER', class: 'tag-owner' });
-            tags.push({ label: 'CEO', class: 'tag-ceo' });
-            tags.push({ label: 'DEV', class: 'tag-dev' });
-            tags.push({ label: 'ADMIN', class: 'tag-admin' });
-            tags.push({ label: 'MOD', class: 'tag-mod' });
-            tags.push({ label: 'STAFF', class: 'tag-staff' });
-            tags.push({ label: 'XTRA', class: 'tag-xtra' });
-            return tags;
-        }
-        const roles = userRoles[username] || [];
-        for (const role of roles) {
-            if (role === 'CEO') tags.push({ label: 'CEO', class: 'tag-ceo' });
-            else if (role === 'DEV') tags.push({ label: 'DEV', class: 'tag-dev' });
-            else if (role === 'ADMIN') tags.push({ label: 'ADMIN', class: 'tag-admin' });
-            else if (role === 'MOD') tags.push({ label: 'MOD', class: 'tag-mod' });
-            else if (role === 'STAFF') tags.push({ label: 'STAFF', class: 'tag-staff' });
-            else if (role === 'XTRA') tags.push({ label: 'XTRA', class: 'tag-xtra' });
-        }
-        if (tags.length === 0) {
-            const user = getUserByUsername(username);
-            if (user && user.created) {
-                const age = Date.now() - user.created;
-                if (age > 30 * 24 * 60 * 60 * 1000) tags.push({ label: 'MEMBER', class: 'tag-member' });
-                else tags.push({ label: 'GUEST', class: 'tag-guest' });
-            } else {
-                tags.push({ label: 'MEMBER', class: 'tag-member' });
-            }
-        }
-        return tags;
-    }
-
-    function isOwner(username) {
-        return username.toLowerCase() === CONFIG.OWNER.toLowerCase();
-    }
-
-    function canManageRoles(username) {
-        return isOwner(username);
-    }
-
-    function assignRole(username, role) {
-        if (!canManageRoles(state.currentUser.username)) {
-            alert('Only the owner can assign roles.');
-            return false;
-        }
-        if (isOwner(username)) {
-            alert('Cannot modify the owner\'s roles.');
-            return false;
-        }
-        if (!userRoles[username]) userRoles[username] = [];
-        if (!userRoles[username].includes(role)) {
-            userRoles[username].push(role);
-            localStorage.setItem('vvn_roles', JSON.stringify(userRoles));
-            return true;
-        }
-        return false;
-    }
-
-    function removeRole(username, role) {
-        if (!canManageRoles(state.currentUser.username)) {
-            alert('Only the owner can remove roles.');
-            return false;
-        }
-        if (isOwner(username)) {
-            alert('Cannot modify the owner\'s roles.');
-            return false;
-        }
-        if (userRoles[username]) {
-            const index = userRoles[username].indexOf(role);
-            if (index > -1) {
-                userRoles[username].splice(index, 1);
-                if (userRoles[username].length === 0) delete userRoles[username];
-                localStorage.setItem('vvn_roles', JSON.stringify(userRoles));
-                return true;
-            }
-        }
-        return false;
-    }
-
-    function loadUserRoles() {
-        const roles = localStorage.getItem('vvn_roles');
-        if (roles) userRoles = JSON.parse(roles);
-    }
-
-    function manageUserRoles() {
-        if (!canManageRoles(state.currentUser.username)) {
-            alert('Only the owner can manage user roles.');
-            return;
-        }
-        const users = state.localCache.users;
-        let userList = 'Manage User Roles\n\n';
-        users.forEach((u, i) => {
-            const tags = getUserTags(u.username);
-            const tagLabels = tags.map(t => t.label).join(', ');
-            userList += (i+1) + '. ' + u.username + ' - Tags: ' + (tagLabels || 'MEMBER') + '\n';
-        });
-        userList += '\nEnter number to manage:';
-        const choice = prompt(userList);
-        if (!choice) return;
-        const index = parseInt(choice) - 1;
-        if (index < 0 || index >= users.length) { alert('Invalid choice.'); return; }
-        const targetUser = users[index];
-        if (isOwner(targetUser.username)) {
-            alert('Cannot modify the owner.');
-            return;
-        }
-        const currentTags = getUserTags(targetUser.username);
-        const currentTagLabels = currentTags.map(t => t.label);
-        let action = 'Manage ' + targetUser.username + '\nCurrent Tags: ' + (currentTagLabels.join(', ') || 'MEMBER') + '\n\n';
-        action += '1. Add Role\n2. Remove Role\n3. View Roles\n';
-        const actionChoice = prompt(action);
-        if (!actionChoice) return;
-        if (actionChoice === '1') {
-            let roleMsg = 'Select role to add:\n';
-            ALL_TAGS.forEach((r, i) => {
-                if (r !== 'OWNER' && !currentTagLabels.includes(r)) {
-                    roleMsg += (i+1) + '. ' + r + '\n';
-                }
-            });
-            const roleChoice = prompt(roleMsg);
-            if (!roleChoice) return;
-            const roleIndex = parseInt(roleChoice) - 1;
-            if (roleIndex < 0 || roleIndex >= ALL_TAGS.length) { alert('Invalid choice.'); return; }
-            const role = ALL_TAGS[roleIndex];
-            if (role === 'OWNER') { alert('Cannot assign OWNER role.'); return; }
-            if (assignRole(targetUser.username, role)) {
-                alert('Role ' + role + ' assigned to ' + targetUser.username);
-                renderChatList();
-            } else {
-                alert('Failed to assign role.');
-            }
-        } else if (actionChoice === '2') {
-            const removable = currentTags.filter(t => t.label !== 'OWNER' && t.label !== 'MEMBER' && t.label !== 'GUEST');
-            if (removable.length === 0) {
-                alert('No removable roles found.');
-                return;
-            }
-            let removeMsg = 'Select role to remove:\n';
-            removable.forEach((r, i) => {
-                removeMsg += (i+1) + '. ' + r.label + '\n';
-            });
-            const removeChoice = prompt(removeMsg);
-            if (!removeChoice) return;
-            const removeIndex = parseInt(removeChoice) - 1;
-            if (removeIndex < 0 || removeIndex >= removable.length) { alert('Invalid choice.'); return; }
-            const roleToRemove = removable[removeIndex].label;
-            if (removeRole(targetUser.username, roleToRemove)) {
-                alert('Role ' + roleToRemove + ' removed from ' + targetUser.username);
-                renderChatList();
-            } else {
-                alert('Failed to remove role.');
-            }
-        } else if (actionChoice === '3') {
-            alert('Tags for ' + targetUser.username + ':\n' + (currentTagLabels.join(', ') || 'MEMBER'));
-        }
-    }
+    const SAMPLE_GIFS = [
+        'https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif',
+        'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif',
+        'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
+        'https://media.giphy.com/media/3o6ZtqY0XUyP5qXqQo/giphy.gif',
+        'https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif'
+    ];
 
     function formatTime(ts) {
         const d = new Date(ts);
@@ -396,6 +230,29 @@
         return days + ' days';
     }
 
+    function getUserTags(username) {
+        const tags = [];
+        const u = username;
+        if (CONFIG.OWNERS && CONFIG.OWNERS.includes(u)) tags.push({ label: 'OWNER', class: 'tag-owner' });
+        if (CONFIG.CEOS && CONFIG.CEOS.includes(u)) tags.push({ label: 'CEO', class: 'tag-ceo' });
+        if (CONFIG.DEVS && CONFIG.DEVS.includes(u)) tags.push({ label: 'DEV', class: 'tag-dev' });
+        if (CONFIG.ADMINS && CONFIG.ADMINS.includes(u)) tags.push({ label: 'ADMIN', class: 'tag-admin' });
+        if (CONFIG.MODS && CONFIG.MODS.includes(u)) tags.push({ label: 'MOD', class: 'tag-mod' });
+        if (CONFIG.XTRA && CONFIG.XTRA.includes(u)) tags.push({ label: 'XTRA', class: 'tag-xtra' });
+        if (CONFIG.STAFF && CONFIG.STAFF.includes(u)) tags.push({ label: 'STAFF', class: 'tag-staff' });
+        if (tags.length === 0) {
+            const user = getUserByUsername(username);
+            if (user && user.created) {
+                const age = Date.now() - user.created;
+                if (age > 30 * 24 * 60 * 60 * 1000) tags.push({ label: 'MEMBER', class: 'tag-member' });
+                else tags.push({ label: 'GUEST', class: 'tag-guest' });
+            } else {
+                tags.push({ label: 'MEMBER', class: 'tag-member' });
+            }
+        }
+        return tags;
+    }
+
     function getBadges(user) {
         const badges = [];
         if (user && user.created) {
@@ -403,7 +260,7 @@
             if (age > 365 * 24 * 60 * 60 * 1000) badges.push({ label: 'OG', class: 'badge-og' });
             if (age > 180 * 24 * 60 * 60 * 1000) badges.push({ label: 'Early Adopter', class: 'badge-early-adopter' });
         }
-        if (isOwner(user.username)) badges.push({ label: 'Verified', class: 'badge-verified' });
+        if (CONFIG.OWNERS && CONFIG.OWNERS.includes(user.username)) badges.push({ label: 'Verified', class: 'badge-verified' });
         return badges;
     }
 
@@ -438,7 +295,14 @@
         if (DOM.loaderFill) DOM.loaderFill.style.width = p + '%';
         if (p >= 100 && !state.loadingComplete) {
             state.loadingComplete = true;
-            setTimeout(() => { if (DOM.loadingOverlay) DOM.loadingOverlay.classList.add('hidden'); }, 300);
+            setTimeout(() => {
+                if (DOM.loadingOverlay) {
+                    DOM.loadingOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        DOM.loadingOverlay.style.display = 'none';
+                    }, 400);
+                }
+            }, 300);
         }
     }
 
@@ -551,6 +415,7 @@
         if (typeof applyDeviceLayout === 'function') applyDeviceLayout(deviceType);
         if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
         if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+        lucide.createIcons();
     }
 
     function toggleDropdown() {
@@ -581,11 +446,6 @@
             case 'wallpaper': setChatWallpaper(); break;
             case 'bubblecolor': setBubbleColor(); break;
             case 'fontsize': { const size = prompt('Choose font size (small, medium, large, xl):', chatSettings.fontSize || 'medium'); if (size) setFontSize(size); } break;
-            case 'fontfamily': { const family = prompt('Choose font family (inter, sf, roboto, poppins, helvetica):', chatSettings.fontFamily || 'inter'); if (family) setFontFamily(family); } break;
-            case 'chatinfo': showChatInfo(); break;
-            case 'status': setCustomStatus(); break;
-            case 'theme': openSettings(); break;
-            case 'manageroles': manageUserRoles(); break;
             default: break;
         }
         closeDropdown();
@@ -595,23 +455,25 @@
         if (!DOM.funPanel) return;
         if (DOM.funPanel.style.display === 'block') {
             DOM.funPanel.style.display = 'none';
-            if (DOM.funBtn) DOM.funBtn.classList.remove('active');
             if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
+            gsap.to(DOM.funPanel, { opacity: 0, y: -10, duration: 0.2, onComplete: function() {
+                DOM.funPanel.style.display = 'none';
+            }});
         } else {
             DOM.funPanel.style.display = 'block';
-            if (DOM.funBtn) DOM.funBtn.classList.add('active');
             if (DOM.smileBtn) DOM.smileBtn.classList.add('active');
+            gsap.fromTo(DOM.funPanel, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
             switchPanelTab('stickers');
         }
     }
 
     function switchPanelTab(tab) {
         document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.panel-content').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.panel-content').forEach(c => c.classList.add('hidden'));
         const tabEl = document.querySelector('.panel-tab[data-tab="' + tab + '"]');
         const contentEl = document.getElementById('panel-' + tab);
         if (tabEl) tabEl.classList.add('active');
-        if (contentEl) contentEl.classList.add('active');
+        if (contentEl) contentEl.classList.remove('hidden');
         if (tab === 'stickers') loadStickers();
         if (tab === 'gifs') loadGIFs();
     }
@@ -620,24 +482,17 @@
         if (!DOM.stickerGrid) return;
         const stickers = JSON.parse(localStorage.getItem('vvn_stickers') || '[]');
         if (stickers.length === 0) {
-            DOM.stickerGrid.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:10px;font-size:0.8rem;">No stickers. Upload some!</div>';
+            DOM.stickerGrid.innerHTML = '<div class="text-[#555] text-center text-xs py-4">No stickers. Upload some!</div>';
             return;
         }
         DOM.stickerGrid.innerHTML = stickers.map(s =>
-            '<img src="' + s + '" class="sticker" onclick="window.sendSticker(\'' + s + '\')" />'
+            '<img src="' + s + '" class="sticker-item" onclick="window.sendSticker(\'' + s + '\')" />'
         ).join('');
     }
 
     function loadGIFs() {
         if (!DOM.gifGrid) return;
-        const gifs = [
-            'https://media.giphy.com/media/3o7abKhOpu0N9H8s9G/giphy.gif',
-            'https://media.giphy.com/media/3o7aTskHEUdgCQAXde/giphy.gif',
-            'https://media.giphy.com/media/26BRv0ThflsHCqDrG/giphy.gif',
-            'https://media.giphy.com/media/3o6ZtqY0XUyP5qXqQo/giphy.gif',
-            'https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif'
-        ];
-        DOM.gifGrid.innerHTML = gifs.map(g =>
+        DOM.gifGrid.innerHTML = SAMPLE_GIFS.map(g =>
             '<img src="' + g + '" class="gif-item" onclick="window.sendGIF(\'' + g + '\')" />'
         ).join('');
     }
@@ -679,8 +534,7 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         scrollToBottom();
-        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
-        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     };
 
@@ -700,8 +554,7 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         scrollToBottom();
-        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
-        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     };
 
@@ -732,14 +585,12 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         scrollToBottom();
-        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
-        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     }
 
     function playGame() {
-        if (DOM.funPanel) DOM.funPanel.style.display = 'none';
-        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
+        DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
         const games = ['🎮 Tic Tac Toe', '🎯 Rock Paper Scissors', '🧠 Trivia'];
         const choice = prompt('Choose a game:\n1. Tic Tac Toe\n2. Rock Paper Scissors\n3. Trivia');
@@ -752,7 +603,7 @@
 
     function playTicTacToe() {
         const modal = document.createElement('div');
-        modal.className = 'modal active';
+        modal.className = 'modal-overlay active fixed inset-0 z-[100] flex items-center justify-center';
         let board = Array(9).fill('');
         let currentPlayer = 'X';
         let gameOver = false;
@@ -760,7 +611,7 @@
             const cells = modal.querySelectorAll('.game-cell');
             cells.forEach((cell, i) => {
                 cell.textContent = board[i];
-                cell.className = 'game-cell ' + (board[i] === 'X' ? 'x' : board[i] === 'O' ? 'o' : '');
+                cell.className = 'game-cell aspect-square bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] rounded-lg text-xl flex items-center justify-center cursor-pointer transition-all hover:border-[#36454F] ' + (board[i] === 'X' ? 'text-[#36454F]' : board[i] === 'O' ? 'text-[#888]' : '');
             });
             const result = modal.querySelector('.game-result');
             const winner = checkWinner();
@@ -781,20 +632,20 @@
             return null;
         };
         modal.innerHTML = `
-            <div class="modal-overlay" onclick="this.parentElement.remove()"></div>
-            <div class="modal-content glass-card" style="max-width:340px;">
-                <button class="modal-close" onclick="this.closest('.modal').remove()">✕</button>
-                <h3>🎮 Tic Tac Toe</h3>
-                <div class="game-container">
-                    <div class="game-board">
+            <div class="modal-content max-w-[340px] glass-card p-6">
+                <button class="modal-close" onclick="this.closest('.modal-overlay').remove()"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <h3 class="text-white font-medium text-lg mb-3">🎮 Tic Tac Toe</h3>
+                <div class="text-center">
+                    <div class="grid grid-cols-3 gap-2 max-w-[200px] mx-auto">
                         ${Array(9).fill(0).map((_, i) => `<div class="game-cell" data-index="${i}"></div>`).join('')}
                     </div>
-                    <div class="game-result">X's turn</div>
-                    <button class="btn-secondary" onclick="this.closest('.modal').remove()" style="margin-top:8px;">Close</button>
+                    <div class="game-result text-[#888] text-sm mt-3">X's turn</div>
+                    <button class="btn-secondary mt-3 px-4 py-1.5 rounded-xl glass text-sm text-[#888] hover:text-white transition-all" onclick="this.closest('.modal-overlay').remove()">Close</button>
                 </div>
             </div>
         `;
         document.body.appendChild(modal);
+        lucide.createIcons();
         modal.querySelectorAll('.game-cell').forEach(cell => {
             cell.addEventListener('click', function() {
                 if (gameOver) return;
@@ -857,8 +708,7 @@
         const questions = [
             { q: 'What is the capital of France?', a: 'Paris' },
             { q: 'What is 2+2?', a: '4' },
-            { q: 'What is the largest planet?', a: 'Jupiter' },
-            { q: 'What is the speed of light?', a: '299792458' }
+            { q: 'What is the largest planet?', a: 'Jupiter' }
         ];
         const q = questions[Math.floor(Math.random() * questions.length)];
         const answer = prompt('🧠 Trivia\n\n' + q.q);
@@ -937,7 +787,7 @@
             chatSettings.bubbleColor = color;
             localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
             document.documentElement.style.setProperty('--bubble-color', color);
-            document.querySelectorAll('.message.outgoing').forEach(el => {
+            document.querySelectorAll('.message-outgoing').forEach(el => {
                 el.style.background = color;
             });
             alert('Bubble color updated!');
@@ -949,25 +799,13 @@
     function setFontSize(size) {
         chatSettings.fontSize = size;
         localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-        const sizes = { small: 'font-size-small', medium: 'font-size-medium', large: 'font-size-large', xl: 'font-size-xl' };
-        document.querySelectorAll('.message').forEach(el => {
-            el.classList.remove('font-size-small', 'font-size-medium', 'font-size-large', 'font-size-xl');
+        const sizes = { small: 'text-xs', medium: 'text-sm', large: 'text-base', xl: 'text-lg' };
+        document.querySelectorAll('.message-bubble').forEach(el => {
+            el.classList.remove('text-xs', 'text-sm', 'text-base', 'text-lg');
             if (sizes[size]) el.classList.add(sizes[size]);
         });
         if (DOM.fontSizeSelect) DOM.fontSizeSelect.value = size;
         alert('Font size updated to: ' + size);
-    }
-
-    function setFontFamily(family) {
-        chatSettings.fontFamily = family;
-        localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-        const families = { inter: 'font-inter', sf: 'font-sf', roboto: 'font-roboto', poppins: 'font-poppins', helvetica: 'font-helvetica' };
-        document.querySelectorAll('.message, .chat-messages, .chat-item, .message-input').forEach(el => {
-            el.classList.remove('font-inter', 'font-sf', 'font-roboto', 'font-poppins', 'font-helvetica');
-            if (families[family]) el.classList.add(families[family]);
-        });
-        if (DOM.fontFamilySelect) DOM.fontFamilySelect.value = family;
-        alert('Font family updated to: ' + family);
     }
 
     function searchMessages() {
@@ -985,34 +823,6 @@
             msg += (i+1) + '. ' + m.text.substring(0, 50) + (m.text.length > 50 ? '...' : '') + '\n';
         });
         alert(msg);
-    }
-
-    function showChatInfo() {
-        const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        const messages = state.localCache.messages[chatKey] || [];
-        const sent = messages.filter(m => m.sender === state.currentUser.username).length;
-        const received = messages.filter(m => m.sender !== state.currentUser.username).length;
-        const total = messages.length;
-        const partner = getDisplayName(state.currentChatPartner);
-        alert('📊 Chat Info with ' + partner + '\n\nSent: ' + sent + '\nReceived: ' + received + '\nTotal: ' + total);
-    }
-
-    function setCustomStatus() {
-        const status = prompt('Set your custom status:', state.currentUser?.status || '');
-        if (status !== null) {
-            const user = state.currentUser;
-            if (user) {
-                user.status = status.trim() || '';
-                const userIndex = state.localCache.users.findIndex(u => u.username === user.username);
-                if (userIndex !== -1) {
-                    state.localCache.users[userIndex] = user;
-                    localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-                    pushToRemote();
-                    if (DOM.settingsStatus) DOM.settingsStatus.value = status.trim() || '';
-                    alert('Status updated!');
-                }
-            }
-        }
     }
 
     function addReaction(msgId, emoji) {
@@ -1057,19 +867,10 @@
             if (DOM.fileCaption) DOM.fileCaption.value = '';
             if (DOM.fileModal) DOM.fileModal.classList.remove('active');
         } else {
-            let replyData = null;
-            if (replyToMessage) {
-                replyData = { sender: replyToMessage.sender, text: replyToMessage.text || '📎 File' };
-                replyToMessage = null;
-                const indicator = document.getElementById('replyIndicator');
-                if (indicator) indicator.remove();
-                DOM.messageInput.placeholder = 'Type a message...';
-            }
             messages[chatKey].push({
                 sender: state.currentUser.username,
                 timestamp: Date.now(),
                 text: text,
-                reply: replyData,
                 reactions: []
             });
         }
@@ -1086,9 +887,7 @@
         if (DOM.messageInput) DOM.messageInput.value = '';
         scrollToBottom();
         updateActivity();
-        hideTypingIndicator();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
-        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     }
 
@@ -1126,13 +925,11 @@
                     if (DOM.micBtn) DOM.micBtn.style.background = '';
                     setStatus('Connected', 'green');
                     isRecording = false;
-                    DOM.messageInput.placeholder = 'Type a message...';
                 };
                 mediaRecorder.start();
                 isRecording = true;
                 recordingInterval = setInterval(() => { recordingSeconds++; }, 1000);
-                if (DOM.micBtn) DOM.micBtn.style.background = 'rgba(255,0,0,0.2)';
-                DOM.messageInput.placeholder = 'Recording... ' + recordingSeconds + 's';
+                if (DOM.micBtn) DOM.micBtn.style.background = 'rgba(255,0,0,0.15)';
                 setStatus('Recording...', 'red');
             }).catch(err => {
                 alert('Could not access microphone. Please allow microphone access.');
@@ -1150,7 +947,6 @@
             isRecording = false;
             if (DOM.micBtn) DOM.micBtn.style.background = '';
             setStatus('Connected', 'green');
-            DOM.messageInput.placeholder = 'Type a message...';
         }
     }
 
@@ -1161,20 +957,18 @@
         const found = users.filter(u => u.username !== state.currentUser.username && !blockedUsers.includes(u.username) &&
             (u.username.toLowerCase().includes(q) || (u.displayName && u.displayName.toLowerCase().includes(q))));
         if (found.length === 0) {
-            DOM.searchResults.innerHTML = '<div style="padding:10px 14px;color:var(--text-muted);font-size:0.85rem;">No users found</div>';
+            DOM.searchResults.innerHTML = '<div class="text-[#555] text-xs p-3">No users found</div>';
             DOM.searchResults.style.display = 'block';
             return;
         }
         let html = '';
         for (const u of found) {
             const tags = getUserTags(u.username);
-            const tagHtml = tags.map(t => '<span class="tag" style="font-size:0.55rem;padding:0 4px;border-radius:3px;">' + t.label + '</span>').join('');
-            html += '<div class="search-result-item" data-username="' + u.username + '">';
-            html += '<div class="avatar">' + u.username.charAt(0).toUpperCase() + '</div>';
-            html += '<div class="info">';
-            html += '<div class="uname">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
-            html += '<div class="email">@' + u.username + '</div>';
-            html += '</div></div>';
+            const tagHtml = tags.map(t => '<span class="text-[8px] px-1.5 py-0.5 rounded ' + t.class + '">' + t.label + '</span>').join('');
+            html += '<div class="search-result-item flex items-center gap-2 p-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-all" data-username="' + u.username + '">';
+            html += '<div class="w-7 h-7 rounded-full bg-[rgba(40,40,40,0.3)] flex items-center justify-center text-xs text-[#888]">' + u.username.charAt(0).toUpperCase() + '</div>';
+            html += '<div><div class="text-white text-xs">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
+            html += '<div class="text-[#555] text-[10px]">@' + u.username + '</div></div></div>';
         }
         DOM.searchResults.innerHTML = html;
         DOM.searchResults.style.display = 'block';
@@ -1188,11 +982,11 @@
         if (!user) return;
         const tags = getUserTags(username);
         if (DOM.profileTags) {
-            DOM.profileTags.innerHTML = tags.map(t => '<span class="tag ' + t.class + '">' + t.label + '</span>').join('');
+            DOM.profileTags.innerHTML = tags.map(t => '<span class="text-[8px] px-1.5 py-0.5 rounded ' + t.class + '">' + t.label + '</span>').join('');
         }
         const badges = getBadges(user);
         if (DOM.profileBadges) {
-            DOM.profileBadges.innerHTML = badges.map(b => '<span class="badge ' + b.class + '">' + b.label + '</span>').join('');
+            DOM.profileBadges.innerHTML = badges.map(b => '<span class="text-[8px] px-1.5 py-0.5 rounded ' + b.class + '">' + b.label + '</span>').join('');
         }
         if (DOM.profileDisplayName) DOM.profileDisplayName.textContent = user.displayName || user.username;
         if (DOM.profileUsername) DOM.profileUsername.textContent = '@' + user.username;
@@ -1213,6 +1007,7 @@
         }
         if (DOM.profileModal) DOM.profileModal.classList.add('active');
         closeDropdown();
+        lucide.createIcons();
     }
 
     function openSettings() {
@@ -1222,7 +1017,6 @@
         if (DOM.settingsUsername) DOM.settingsUsername.value = user.username;
         if (DOM.settingsPassword) DOM.settingsPassword.value = '';
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
-        if (DOM.settingsStatus) DOM.settingsStatus.value = user.status || '';
         if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
         const savedSettings = localStorage.getItem('vvn_settings');
         if (savedSettings) state.settings = JSON.parse(savedSettings);
@@ -1231,21 +1025,13 @@
         if (DOM.privacyToggle) DOM.privacyToggle.checked = state.settings.privacy;
         if (DOM.devToggle) DOM.devToggle.checked = state.settings.devMode;
         if (DOM.readReceiptsToggle) DOM.readReceiptsToggle.checked = state.settings.readReceipts !== false;
-        if (DOM.e2eeStatus) DOM.e2eeStatus.textContent = state.settings.e2ee ? 'Enabled' : 'Disabled';
-        if (DOM.twofaStatus) DOM.twofaStatus.textContent = state.settings.twofa ? 'Enabled' : 'Disabled';
-        if (DOM.privacyStatus) DOM.privacyStatus.textContent = state.settings.privacy ? 'Enabled' : 'Disabled';
-        if (DOM.devStatus) DOM.devStatus.textContent = state.settings.devMode ? 'Enabled' : 'Disabled';
-        if (DOM.readReceiptsStatus) DOM.readReceiptsStatus.textContent = state.settings.readReceipts !== false ? 'Enabled' : 'Disabled';
         if (DOM.autoLockTimer) DOM.autoLockTimer.value = state.settings.autoLock || 'never';
         if (DOM.bubbleColorPicker) DOM.bubbleColorPicker.value = chatSettings.bubbleColor || '#36454F';
         if (DOM.fontSizeSelect) DOM.fontSizeSelect.value = chatSettings.fontSize || 'medium';
-        if (DOM.fontFamilySelect) DOM.fontFamilySelect.value = chatSettings.fontFamily || 'inter';
-        if (DOM.chatSpacingSelect) DOM.chatSpacingSelect.value = chatSettings.chatSpacing || 'comfortable';
-        if (DOM.timestampFormatSelect) DOM.timestampFormatSelect.value = chatSettings.timestampFormat || '12h';
-        if (DOM.messageAnimationSelect) DOM.messageAnimationSelect.value = chatSettings.messageAnimations || 'slide';
         applyTheme(state.settings.theme || 'dark');
         if (DOM.settingsModal) DOM.settingsModal.classList.add('active');
         closeDropdown();
+        lucide.createIcons();
     }
 
     async function saveSettings() {
@@ -1255,7 +1041,6 @@
         const username = DOM.settingsUsername ? DOM.settingsUsername.value.trim() : user.username;
         const password = DOM.settingsPassword ? DOM.settingsPassword.value.trim() : '';
         const bio = DOM.settingsBio ? DOM.settingsBio.value.trim() : '';
-        const status = DOM.settingsStatus ? DOM.settingsStatus.value.trim() : '';
         if (username !== user.username) {
             const existing = state.localCache.users.find(u => u.username === username && u.username !== user.username);
             if (existing) { alert('Username already taken'); return; }
@@ -1267,8 +1052,7 @@
                 displayName: displayName,
                 username: username,
                 password: password || state.localCache.users[userIndex].password,
-                bio: bio,
-                status: status
+                bio: bio
             };
             state.currentUser = state.localCache.users[userIndex];
             if (username !== user.username) {
@@ -1287,47 +1071,21 @@
         state.settings.theme = theme;
         localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
         document.querySelectorAll('.theme-card').forEach(card => {
-            card.classList.remove('active');
-            if (card.dataset.theme === theme) card.classList.add('active');
+            card.classList.remove('border-[#36454F]', 'border-2');
+            if (card.dataset.theme === theme) card.classList.add('border-2', 'border-[#36454F]');
         });
         const root = document.documentElement;
-        root.style.setProperty('--bg-primary', '');
-        root.style.setProperty('--bg-secondary', '');
-        root.style.setProperty('--bg-tertiary', '');
-        root.style.setProperty('--bg-card', '');
-        root.style.setProperty('--text-primary', '');
-        root.style.setProperty('--text-secondary', '');
-        root.style.setProperty('--charcoal', '');
-        root.style.setProperty('--accent-glow', '');
         if (theme === 'dark') {
             root.style.setProperty('--bg-primary', '#0A0A0A');
-            root.style.setProperty('--bg-secondary', '#121212');
-            root.style.setProperty('--bg-tertiary', '#1A1A1A');
-            root.style.setProperty('--bg-card', 'rgba(20,20,20,0.3)');
             root.style.setProperty('--text-primary', '#FFFFFF');
-            root.style.setProperty('--text-secondary', '#B2BEB5');
-            root.style.setProperty('--charcoal', '#36454F');
-            root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.3)');
             document.body.classList.remove('light-theme');
         } else if (theme === 'light') {
-            root.style.setProperty('--bg-primary', '#FFFFFF');
-            root.style.setProperty('--bg-secondary', '#F8F6F0');
-            root.style.setProperty('--bg-tertiary', '#E5E4E2');
-            root.style.setProperty('--bg-card', 'rgba(255,255,255,0.7)');
+            root.style.setProperty('--bg-primary', '#F8F6F0');
             root.style.setProperty('--text-primary', '#121212');
-            root.style.setProperty('--text-secondary', '#36454F');
-            root.style.setProperty('--charcoal', '#36454F');
-            root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.12)');
             document.body.classList.add('light-theme');
         } else {
             root.style.setProperty('--bg-primary', '#0A0A0A');
-            root.style.setProperty('--bg-secondary', '#121212');
-            root.style.setProperty('--bg-tertiary', '#1A1A1A');
-            root.style.setProperty('--bg-card', 'rgba(20,20,20,0.3)');
             root.style.setProperty('--text-primary', '#FFFFFF');
-            root.style.setProperty('--text-secondary', '#B2BEB5');
-            root.style.setProperty('--charcoal', '#36454F');
-            root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.3)');
             document.body.classList.remove('light-theme');
         }
         if (document.getElementById('customThemeOptions')) {
@@ -1341,11 +1099,9 @@
         const text = document.getElementById('textColor')?.value || '#FFFFFF';
         const accent = document.getElementById('accentColor')?.value || '#36454F';
         const root = document.documentElement;
-        root.style.setProperty('--charcoal', primary);
         root.style.setProperty('--bg-secondary', secondary);
         root.style.setProperty('--text-primary', text);
         root.style.setProperty('--accent', accent);
-        root.style.setProperty('--accent-glow', 'rgba(54,69,79,0.3)');
         localStorage.setItem('vvn_custom_theme', JSON.stringify({ primary, secondary, text, accent }));
         state.settings.theme = 'custom';
         localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
@@ -1355,14 +1111,13 @@
     function toggleSelectionMode() {
         selectionMode = !selectionMode;
         if (selectionMode) {
-            if (DOM.selectBtn) DOM.selectBtn.classList.add('active');
-            document.querySelectorAll('.message').forEach(msg => msg.classList.add('selectable'));
-            if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('active');
+            document.querySelectorAll('.message-bubble').forEach(msg => msg.classList.add('selectable'));
+            if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('hidden');
+            DOM.selectionToolbar.style.display = 'flex';
         } else {
             clearSelection();
-            if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
-            document.querySelectorAll('.message').forEach(msg => msg.classList.remove('selectable'));
-            if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
+            document.querySelectorAll('.message-bubble').forEach(msg => msg.classList.remove('selectable'));
+            if (DOM.selectionToolbar) DOM.selectionToolbar.style.display = 'none';
         }
         closeDropdown();
     }
@@ -1383,12 +1138,11 @@
 
     function clearSelection() {
         selectedMessages.clear();
-        document.querySelectorAll('.message.selected').forEach(el => el.classList.remove('selected'));
+        document.querySelectorAll('.message-bubble.selected').forEach(el => el.classList.remove('selected'));
         updateSelectedCount();
         selectionMode = false;
-        if (DOM.selectBtn) DOM.selectBtn.classList.remove('active');
-        document.querySelectorAll('.message').forEach(msg => msg.classList.remove('selectable'));
-        if (DOM.selectionToolbar) DOM.selectionToolbar.classList.remove('active');
+        document.querySelectorAll('.message-bubble').forEach(msg => msg.classList.remove('selectable'));
+        if (DOM.selectionToolbar) DOM.selectionToolbar.style.display = 'none';
     }
 
     function updateSelectedCount() {
@@ -1398,6 +1152,7 @@
     function showDeleteModal() {
         if (selectedMessages.size === 0) return;
         if (DOM.deleteModal) DOM.deleteModal.classList.add('active');
+        lucide.createIcons();
     }
 
     function deleteMessages(forEveryone) {
@@ -1434,47 +1189,10 @@
         clearSelection();
     }
 
-    function forwardSelectedMessages() {
-        if (selectedMessages.size === 0) { alert('Select messages first.'); return; }
-        const contacts = state.localCache.users.filter(u => u.username !== state.currentUser.username);
-        if (contacts.length === 0) { alert('No contacts to forward to.'); return; }
-        let contactList = 'Forward to:\n\n';
-        contacts.forEach((c, i) => { contactList += (i+1) + '. ' + (c.displayName || c.username) + '\n'; });
-        const choice = prompt(contactList + '\nEnter number:');
-        if (!choice) return;
-        const index = parseInt(choice) - 1;
-        if (index < 0 || index >= contacts.length) { alert('Invalid choice.'); return; }
-        const target = contacts[index].username;
-        const chatKey = getChatKey(state.currentUser.username, target);
-        const messages = state.localCache.messages;
-        if (!messages[chatKey]) messages[chatKey] = [];
-        const sourceKey = getChatKey(state.currentUser.username, state.currentChatPartner);
-        const sourceMsgs = state.localCache.messages[sourceKey] || [];
-        selectedMessages.forEach(msgId => {
-            const parts = msgId.split('-');
-            const timestamp = parseInt(parts[0]);
-            const idx = parseInt(parts[1]);
-            const msg = sourceMsgs.find((m, i) => m.timestamp === timestamp && i === idx);
-            if (msg) {
-                messages[chatKey].push({
-                    sender: state.currentUser.username,
-                    timestamp: Date.now(),
-                    text: '📨 Forwarded: ' + (msg.text || '📎 File'),
-                    reactions: []
-                });
-            }
-        });
-        state.localCache.messages = messages;
-        localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-        pushToRemote();
-        clearSelection();
-        alert('Messages forwarded!');
-    }
-
     function showPinnedDock(chatKey) {
         const pinned = pinnedMessages[chatKey] || [];
         if (pinned.length === 0 || !DOM.pinnedDock) { DOM.pinnedDock.style.display = 'none'; return; }
-        DOM.pinnedDock.style.display = 'block';
+        DOM.pinnedDock.style.display = 'flex';
         const lastPinned = pinned[pinned.length - 1];
         if (DOM.pinnedMessagePreview) {
             DOM.pinnedMessagePreview.textContent = getDisplayName(lastPinned.sender) + ': ' + (lastPinned.text || '📎 File');
@@ -1490,26 +1208,21 @@
         }
     }
 
-    function scrollToPinnedMessage() {
-        document.querySelectorAll('.message').forEach(el => el.classList.remove('highlight'));
-        const firstMsg = document.querySelector('.message');
-        if (firstMsg) {
-            firstMsg.classList.add('highlight');
-            firstMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            setTimeout(() => { firstMsg.classList.remove('highlight'); }, 2000);
-        }
-    }
-
     function changeBubbleStyle(style) {
         chatSettings.bubbleStyle = style;
         localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-        document.querySelectorAll('.message').forEach(msg => {
-            msg.className = msg.className.replace(/bubble-\w+/g, '');
-            msg.classList.add('bubble-' + style);
+        document.querySelectorAll('.message-bubble').forEach(msg => {
+            const outgoing = msg.classList.contains('message-outgoing');
+            msg.className = 'message-bubble max-w-[75%] p-2.5 rounded-lg text-sm ' + (outgoing ? 'message-outgoing' : 'message-incoming');
+            if (style === 'rounded') { msg.classList.add('rounded-lg'); }
+            else if (style === 'square') { msg.classList.add('rounded-none'); }
+            else if (style === 'modern') { msg.classList.add('rounded-2xl', 'rounded-bl-none'); if (outgoing) msg.classList.add('rounded-br-none'); }
+            else if (style === 'soft') { msg.classList.add('rounded-2xl'); }
+            else if (style === 'pill') { msg.classList.add('rounded-full'); }
         });
         document.querySelectorAll('.bubble-style').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.style === style) btn.classList.add('active');
+            btn.classList.remove('border-[#36454F]');
+            if (btn.dataset.style === style) btn.classList.add('border-[#36454F]');
         });
     }
 
@@ -1561,6 +1274,7 @@
         if (DOM.fileCaption) DOM.fileCaption.value = '';
         if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
         pendingFiles = [];
+        lucide.createIcons();
     }
 
     function handleFileSelect() { if (DOM.fileInput) DOM.fileInput.click(); }
@@ -1579,14 +1293,13 @@
                 pendingFiles.push({ data: data, type: fileType, name: file.name, size: (file.size / 1024).toFixed(1) + ' KB' });
                 if (DOM.filePreviewContainer) {
                     const item = document.createElement('div');
-                    item.className = 'file-preview-item';
+                    item.className = 'file-preview-item relative inline-block m-0.5 rounded-lg overflow-hidden border border-[rgba(255,255,255,0.04)]';
                     const index = pendingFiles.length - 1;
                     let preview = '';
-                    if (fileType === 'image') preview = '<img src="' + data + '" />';
-                    else if (fileType === 'video') preview = '<video controls><source src="' + data + '" /></video>';
-                    else if (fileType === 'audio') preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">🎵 ' + file.name + '</div>';
-                    else preview = '<div style="padding:10px;background:var(--bg-input);border-radius:8px;max-width:120px;">📄 ' + file.name + '</div>';
-                    item.innerHTML = preview + '<button class="remove-file" data-index="' + index + '">×</button>';
+                    if (fileType === 'image') preview = '<img src="' + data + '" class="w-20 h-20 object-cover" />';
+                    else if (fileType === 'video') preview = '<video class="w-20 h-20 object-cover"><source src="' + data + '" /></video>';
+                    else preview = '<div class="w-20 h-20 flex items-center justify-center bg-[rgba(40,40,40,0.3)] text-2xl">' + (fileType === 'audio' ? '🎵' : '📄') + '</div>';
+                    item.innerHTML = preview + '<button class="remove-file absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 text-white text-[10px] flex items-center justify-center hover:bg-red-500/80 transition-all" data-index="' + index + '">×</button>';
                     DOM.filePreviewContainer.appendChild(item);
                     item.querySelector('.remove-file').addEventListener('click', function() {
                         const idx = parseInt(this.dataset.index);
@@ -1595,7 +1308,7 @@
                         if (pendingFiles.length === 0 && DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
                     });
                 }
-                if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'inline-flex';
+                if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'inline-block';
             };
             reader.readAsDataURL(file);
         }
@@ -1623,22 +1336,21 @@
         if (chatSettings.bubbleColor) {
             document.documentElement.style.setProperty('--bubble-color', chatSettings.bubbleColor);
         }
-        loadUserRoles();
     }
 
     function updateMobileView() {
         state.isMobile = window.innerWidth < 768;
-        const sidebar = document.getElementById('sidebar');
+        const sidebar = document.querySelector('.sidebar');
         if (state.isMobile) {
             if (state.currentChatPartner) {
-                if (sidebar) sidebar.classList.add('hide-mobile');
+                if (sidebar) sidebar.classList.add('hidden');
                 if (DOM.chatArea) DOM.chatArea.classList.add('active-mobile');
             } else {
-                if (sidebar) sidebar.classList.remove('hide-mobile');
+                if (sidebar) sidebar.classList.remove('hidden');
                 if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
             }
         } else {
-            if (sidebar) sidebar.classList.remove('hide-mobile');
+            if (sidebar) sidebar.classList.remove('hidden');
             if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
@@ -1657,7 +1369,7 @@
         const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
         let html = '';
         if (chatKeys.length === 0) {
-            html = '<div class="empty-chats">No chats yet. Search for users above.</div>';
+            html = '<div class="text-[#555] text-sm text-center py-8">No chats yet. Search for users above.</div>';
         } else {
             const sorted = chatKeys.sort((a, b) => {
                 const partsA = a.split('_'); const partsB = b.split('_');
@@ -1679,17 +1391,17 @@
                 const time = last ? formatTime(last.timestamp) : '';
                 const pUser = getUserByUsername(partner);
                 const tags = getUserTags(partner);
-                const tagHtml = tags.map(t => '<span class="tag">' + t.label + '</span>').join('');
+                const tagHtml = tags.map(t => '<span class="text-[8px] px-1 py-0.5 rounded ' + t.class + '">' + t.label + '</span>').join('');
                 const isPinned = pinnedContacts.includes(partner);
                 const displayName = getDisplayName(partner);
                 const isRainbow = pUser && pUser.rainbow;
                 html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="avatar">' + partner.charAt(0).toUpperCase() + '</div>';
-                html += '<div class="chat-info">';
-                html += '<div class="cname"><span' + (isRainbow ? ' class="rainbow-name"' : '') + '>' + displayName + '</span> ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
-                html += '<div class="preview">' + preview + '</div>';
+                html += '<div class="chat-avatar">' + partner.charAt(0).toUpperCase() + '</div>';
+                html += '<div class="flex-1 min-w-0">';
+                html += '<div class="text-white text-sm font-medium flex items-center gap-1"><span' + (isRainbow ? ' class="rainbow-text"' : '') + '>' + displayName + '</span> ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
+                html += '<div class="text-[#555] text-xs truncate">' + preview + '</div>';
                 html += '</div>';
-                html += '<div class="time">' + time + '</div>';
+                html += '<div class="text-[#555] text-[10px] flex-shrink-0">' + time + '</div>';
                 html += '</div>';
             }
         }
@@ -1703,7 +1415,7 @@
         if (!DOM.chatMessages) return;
         DOM.chatMessages.innerHTML = '';
         if (!msgs.length) {
-            DOM.chatMessages.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">No messages yet</div>';
+            DOM.chatMessages.innerHTML = '<div class="text-[#555] text-center py-8">No messages yet</div>';
             return;
         }
         for (let i = 0; i < msgs.length; i++) {
@@ -1712,14 +1424,15 @@
             const div = document.createElement('div');
             const isOutgoing = msg.sender === state.currentUser.username;
             const bubbleStyle = chatSettings.bubbleStyle || 'rounded';
-            div.className = 'message ' + (isOutgoing ? 'outgoing' : 'incoming') + ' bubble-' + bubbleStyle + ' ' + (chatSettings.messageAnimations || 'slide') + '-in';
+            div.className = 'message-bubble max-w-[75%] p-2.5 text-sm ' + (isOutgoing ? 'message-outgoing' : 'message-incoming');
+            if (bubbleStyle === 'rounded') { div.classList.add('rounded-lg'); }
+            else if (bubbleStyle === 'square') { div.classList.add('rounded-none'); }
+            else if (bubbleStyle === 'modern') { div.classList.add('rounded-2xl', 'rounded-bl-none'); if (isOutgoing) div.classList.add('rounded-br-none'); }
+            else if (bubbleStyle === 'soft') { div.classList.add('rounded-2xl'); }
+            else if (bubbleStyle === 'pill') { div.classList.add('rounded-full'); }
             if (chatSettings.fontSize) {
-                const sizes = { small: 'font-size-small', medium: 'font-size-medium', large: 'font-size-large', xl: 'font-size-xl' };
+                const sizes = { small: 'text-xs', medium: 'text-sm', large: 'text-base', xl: 'text-lg' };
                 if (sizes[chatSettings.fontSize]) div.classList.add(sizes[chatSettings.fontSize]);
-            }
-            if (chatSettings.fontFamily) {
-                const families = { inter: 'font-inter', sf: 'font-sf', roboto: 'font-roboto', poppins: 'font-poppins', helvetica: 'font-helvetica' };
-                if (families[chatSettings.fontFamily]) div.classList.add(families[chatSettings.fontFamily]);
             }
             div.dataset.msgId = msgId;
             if (chatSettings.bubbleColor && isOutgoing) {
@@ -1728,58 +1441,54 @@
             let content = '';
             if (msg.poll) {
                 content += '<div class="poll-container">';
-                content += '<div class="poll-question">📊 ' + msg.poll.question + '</div>';
+                content += '<div class="text-white font-medium text-sm mb-1">📊 ' + msg.poll.question + '</div>';
                 msg.poll.options.forEach((opt, idx) => {
                     const pct = msg.poll.totalVotes > 0 ? Math.round((opt.votes / msg.poll.totalVotes) * 100) : 0;
-                    const hasVoted = opt.votedBy && opt.votedBy.includes(state.currentUser.username);
-                    content += '<div class="poll-option" data-msg="' + msgId + '" data-opt="' + idx + '">';
-                    content += '<span>' + opt.text + '</span>';
-                    content += '<div class="poll-bar"><div class="poll-fill" style="width:' + pct + '%"></div></div>';
-                    content += '<span class="poll-votes">' + opt.votes + '</span>';
+                    content += '<div class="poll-option flex items-center gap-2 py-0.5 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded px-1" data-msg="' + msgId + '" data-opt="' + idx + '">';
+                    content += '<span class="text-[#888] text-sm">' + opt.text + '</span>';
+                    content += '<div class="flex-1 h-1 bg-[rgba(40,40,40,0.3)] rounded-full overflow-hidden"><div class="h-full bg-[#36454F] rounded-full" style="width:' + pct + '%"></div></div>';
+                    content += '<span class="text-[#555] text-xs">' + opt.votes + '</span>';
                     content += '</div>';
                 });
                 content += '</div>';
             } else if (msg.file) {
                 if (msg.file.type === 'image') {
-                    content += '<div class="file-content"><img src="' + msg.file.data + '" alt="Image" onclick="window.open(this.src)" /></div>';
+                    content += '<div class="file-content"><img src="' + msg.file.data + '" class="max-w-[220px] max-h-[260px] rounded-lg" onclick="window.open(this.src)" /></div>';
                 } else if (msg.file.type === 'video') {
-                    content += '<div class="file-content"><video controls><source src="' + msg.file.data + '" /></video></div>';
+                    content += '<div class="file-content"><video controls class="max-w-[220px] max-h-[260px] rounded-lg"><source src="' + msg.file.data + '" /></video></div>';
                 } else if (msg.file.type === 'audio') {
-                    content += '<div class="file-content"><div class="voice-message">';
-                    content += '<button class="play-btn" onclick="this.querySelector(\'img\').style.display=this.querySelector(\'img\').style.display===\'none\'?\'block\':\'none\'"><img src="icons/play.png" alt="Play" width="16" height="16" /></button>';
-                    content += '<div class="waveform">';
-                    for (let w = 0; w < 20; w++) content += '<div class="bar"></div>';
+                    content += '<div class="file-content"><div class="voice-message flex items-center gap-3">';
+                    content += '<button class="play-btn w-8 h-8 rounded-full glass flex items-center justify-center text-[#888] hover:text-white transition-all"><i data-lucide="play" class="w-4 h-4"></i></button>';
+                    content += '<div class="flex-1 flex items-center gap-0.5 h-6">';
+                    for (let w = 0; w < 16; w++) {
+                        content += '<div class="w-0.5 h-full bg-[rgba(255,255,255,0.15)] rounded-full" style="height:' + (20 + Math.random() * 80) + '%"></div>';
+                    }
                     content += '</div>';
-                    content += '<span class="duration">0:00</span>';
+                    content += '<span class="text-[#555] text-xs">0:00</span>';
                     content += '</div></div>';
                 } else {
-                    content += '<div class="file-content"><div class="file-info">';
-                    content += '<div class="file-icon">📄</div>';
-                    content += '<div class="file-name">' + (msg.file.name || 'File') + '</div>';
-                    content += '<div class="file-size">' + (msg.file.size || '0 KB') + '</div>';
+                    content += '<div class="file-content"><div class="file-info flex items-center gap-2 p-2 glass rounded-lg">';
+                    content += '<div class="w-8 h-8 rounded-lg bg-[rgba(40,40,40,0.3)] flex items-center justify-center text-lg">📄</div>';
+                    content += '<div><div class="text-white text-sm">' + (msg.file.name || 'File') + '</div>';
+                    content += '<div class="text-[#555] text-xs">' + (msg.file.size || '0 KB') + '</div></div>';
                     content += '</div></div>';
                 }
-                if (msg.file.caption) content += '<div class="file-caption">' + msg.file.caption + '</div>';
+                if (msg.file.caption) content += '<div class="text-[#888] text-xs mt-1">' + msg.file.caption + '</div>';
             } else {
                 content = msg.text || '';
             }
             if (msg.reactions && msg.reactions.length > 0) {
-                content += '<div class="reactions">';
+                content += '<div class="reactions flex gap-1 mt-1 flex-wrap">';
                 const reactionCounts = {};
                 msg.reactions.forEach(r => { reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1; });
                 Object.entries(reactionCounts).forEach(([emoji, count]) => {
                     const isUserReacted = msg.reactions.some(r => r.user === state.currentUser.username && r.emoji === emoji);
-                    content += '<span class="reaction' + (isUserReacted ? ' active' : '') + '" data-msg="' + msgId + '" data-emoji="' + emoji + '">' + emoji + ' ' + count + '</span>';
+                    content += '<span class="reaction text-xs px-1.5 py-0.5 rounded-full glass cursor-pointer hover:bg-[rgba(255,255,255,0.04)] transition-all' + (isUserReacted ? ' bg-[rgba(54,69,79,0.2)]' : '') + '" data-msg="' + msgId + '" data-emoji="' + emoji + '">' + emoji + ' ' + count + '</span>';
                 });
                 content += '</div>';
             }
-            if (msg.edited) div.classList.add('edited');
-            if (msg.reply) {
-                const replySender = msg.reply.sender === state.currentUser.username ? 'You' : getDisplayName(msg.reply.sender);
-                div.innerHTML = '<div class="reply-container"><span class="reply-sender">' + replySender + '</span>: <span class="reply-text">' + msg.reply.text + '</span></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
-            } else {
-                div.innerHTML = '<div class="selection-circle"></div>' + content + '<div class="time">' + formatTime(msg.timestamp) + '</div>';
-            }
+            if (msg.edited) content += ' <span class="text-[#555] text-[10px]">(edited)</span>';
+            div.innerHTML = content + '<div class="text-[#555] text-[10px] text-right mt-0.5">' + formatTime(msg.timestamp) + '</div>';
             DOM.chatMessages.appendChild(div);
         }
         document.querySelectorAll('.reaction').forEach(el => {
@@ -1796,6 +1505,7 @@
                 votePoll(msgId, opt);
             });
         });
+        lucide.createIcons();
         scrollToBottom();
     }
 
@@ -1804,11 +1514,11 @@
     }
 
     function showPlaceholder() {
-        if (DOM.chatActive) DOM.chatActive.style.display = 'none';
-        if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'flex';
+        if (DOM.chatActive) DOM.chatActive.classList.add('hidden');
+        if (DOM.chatPlaceholder) DOM.chatPlaceholder.classList.remove('hidden');
         if (state.isMobile) {
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar) sidebar.classList.remove('hide-mobile');
+            const sidebar = document.querySelector('.sidebar');
+            if (sidebar) sidebar.classList.remove('hidden');
             if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
         }
     }
@@ -1819,15 +1529,13 @@
         state.currentChatPartner = partnerUsername;
         const partner = getUserByUsername(partnerUsername);
         if (!partner) return;
-        if (DOM.chatActive) DOM.chatActive.style.display = 'flex';
-        if (DOM.chatPlaceholder) DOM.chatPlaceholder.style.display = 'none';
-        if (DOM.chatHeader) DOM.chatHeader.style.display = 'flex';
-        if (DOM.chatInputBar) DOM.chatInputBar.style.display = 'flex';
+        if (DOM.chatActive) DOM.chatActive.classList.remove('hidden');
+        if (DOM.chatPlaceholder) DOM.chatPlaceholder.classList.add('hidden');
         const displayName = getDisplayName(partnerUsername);
         if (DOM.chatPartnerName) {
             DOM.chatPartnerName.textContent = displayName;
-            if (partner.rainbow) DOM.chatPartnerName.classList.add('rainbow-name');
-            else DOM.chatPartnerName.classList.remove('rainbow-name');
+            if (partner.rainbow) DOM.chatPartnerName.classList.add('rainbow-text');
+            else DOM.chatPartnerName.classList.remove('rainbow-text');
         }
         if (DOM.chatPartnerStatus) DOM.chatPartnerStatus.textContent = partner.online ? 'Online' : 'Offline';
         if (DOM.chatAvatar) DOM.chatAvatar.textContent = partner.username.charAt(0).toUpperCase();
@@ -1852,7 +1560,6 @@
         clearSelection();
         closeDropdown();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
-        if (DOM.funBtn) DOM.funBtn.classList.remove('active');
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
     }
 
@@ -1860,9 +1567,9 @@
         if (state.isTyping) return;
         state.isTyping = true;
         const typingEl = document.createElement('div');
-        typingEl.className = 'typing-indicator';
+        typingEl.className = 'typing-indicator flex items-center gap-2 text-[#888] text-sm p-2';
         typingEl.id = 'typingIndicator';
-        typingEl.innerHTML = '<span>' + getDisplayName(state.currentChatPartner) + ' is typing</span><div class="dots"><span></span><span></span><span></span></div>';
+        typingEl.innerHTML = '<span>' + getDisplayName(state.currentChatPartner) + ' is typing</span><div class="flex gap-1"><span class="w-1.5 h-1.5 rounded-full bg-[#888] animate-[pulse_1.4s_ease-in-out_infinite]"></span><span class="w-1.5 h-1.5 rounded-full bg-[#888] animate-[pulse_1.4s_ease-in-out_infinite] animation-delay-200"></span><span class="w-1.5 h-1.5 rounded-full bg-[#888] animate-[pulse_1.4s_ease-in-out_infinite] animation-delay-400"></span></div>';
         DOM.chatMessages.appendChild(typingEl);
         scrollToBottom();
         clearTimeout(state.typingTimeout);
@@ -1879,7 +1586,7 @@
         const users = state.localCache.users;
         const user = users.find(u => u.username === username && u.password === password);
         if (!user) {
-            if (DOM.authError) { DOM.authError.textContent = 'Incorrect username or password'; DOM.authError.style.display = 'block'; }
+            if (DOM.authError) { DOM.authError.textContent = 'Incorrect username or password'; DOM.authError.classList.remove('hidden'); }
             return false;
         }
         localStorage.setItem('vvn_session', JSON.stringify({ username: user.username }));
@@ -1892,7 +1599,7 @@
     async function registerUser(username, displayName, password) {
         const users = state.localCache.users;
         if (users.find(u => u.username === username)) {
-            if (DOM.regError) { DOM.regError.textContent = 'Username already taken'; DOM.regError.style.display = 'block'; }
+            if (DOM.regError) { DOM.regError.textContent = 'Username already taken'; DOM.regError.classList.remove('hidden'); }
             return false;
         }
         const newUser = {
@@ -1900,7 +1607,6 @@
             displayName: displayName || username,
             password: password,
             bio: '',
-            status: '',
             online: true,
             created: Date.now(),
             avatar: '',
@@ -1930,6 +1636,7 @@
         if (state.currentChatPartner) openChat(state.currentChatPartner);
         else showPlaceholder();
         updateMobileView();
+        lucide.createIcons();
     }
 
     function logout() {
@@ -1938,6 +1645,8 @@
         state.currentChatPartner = null;
         if (state.syncInterval) clearInterval(state.syncInterval);
         if (autoLockTimeout) clearTimeout(autoLockTimeout);
+        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+        if (DOM.messenger) DOM.messenger.style.display = 'none';
         showDeviceSelection();
     }
 
@@ -1953,14 +1662,37 @@
 
     function updateActivity() { lastActivity = Date.now(); resetAutoLock(); }
 
+    function initVanta() {
+        if (typeof VANTA !== 'undefined' && !state.vantaEffect) {
+            state.vantaEffect = VANTA.WAVES({
+                el: '#vanta-bg',
+                mouseControls: true,
+                touchControls: true,
+                gyroControls: false,
+                minHeight: 200.00,
+                minWidth: 200.00,
+                scale: 1.00,
+                scaleMobile: 1.00,
+                color: 0x121212,
+                waveColor: 0x36454F,
+                waveSpeed: 0.5,
+                zoom: 0.8
+            });
+        }
+    }
+
     async function init() {
         console.log('🚀 Initializing VVN...');
-        if (DOM.loadingOverlay) DOM.loadingOverlay.classList.remove('hidden');
+        if (DOM.loadingOverlay) DOM.loadingOverlay.style.display = 'flex';
         updateLoading(5);
         loadSavedSettings();
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
+
+        // Init Vanta
+        initVanta();
+
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && typeof applyDeviceLayout === 'function') {
             state.deviceType = savedDevice;
@@ -1970,6 +1702,7 @@
             state.deviceType = detected;
             applyDeviceLayout(detected);
         }
+
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
@@ -1981,45 +1714,63 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
+            if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
                 state.localCache.users.push({
-                    username: 'vaultnet',
+                    username: 'VaultNet',
                     displayName: 'VaultNet',
                     password: 'admin123',
                     bio: 'Creator of VVN',
-                    status: 'Available',
                     online: true,
                     created: Date.now(),
                     avatar: '',
-                    rainbow: false
+                    rainbow: false,
+                    roles: ['owner', 'ceo', 'dev', 'admin', 'mod', 'xtra', 'staff']
                 });
             }
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
         updateLoading(50);
+
         try {
             const remote = await fetchFromBin();
             if (remote) {
                 state.localCache = { users: remote.users || [], chats: remote.chats || {}, messages: remote.messages || {} };
-                if (!state.localCache.users.find(u => u.username === 'vaultnet')) {
+                if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
                     state.localCache.users.push({
-                        username: 'vaultnet',
+                        username: 'VaultNet',
                         displayName: 'VaultNet',
                         password: 'admin123',
                         bio: 'Creator of VVN',
-                        status: 'Available',
                         online: true,
                         created: Date.now(),
                         avatar: '',
-                        rainbow: false
+                        rainbow: false,
+                        roles: ['owner', 'ceo', 'dev', 'admin', 'mod', 'xtra', 'staff']
                     });
                 }
                 localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
                 console.log('✅ Loaded from JSONBin:', state.localCache.users.length, 'users');
             }
         } catch (e) { console.warn('Background sync failed, using cache'); }
+
         updateLoading(80);
         if (state.settings.theme) applyTheme(state.settings.theme);
+
+        // Init Atropos
+        if (typeof Atropos !== 'undefined') {
+            document.querySelectorAll('.atropos-card').forEach(el => {
+                const atropos = Atropos({
+                    el: el,
+                    activeOffset: 40,
+                    shadowScale: 1.05,
+                    onEnter: function() {},
+                    onLeave: function() {},
+                    onRotate: function(x, y) {}
+                });
+                state.atroposInstances.push(atropos);
+            });
+        }
+
         updateLoading(90);
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
@@ -2037,30 +1788,48 @@
         }
         showDeviceSelection();
         updateLoading(100);
+        lucide.createIcons();
+
+        // Shine effect mouse tracking
+        document.addEventListener('mousemove', function(e) {
+            document.querySelectorAll('.shine-effect, .shine-hover').forEach(el => {
+                const rect = el.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                el.style.setProperty('--mouse-x', x + '%');
+                el.style.setProperty('--mouse-y', y + '%');
+            });
+        });
     }
 
+    // Event Listeners
     document.addEventListener('DOMContentLoaded', function() {
+        // Auth tabs
         document.querySelectorAll('.auth-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+                document.querySelectorAll('.auth-form').forEach(f => f.classList.add('hidden'));
                 const form = document.getElementById(this.dataset.tab + 'Form');
-                if (form) form.classList.add('active');
+                if (form) form.classList.remove('hidden');
             });
         });
+
+        // Login
         if (DOM.loginForm) {
             DOM.loginForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
                 const username = DOM.loginUsername ? DOM.loginUsername.value.trim() : '';
                 const password = DOM.loginPassword ? DOM.loginPassword.value.trim() : '';
                 if (!username || !password) {
-                    if (DOM.authError) { DOM.authError.textContent = 'Please fill in all fields'; DOM.authError.style.display = 'block'; }
+                    if (DOM.authError) { DOM.authError.textContent = 'Please fill in all fields'; DOM.authError.classList.remove('hidden'); }
                     return;
                 }
                 await loginUser(username, password);
             });
         }
+
+        // Register
         if (DOM.registerForm) {
             DOM.registerForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -2068,16 +1837,18 @@
                 const displayName = DOM.regDisplayName ? DOM.regDisplayName.value.trim() : '';
                 const password = DOM.regPassword ? DOM.regPassword.value.trim() : '';
                 if (!username || !password) {
-                    if (DOM.regError) { DOM.regError.textContent = 'Username and password required'; DOM.regError.style.display = 'block'; }
+                    if (DOM.regError) { DOM.regError.textContent = 'Username and password required'; DOM.regError.classList.remove('hidden'); }
                     return;
                 }
                 if (username.length < 3) {
-                    if (DOM.regError) { DOM.regError.textContent = 'Username must be at least 3 characters'; DOM.regError.style.display = 'block'; }
+                    if (DOM.regError) { DOM.regError.textContent = 'Username must be at least 3 characters'; DOM.regError.classList.remove('hidden'); }
                     return;
                 }
                 await registerUser(username, displayName, password);
             });
         }
+
+        // Send message
         if (DOM.sendBtn) DOM.sendBtn.addEventListener('click', sendMessage);
         if (DOM.messageInput) {
             DOM.messageInput.addEventListener('keydown', function(e) {
@@ -2087,6 +1858,8 @@
             });
             DOM.messageInput.addEventListener('blur', function() { hideTypingIndicator(); });
         }
+
+        // Voice
         if (DOM.micBtn) {
             DOM.micBtn.addEventListener('mousedown', startVoiceRecording);
             DOM.micBtn.addEventListener('mouseup', stopVoiceRecording);
@@ -2094,17 +1867,21 @@
             DOM.micBtn.addEventListener('touchstart', function(e) { e.preventDefault(); startVoiceRecording(); });
             DOM.micBtn.addEventListener('touchend', function(e) { e.preventDefault(); stopVoiceRecording(); });
         }
+
+        // Search
         if (DOM.searchInput) {
             DOM.searchInput.addEventListener('input', function() { searchUsers(this.value); });
         }
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.search-wrap') && DOM.searchResults) DOM.searchResults.style.display = 'none';
         });
+
+        // Back
         if (DOM.backBtn) {
             DOM.backBtn.addEventListener('click', function() {
                 if (state.isMobile) {
-                    const sidebar = document.getElementById('sidebar');
-                    if (sidebar) sidebar.classList.remove('hide-mobile');
+                    const sidebar = document.querySelector('.sidebar');
+                    if (sidebar) sidebar.classList.remove('hidden');
                     if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
                     state.currentChatPartner = null;
                     showPlaceholder();
@@ -2112,62 +1889,55 @@
                 }
             });
         }
-        if (DOM.profileBtn) {
-            DOM.profileBtn.addEventListener('click', function() {
-                if (state.currentChatPartner) showProfile(state.currentChatPartner);
-            });
-        }
-        if (DOM.chatHeaderInfo) {
-            DOM.chatHeaderInfo.addEventListener('click', function() {
-                if (state.currentChatPartner) showProfile(state.currentChatPartner);
-            });
-        }
+
+        // Settings
         if (DOM.settingsBtn) DOM.settingsBtn.addEventListener('click', openSettings);
         if (DOM.settingsClose) {
             DOM.settingsClose.addEventListener('click', function() { if (DOM.settingsModal) DOM.settingsModal.classList.remove('active'); });
         }
+
+        // Settings tabs
         document.querySelectorAll('.settings-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                document.querySelectorAll('.settings-panel').forEach(p => p.classList.remove('active'));
+                document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
                 const panel = document.getElementById(this.dataset.tab + 'Settings');
-                if (panel) panel.classList.add('active');
+                if (panel) panel.classList.remove('hidden');
             });
         });
+
+        // Save settings
         if (DOM.saveSettings) DOM.saveSettings.addEventListener('click', saveSettings);
+
+        // Toggles
         if (DOM.e2eeToggle) {
             DOM.e2eeToggle.addEventListener('change', function() {
                 state.settings.e2ee = this.checked;
-                if (DOM.e2eeStatus) DOM.e2eeStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
                 localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
             });
         }
         if (DOM.twofaToggle) {
             DOM.twofaToggle.addEventListener('change', function() {
                 state.settings.twofa = this.checked;
-                if (DOM.twofaStatus) DOM.twofaStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
                 localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
             });
         }
         if (DOM.privacyToggle) {
             DOM.privacyToggle.addEventListener('change', function() {
                 state.settings.privacy = this.checked;
-                if (DOM.privacyStatus) DOM.privacyStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
                 localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
             });
         }
         if (DOM.devToggle) {
             DOM.devToggle.addEventListener('change', function() {
                 state.settings.devMode = this.checked;
-                if (DOM.devStatus) DOM.devStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
                 localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
             });
         }
         if (DOM.readReceiptsToggle) {
             DOM.readReceiptsToggle.addEventListener('change', function() {
                 state.settings.readReceipts = this.checked;
-                if (DOM.readReceiptsStatus) DOM.readReceiptsStatus.textContent = this.checked ? 'Enabled' : 'Disabled';
                 localStorage.setItem('vvn_settings', JSON.stringify(state.settings));
             });
         }
@@ -2178,14 +1948,18 @@
                 resetAutoLock();
             });
         }
+
+        // Theme cards
         document.querySelectorAll('.theme-card').forEach(card => {
             card.addEventListener('click', function() {
                 const theme = this.dataset.theme;
                 applyTheme(theme);
-                if (theme !== 'custom') document.getElementById('customThemeOptions').style.display = 'none';
+                if (theme !== 'custom') document.getElementById('customThemeOptions').classList.add('hidden');
             });
         });
         if (DOM.applyCustomTheme) DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
+
+        // Avatar upload
         if (DOM.avatarUpload) {
             DOM.avatarUpload.addEventListener('change', function(e) {
                 const file = e.target.files[0];
@@ -2208,17 +1982,24 @@
                 }
             });
         }
+
+        // Modal closes
         if (DOM.modalClose) {
             DOM.modalClose.addEventListener('click', function() { if (DOM.profileModal) DOM.profileModal.classList.remove('active'); });
         }
         if (DOM.profileModal) {
-            const overlay = DOM.profileModal.querySelector('.modal-overlay');
-            if (overlay) overlay.addEventListener('click', function() { DOM.profileModal.classList.remove('active'); });
+            DOM.profileModal.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('active');
+            });
         }
+
+        // Manual sync
         if (DOM.manualSyncBtn) DOM.manualSyncBtn.addEventListener('click', function() {
             state.firstSyncDone = false;
             syncWithRemote();
         });
+
+        // Device selection
         document.querySelectorAll('.device-option').forEach(btn => {
             btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
         });
@@ -2235,9 +2016,13 @@
         document.querySelectorAll('.device-layout-btn').forEach(btn => {
             btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
         });
+
+        // Logout
         if (DOM.logoutBtn) {
             DOM.logoutBtn.addEventListener('click', function() { if (confirm('Are you sure you want to logout?')) { logout(); } });
         }
+
+        // Clear data
         if (DOM.clearDataBtn) {
             DOM.clearDataBtn.addEventListener('click', function() {
                 if (confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
@@ -2248,6 +2033,8 @@
                 }
             });
         }
+
+        // Dropdown
         if (DOM.chatDropdownBtn) {
             DOM.chatDropdownBtn.addEventListener('click', function(e) { e.stopPropagation(); toggleDropdown(); });
         }
@@ -2261,9 +2048,10 @@
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.dropdown-trigger') && !e.target.closest('.dropdown-menu')) closeDropdown();
         });
-        if (DOM.selectBtn) DOM.selectBtn.addEventListener('click', toggleSelectionMode);
+
+        // Selection
         document.addEventListener('click', function(e) {
-            const msgEl = e.target.closest('.message');
+            const msgEl = e.target.closest('.message-bubble');
             if (msgEl && selectionMode) {
                 const msgId = msgEl.dataset.msgId;
                 if (msgId) toggleMessageSelection(msgId);
@@ -2271,30 +2059,38 @@
         });
         if (DOM.deleteSelectedBtn) DOM.deleteSelectedBtn.addEventListener('click', showDeleteModal);
         if (DOM.pinSelectedBtn) DOM.pinSelectedBtn.addEventListener('click', pinSelectedMessages);
-        if (DOM.forwardSelectedBtn) DOM.forwardSelectedBtn.addEventListener('click', forwardSelectedMessages);
         if (DOM.cancelSelectionBtn) DOM.cancelSelectionBtn.addEventListener('click', clearSelection);
         if (DOM.deleteForMeBtn) DOM.deleteForMeBtn.addEventListener('click', function() { deleteMessages(false); });
         if (DOM.deleteForEveryoneBtn) DOM.deleteForEveryoneBtn.addEventListener('click', function() { deleteMessages(true); });
         if (DOM.deleteModalClose) DOM.deleteModalClose.addEventListener('click', function() { DOM.deleteModal.classList.remove('active'); });
+
+        // Pinned
         if (DOM.unpinBtn) {
             DOM.unpinBtn.addEventListener('click', function() {
                 const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
                 if (chatKey) unpinMessage(chatKey);
             });
         }
-        if (DOM.pinnedMessagePreview) DOM.pinnedMessagePreview.addEventListener('click', scrollToPinnedMessage);
+
+        // Bubble styles
         document.querySelectorAll('.bubble-style').forEach(btn => {
             btn.addEventListener('click', function() { changeBubbleStyle(this.dataset.style); });
         });
+
+        // Chat background
         if (DOM.bgDefault) DOM.bgDefault.addEventListener('click', function() { changeChatBackground('default'); });
         if (DOM.bgCustom) DOM.bgCustom.addEventListener('click', function() { changeChatBackground('custom'); });
         if (DOM.bgUpload) DOM.bgUpload.addEventListener('change', handleBackgroundUpload);
+
+        // File
         if (DOM.clipBtn) DOM.clipBtn.addEventListener('click', openFileModal);
         if (DOM.fileModalClose) DOM.fileModalClose.addEventListener('click', function() { DOM.fileModal.classList.remove('active'); });
         if (DOM.fileSelectBtn) DOM.fileSelectBtn.addEventListener('click', handleFileSelect);
         if (DOM.fileInput) DOM.fileInput.addEventListener('change', handleFileInput);
         if (DOM.fileClearBtn) DOM.fileClearBtn.addEventListener('click', clearAllFiles);
         if (DOM.fileSendBtn) DOM.fileSendBtn.addEventListener('click', sendMessage);
+
+        // Bubble color
         if (DOM.applyBubbleColor) {
             DOM.applyBubbleColor.addEventListener('click', function() {
                 if (DOM.bubbleColorPicker) {
@@ -2302,102 +2098,89 @@
                     chatSettings.bubbleColor = color;
                     localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
                     document.documentElement.style.setProperty('--bubble-color', color);
-                    document.querySelectorAll('.message.outgoing').forEach(el => {
+                    document.querySelectorAll('.message-outgoing').forEach(el => {
                         el.style.background = color;
                     });
                     alert('Bubble color updated!');
                 }
             });
         }
+
+        // Font size
         if (DOM.fontSizeSelect) {
             DOM.fontSizeSelect.addEventListener('change', function() { setFontSize(this.value); });
         }
-        if (DOM.fontFamilySelect) {
-            DOM.fontFamilySelect.addEventListener('change', function() { setFontFamily(this.value); });
-        }
-        if (DOM.chatSpacingSelect) {
-            DOM.chatSpacingSelect.addEventListener('change', function() {
-                chatSettings.chatSpacing = this.value;
-                localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-                const spacings = { compact: 'chat-spacing-compact', comfortable: 'chat-spacing-comfortable', spacious: 'chat-spacing-spacious' };
-                document.querySelectorAll('.message').forEach(el => {
-                    el.classList.remove('chat-spacing-compact', 'chat-spacing-comfortable', 'chat-spacing-spacious');
-                    if (spacings[this.value]) el.classList.add(spacings[this.value]);
-                });
-                alert('Chat spacing updated to: ' + this.value);
-            });
-        }
-        if (DOM.timestampFormatSelect) {
-            DOM.timestampFormatSelect.addEventListener('change', function() {
-                chatSettings.timestampFormat = this.value;
-                localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-                const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
-                if (chatKey) {
-                    const msgs = state.localCache.messages[chatKey] || [];
-                    renderMessages(msgs);
-                }
-                alert('Timestamp format updated!');
-            });
-        }
-        if (DOM.messageAnimationSelect) {
-            DOM.messageAnimationSelect.addEventListener('change', function() {
-                chatSettings.messageAnimations = this.value;
-                localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-                alert('Message animation updated to: ' + this.value);
-            });
-        }
-        if (DOM.funBtn) {
-            DOM.funBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleFunPanel();
-            });
-        }
+
+        // Fun panel
         if (DOM.smileBtn) {
             DOM.smileBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 toggleFunPanel();
             });
         }
+
+        // Panel tabs
         document.querySelectorAll('.panel-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 switchPanelTab(this.dataset.tab);
             });
         });
+
+        // Poll & Game buttons
         if (DOM.pollBtn) DOM.pollBtn.addEventListener('click', function() { createPoll(); });
         if (DOM.gameBtn) DOM.gameBtn.addEventListener('click', function() { playGame(); });
+
+        // Close fun panel on outside click
         document.addEventListener('click', function(e) {
-            if (DOM.funPanel && DOM.funBtn && !e.target.closest('.fun-panel') && !e.target.closest('.fun-btn') && !e.target.closest('.smile-btn')) {
+            if (DOM.funPanel && DOM.smileBtn && !e.target.closest('.fun-panel') && !e.target.closest('.smile-btn')) {
                 DOM.funPanel.style.display = 'none';
-                if (DOM.funBtn) DOM.funBtn.classList.remove('active');
                 if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
             }
         });
+
+        // Modal overlays
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
-            overlay.addEventListener('click', function() { this.parentElement.classList.remove('active'); });
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) this.classList.remove('active');
+            });
         });
+
+        // Activity tracking
         document.addEventListener('click', updateActivity);
         document.addEventListener('keydown', updateActivity);
-        document.addEventListener('mousemove', updateActivity);
+
+        // Resize
         window.addEventListener('resize', function() {
             updateMobileView();
             if (typeof applyDeviceLayout === 'function') applyDeviceLayout(state.deviceType);
         });
-        document.addEventListener('mousemove', function(e) {
-            document.querySelectorAll('.shine-effect, .shine-hover').forEach(el => {
-                const rect = el.getBoundingClientRect();
-                const x = ((e.clientX - rect.left) / rect.width) * 100;
-                const y = ((e.clientY - rect.top) / rect.height) * 100;
-                el.style.setProperty('--mouse-x', x + '%');
-                el.style.setProperty('--mouse-y', y + '%');
-            });
-        });
+
+        // Start
         init();
+
+        // Add animation-delay utility
+        const style = document.createElement('style');
+        style.textContent = `
+            .animation-delay-200 { animation-delay: 0.2s; }
+            .animation-delay-400 { animation-delay: 0.4s; }
+            .rainbow-text {
+                background: linear-gradient(90deg, #ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff, #ff0000);
+                background-size: 300% 100%;
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                animation: rainbowMove 3s linear infinite;
+            }
+            @keyframes rainbowMove {
+                0% { background-position: 0% 50%; }
+                100% { background-position: 300% 50%; }
+            }
+        `;
+        document.head.appendChild(style);
+
         console.log('🚀 VVN Messenger started!');
         console.log('👤 Owner: VaultNet');
         console.log('🔐 Password: admin123');
         console.log('🔑 Developer PIN:', CONFIG.DEV_PIN);
-        console.log('📱 Messages sync every', CONFIG.SYNC_INTERVAL/1000, 'seconds');
-        console.log('🏷️ VaultNet has all tags: OWNER, CEO, DEV, ADMIN, MOD, STAFF, XTRA');
-        console.log('🎮 Games, Stickers, GIFs, Polls and more!');
+        console.log('🎨 30+ Premium features available!');
     });
 })();
