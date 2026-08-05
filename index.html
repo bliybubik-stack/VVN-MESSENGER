@@ -4,278 +4,884 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover" />
     <title>VVN Messenger</title>
-    <link rel="stylesheet" href="style.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Three.js & Vanta.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vanta@latest/dist/vanta.waves.min.js"></script>
+
+    <!-- GSAP -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+
+    <!-- Anime.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
+    <!-- Atropos -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/atropos@2/atropos.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/atropos@2/atropos.min.js"></script>
+
     <style>
-        @supports (padding: max(0px)) {
-            #app { padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0A0A0A;
+            color: #FFFFFF;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #app {
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        #vanta-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .glass-light {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .glass-dark {
+            background: rgba(10, 10, 10, 0.5);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+        }
+
+        .glass-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(255,255,255,0.15), transparent, rgba(255,255,255,0.04));
+        }
+
+        .atropos-card {
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .atropos-card .atropos-shadow {
+            background: rgba(45, 27, 105, 0.1) !important;
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            width: 4px;
+        }
+        .scrollbar-hide::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .scrollbar-hide::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 4px;
+        }
+
+        .shine-effect {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .shine-effect::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.02) 10%, transparent 60%);
+            pointer-events: none;
+            transition: background 0.1s ease;
+            z-index: 1;
+        }
+
+        .shine-hover {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .shine-hover::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04), transparent);
+            transform: skewX(-25deg);
+            transition: all 0.6s ease;
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .shine-hover:hover::before {
+            left: 100%;
+        }
+
+        .tag-owner { background: #ffd700; color: #000; }
+        .tag-ceo { background: #ff6b6b; color: #fff; }
+        .tag-dev { background: #4ecdc4; color: #000; }
+        .tag-admin { background: #45b7d1; color: #fff; }
+        .tag-mod { background: #a29bfe; color: #fff; }
+        .tag-xtra { background: #fd79a8; color: #fff; }
+        .tag-staff { background: #fdcb6e; color: #000; }
+        .tag-member { background: rgba(255,255,255,0.06); color: #999; }
+        .tag-guest { background: rgba(255,255,255,0.03); color: #666; }
+
+        .message-outgoing {
+            background: rgba(54, 69, 79, 0.6);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-incoming {
+            background: rgba(255, 255, 255, 0.04);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message-bubble {
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .message-bubble:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .fun-panel {
+            position: absolute;
+            bottom: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(10, 10, 10, 0.7);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-bottom: none;
+            border-radius: 16px 16px 0 0;
+            padding: 12px;
+            max-height: 260px;
+            overflow-y: auto;
+            display: none;
+            z-index: 10;
+            animation: slideUp 0.3s ease;
+        }
+
+        .fun-panel.active {
+            display: block;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .panel-tab {
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: transparent;
+            border: none;
+        }
+
+        .panel-tab:hover {
+            color: #ddd;
+            background: rgba(255,255,255,0.04);
+        }
+
+        .panel-tab.active {
+            color: #fff;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .sticker-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 6px;
+            padding: 4px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .sticker-item {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.04);
+            padding: 4px;
+        }
+
+        .sticker-item:hover {
+            transform: scale(1.1);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .gif-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 6px;
+            padding: 4px;
+            max-height: 160px;
+            overflow-y: auto;
+        }
+
+        .gif-item {
+            width: 100%;
+            height: 80px;
+            object-fit: cover;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .gif-item:hover {
+            transform: scale(1.05);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        .message-input-wrapper {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            background: rgba(40, 40, 40, 0.3);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 24px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+
+        .message-input-wrapper:focus-within {
+            border-color: rgba(54, 69, 79, 0.5);
+            box-shadow: 0 0 0 3px rgba(54, 69, 79, 0.15);
+        }
+
+        .icon-btn {
+            background: transparent;
+            border: none;
+            color: #666;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            color: #aaa;
+            background: rgba(255,255,255,0.04);
+        }
+
+        .icon-btn.active {
+            color: #fff;
+            background: rgba(54, 69, 79, 0.2);
+        }
+
+        .icon-btn svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 1.6;
+        }
+
+        .send-btn-inline {
+            background: #36454F;
+            border: none;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .send-btn-inline:hover {
+            background: #41424C;
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(54, 69, 79, 0.3);
+        }
+
+        .send-btn-inline svg {
+            width: 18px;
+            height: 18px;
+            stroke: #fff;
+            stroke-width: 2;
+        }
+
+        .chat-item {
+            padding: 6px 10px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid transparent;
+        }
+
+        .chat-item:hover {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.04);
+            transform: translateX(4px);
+        }
+
+        .chat-item.active {
+            background: rgba(255,255,255,0.06);
+            border-left: 3px solid #36454F;
+            border-color: rgba(255,255,255,0.06);
+        }
+
+        .chat-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.06);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.8rem;
+            flex-shrink: 0;
+            color: #aaa;
+        }
+
+        .dropdown-menu {
+            position: fixed;
+            background: rgba(20, 20, 20, 0.8);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: 6px 0;
+            min-width: 180px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+            z-index: 50;
+            display: none;
+            animation: dropdownIn 0.2s ease;
+        }
+
+        @keyframes dropdownIn {
+            from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .dropdown-item {
+            padding: 6px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #ddd;
+            font-size: 0.8rem;
+        }
+
+        .dropdown-item:hover {
+            background: rgba(255,255,255,0.04);
+            transform: translateX(4px);
+        }
+
+        .dropdown-item svg {
+            width: 16px;
+            height: 16px;
+            opacity: 0.6;
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background: rgba(255,255,255,0.06);
+            margin: 4px 12px;
+        }
+
+        .modal-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(12px);
+            z-index: 99;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            animation: modalFade 0.3s ease;
+        }
+
+        @keyframes modalFade {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .modal-content {
+            position: relative;
+            background: rgba(20, 20, 20, 0.85);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 460px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 8px 60px rgba(0,0,0,0.6);
+            z-index: 100;
+            animation: modalContent 0.3s ease;
+        }
+
+        @keyframes modalContent {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            color: #888;
+            cursor: pointer;
+            padding: 4px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-close:hover {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            transform: scale(1.05);
+        }
+
+        .modal-close svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 1.6;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status-dot.green { background: #44c767; }
+        .status-dot.yellow { background: #ffc107; }
+        .status-dot.red { background: #ff4444; }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pulse-dot {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* Loading */
+        .loader {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(255,255,255,0.06);
+            border-top: 3px solid #36454F;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loader-bar {
+            width: 200px;
+            height: 3px;
+            background: rgba(255,255,255,0.06);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .loader-bar .fill {
+            height: 100%;
+            width: 0%;
+            background: #36454F;
+            border-radius: 4px;
+            transition: width 0.3s;
         }
     </style>
 </head>
 <body>
+
     <div id="app">
-        <div id="loadingOverlay">
-            <div class="loader-container">
-                <div class="loader-icon">
-                    <img src="icons/shield.png" alt="VVN" width="72" height="72" />
+
+        <!-- Vanta Background -->
+        <div id="vanta-bg"></div>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="fixed inset-0 z-[999] flex items-center justify-center bg-[#0A0A0A] transition-opacity duration-400">
+            <div class="flex flex-col items-center gap-6">
+                <div class="loader"></div>
+                <div class="loader-bar">
+                    <div class="fill" id="loaderFill"></div>
                 </div>
-                <div class="loader-bar"><div class="fill" id="loaderFill"></div></div>
-                <p>SECURE CONNECTION ESTABLISHING...</p>
+                <p class="text-[#555] text-sm tracking-[2px]">SECURE CONNECTION ESTABLISHING...</p>
             </div>
         </div>
 
-        <div id="deviceScreen">
-            <div class="device-container">
-                <div class="device-brand">
-                    <img src="icons/logo.png" alt="VVN" width="80" height="80" class="rounded-logo" />
-                    <h1>VVN</h1>
-                    <p>VEIL-VAULT-NET</p>
+        <!-- Device Selection -->
+        <div id="deviceScreen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#0A0A0A] hidden">
+            <div class="w-full max-w-md px-4">
+                <div class="text-center mb-8">
+                    <img src="icons/logo.png" alt="VVN" class="w-20 h-20 mx-auto mb-4 rounded-2xl glass p-2" />
+                    <h1 class="text-3xl font-medium text-white">VVN</h1>
+                    <p class="text-[#666] text-sm tracking-[3px]">VEIL-VAULT-NET</p>
                 </div>
-                <div class="device-box glass-card">
-                    <h2>Select Your Device</h2>
-                    <p class="device-sub">Choose your device type for optimal layout</p>
-                    <div class="device-grid">
-                        <button class="device-option" data-device="phone">
-                            <img src="icons/phone.png" alt="Phone" width="48" height="48" />
-                            <span>Phone</span>
-                            <small>Mobile optimized</small>
+                <div class="glass-card p-6 text-center">
+                    <h2 class="text-white font-medium text-lg mb-1">Select Your Device</h2>
+                    <p class="text-[#666] text-sm mb-5">Choose your device type for optimal layout</p>
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent" data-device="phone">
+                            <i data-lucide="smartphone" class="w-10 h-10 mx-auto mb-2 text-[#888]"></i>
+                            <span class="block text-white text-sm font-medium">Phone</span>
+                            <small class="text-[#555] text-xs">Mobile optimized</small>
                         </button>
-                        <button class="device-option" data-device="tablet">
-                            <img src="icons/tablet.png" alt="Tablet" width="48" height="48" />
-                            <span>Tablet</span>
-                            <small>Tablet optimized</small>
+                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent" data-device="tablet">
+                            <i data-lucide="tablet" class="w-10 h-10 mx-auto mb-2 text-[#888]"></i>
+                            <span class="block text-white text-sm font-medium">Tablet</span>
+                            <small class="text-[#555] text-xs">Tablet optimized</small>
                         </button>
-                        <button class="device-option" data-device="pc">
-                            <img src="icons/pc.png" alt="PC" width="48" height="48" />
-                            <span>PC / Desktop</span>
-                            <small>Full desktop layout</small>
+                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent" data-device="pc">
+                            <i data-lucide="monitor" class="w-10 h-10 mx-auto mb-2 text-[#888]"></i>
+                            <span class="block text-white text-sm font-medium">PC</span>
+                            <small class="text-[#555] text-xs">Full desktop</small>
                         </button>
                     </div>
-                    <div class="device-auto">
-                        <button class="btn-secondary" id="autoDetectBtn">Auto Detect</button>
-                        <span class="device-auto-text">or let us detect your device</span>
+                    <div class="flex items-center justify-center gap-3 flex-wrap">
+                        <button class="btn-secondary text-sm px-4 py-2 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white" id="autoDetectBtn">Auto Detect</button>
+                        <span class="text-[#555] text-xs">or let us detect</span>
                     </div>
                 </div>
-                <div class="auth-footer">
-                    <span>END-TO-END ENCRYPTED</span>
+                <div class="text-center mt-4">
+                    <span class="text-[#555] text-xs tracking-[2px]">END-TO-END ENCRYPTED</span>
                 </div>
             </div>
         </div>
 
-        <div id="authScreen" style="display:none;">
-            <div class="auth-container">
-                <div class="auth-brand">
-                    <img src="icons/logo.png" alt="VVN" width="80" height="80" class="rounded-logo" />
-                    <h1>VVN</h1>
-                    <p>VEIL-VAULT-NET</p>
+        <!-- Auth Screen -->
+        <div id="authScreen" class="fixed inset-0 z-[150] flex items-center justify-center bg-[#0A0A0A] hidden">
+            <div class="w-full max-w-md px-4">
+                <div class="text-center mb-8">
+                    <img src="icons/logo.png" alt="VVN" class="w-20 h-20 mx-auto mb-4 rounded-2xl glass p-2" />
+                    <h1 class="text-3xl font-medium text-white">VVN</h1>
+                    <p class="text-[#666] text-sm tracking-[3px]">VEIL-VAULT-NET</p>
                 </div>
-                <div class="auth-box glass-card" id="authBox">
-                    <div class="auth-tabs">
-                        <button class="auth-tab active" data-tab="login">Sign in</button>
-                        <button class="auth-tab" data-tab="register">Create account</button>
+                <div class="glass-card p-6">
+                    <div class="flex gap-1 bg-[rgba(20,20,20,0.3)] rounded-xl p-1 mb-5">
+                        <button class="auth-tab flex-1 py-2 text-sm font-medium text-[#666] rounded-lg transition-all active" data-tab="login">Sign in</button>
+                        <button class="auth-tab flex-1 py-2 text-sm font-medium text-[#666] rounded-lg transition-all" data-tab="register">Create account</button>
                     </div>
-                    
-                    <form id="loginForm" class="auth-form active">
-                        <div class="input-group">
-                            <img src="icons/user.png" alt="" class="input-icon" />
-                            <input type="text" id="loginUsername" placeholder="USERNAME" />
+
+                    <form id="loginForm" class="auth-form flex flex-col gap-3">
+                        <div class="relative">
+                            <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#555]"></i>
+                            <input type="text" id="loginUsername" placeholder="USERNAME" class="w-full pl-10 pr-4 py-3 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F] focus:shadow-[0_0_0_3px_rgba(54,69,79,0.15)]" />
                         </div>
-                        <div class="input-group">
-                            <img src="icons/lock.png" alt="" class="input-icon" />
-                            <input type="password" id="loginPassword" placeholder="PASSWORD" />
+                        <div class="relative">
+                            <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#555]"></i>
+                            <input type="password" id="loginPassword" placeholder="PASSWORD" class="w-full pl-10 pr-4 py-3 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F] focus:shadow-[0_0_0_3px_rgba(54,69,79,0.15)]" />
                         </div>
-                        <button type="submit" class="btn-primary">Enter VVN</button>
-                        <div id="authError" class="auth-error"></div>
+                        <button type="submit" class="btn-primary w-full py-3 rounded-xl bg-[#36454F] text-white font-medium text-sm transition-all hover:bg-[#41424C] hover:scale-[1.02]">Enter VVN</button>
+                        <div id="authError" class="text-red-400 text-xs bg-red-400/10 px-3 py-2 rounded-lg border border-red-400/20 hidden"></div>
                     </form>
 
-                    <form id="registerForm" class="auth-form">
-                        <div class="input-group">
-                            <img src="icons/user.png" alt="" class="input-icon" />
-                            <input type="text" id="regUsername" placeholder="USERNAME" />
+                    <form id="registerForm" class="auth-form hidden flex-col gap-3">
+                        <div class="relative">
+                            <i data-lucide="user" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#555]"></i>
+                            <input type="text" id="regUsername" placeholder="USERNAME" class="w-full pl-10 pr-4 py-3 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F] focus:shadow-[0_0_0_3px_rgba(54,69,79,0.15)]" />
                         </div>
-                        <div class="input-group">
-                            <img src="icons/edit.png" alt="" class="input-icon" />
-                            <input type="text" id="regDisplayName" placeholder="DISPLAY NAME" />
+                        <div class="relative">
+                            <i data-lucide="pen-line" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#555]"></i>
+                            <input type="text" id="regDisplayName" placeholder="DISPLAY NAME" class="w-full pl-10 pr-4 py-3 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F] focus:shadow-[0_0_0_3px_rgba(54,69,79,0.15)]" />
                         </div>
-                        <div class="input-group">
-                            <img src="icons/lock.png" alt="" class="input-icon" />
-                            <input type="password" id="regPassword" placeholder="PASSWORD" />
+                        <div class="relative">
+                            <i data-lucide="lock" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#555]"></i>
+                            <input type="password" id="regPassword" placeholder="PASSWORD" class="w-full pl-10 pr-4 py-3 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F] focus:shadow-[0_0_0_3px_rgba(54,69,79,0.15)]" />
                         </div>
-                        <button type="submit" class="btn-primary">Create account</button>
-                        <div id="regError" class="auth-error"></div>
+                        <button type="submit" class="btn-primary w-full py-3 rounded-xl bg-[#36454F] text-white font-medium text-sm transition-all hover:bg-[#41424C] hover:scale-[1.02]">Create account</button>
+                        <div id="regError" class="text-red-400 text-xs bg-red-400/10 px-3 py-2 rounded-lg border border-red-400/20 hidden"></div>
                     </form>
                 </div>
-                <div class="auth-footer">
-                    <span>END-TO-END ENCRYPTED</span>
+                <div class="text-center mt-4">
+                    <span class="text-[#555] text-xs tracking-[2px]">END-TO-END ENCRYPTED</span>
                 </div>
             </div>
         </div>
 
-        <div id="messenger" style="display:none;">
-            <div id="statusBar">
-                <span><span class="status-dot" id="syncDot"></span><span id="syncStatus">Initializing...</span></span>
-                <button class="sync-btn" id="manualSyncBtn">
-                    <img src="icons/settings.png" alt="Sync" width="14" height="14" /> Sync
+        <!-- Messenger -->
+        <div id="messenger" class="fixed inset-0 z-[100] hidden flex flex-col">
+            <!-- Status Bar -->
+            <div class="flex items-center justify-between px-4 py-1.5 glass-dark border-b border-[rgba(255,255,255,0.04)] flex-shrink-0 min-h-[32px]">
+                <span class="text-[#666] text-xs">
+                    <span class="status-dot" id="syncDot"></span>
+                    <span id="syncStatus">Initializing...</span>
+                </span>
+                <button class="flex items-center gap-1.5 glass px-3 py-0.5 rounded-xl text-[#666] text-xs transition-all hover:text-white hover:bg-[rgba(255,255,255,0.04)]" id="manualSyncBtn">
+                    <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                    Sync
                 </button>
             </div>
 
-            <div class="messenger-layout">
-                <div class="sidebar" id="sidebar">
-                    <div class="sidebar-header">
-                        <div class="logo-bar">
-                            <div class="logo-container">
-                                <img src="icons/logo.png" alt="VVN" width="32" height="32" class="rounded-logo-small" />
-                                <h2>VVN</h2>
+            <div class="flex flex-1 min-h-0">
+                <!-- Sidebar -->
+                <div class="sidebar glass-dark border-r border-[rgba(255,255,255,0.04)] flex flex-col overflow-hidden w-[30%] min-w-[240px] flex-shrink-0">
+                    <div class="p-3 border-b border-[rgba(255,255,255,0.04)] flex-shrink-0">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <img src="icons/logo.png" alt="VVN" class="w-7 h-7 rounded-lg glass p-1" />
+                                <h2 class="text-white font-semibold text-base">VVN</h2>
                             </div>
-                            <button class="settings-btn" id="settingsBtn">
-                                <img src="icons/settings.png" alt="Settings" width="24" height="24" />
+                            <button class="settings-btn glass p-1.5 rounded-lg text-[#666] transition-all hover:text-white hover:bg-[rgba(255,255,255,0.04)]" id="settingsBtn">
+                                <i data-lucide="settings" class="w-5 h-5"></i>
                             </button>
                         </div>
-                        <div class="user-badge" id="userBadge">
-                            <img src="icons/user.png" alt="" width="20" height="20" />
+                        <div class="flex items-center gap-2 glass px-3 py-1.5 rounded-full text-sm text-white mb-2">
+                            <i data-lucide="user" class="w-4 h-4 text-[#666]"></i>
                             <span id="sidebarUsername">user</span>
                         </div>
-                        <div class="search-wrap">
-                            <input id="searchInput" placeholder="Search users..." />
-                            <img src="icons/search.png" alt="" class="search-icon" />
-                            <div id="searchResults" class="search-results"></div>
+                        <div class="relative">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#555]"></i>
+                            <input id="searchInput" placeholder="Search users..." class="w-full pl-9 pr-3 py-1.5 rounded-full bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F] focus:shadow-[0_0_0_2px_rgba(54,69,79,0.15)]" />
+                            <div id="searchResults" class="absolute top-full left-0 right-0 mt-1 glass-card max-h-48 overflow-y-auto hidden z-10"></div>
                         </div>
                     </div>
-                    <div class="chat-list" id="chatList"></div>
+                    <div class="flex-1 overflow-y-auto p-2 scrollbar-hide" id="chatList"></div>
                 </div>
 
-                <div class="chat-area" id="chatArea">
-                    <div id="chatPlaceholder" class="chat-placeholder">
-                        <div class="placeholder-content">
-                            <img src="icons/shield.png" alt="VVN" width="80" height="80" />
-                            <h3>Your chats will appear here</h3>
-                            <p>Search a user above to start a private chat.</p>
+                <!-- Chat Area -->
+                <div class="flex-1 flex flex-col bg-[rgba(10,10,10,0.3)]">
+                    <!-- Placeholder -->
+                    <div id="chatPlaceholder" class="flex-1 flex items-center justify-center">
+                        <div class="text-center text-[#555]">
+                            <img src="icons/shield.png" alt="VVN" class="w-20 h-20 mx-auto mb-4 rounded-2xl glass p-4" />
+                            <h3 class="text-white font-medium text-lg">Your chats will appear here</h3>
+                            <p class="text-sm">Search a user above to start a private chat.</p>
                         </div>
                     </div>
-                    <div id="chatActive" style="display:none; flex-direction:column; height:100%;">
-                        <div class="chat-header" id="chatHeader">
-                            <button class="back-btn" id="backBtn">
-                                <img src="icons/back.png" alt="Back" width="24" height="24" />
+
+                    <!-- Active Chat -->
+                    <div id="chatActive" class="flex-1 flex flex-col hidden">
+                        <!-- Chat Header -->
+                        <div class="flex items-center gap-3 px-3 py-2 border-b border-[rgba(255,255,255,0.04)] flex-shrink-0 min-h-[48px] glass-dark">
+                            <button class="back-btn glass p-1.5 rounded-lg text-[#666] transition-all hover:text-white hidden" id="backBtn">
+                                <i data-lucide="arrow-left" class="w-5 h-5"></i>
                             </button>
-                            <div class="chat-header-info" id="chatHeaderInfo">
-                                <div class="avatar" id="chatAvatar">👤</div>
+                            <div class="flex items-center gap-2 flex-1 cursor-pointer" id="chatHeaderInfo">
+                                <div class="chat-avatar" id="chatAvatar">👤</div>
                                 <div>
-                                    <div class="chatuser" id="chatPartnerName"></div>
-                                    <div class="status" id="chatPartnerStatus">offline</div>
+                                    <div class="text-white text-sm font-medium" id="chatPartnerName"></div>
+                                    <div class="text-[#666] text-xs" id="chatPartnerStatus">offline</div>
                                 </div>
                             </div>
-                            <button class="header-action-btn dropdown-trigger" id="chatDropdownBtn">
-                                <img src="icons/settings.png" alt="Menu" width="22" height="22" />
+                            <button class="glass p-1.5 rounded-lg text-[#666] transition-all hover:text-white dropdown-trigger" id="chatDropdownBtn">
+                                <i data-lucide="more-vertical" class="w-5 h-5"></i>
                             </button>
                         </div>
 
-                        <div class="dropdown-menu" id="dropdownMenu" style="display:none;">
+                        <!-- Dropdown Menu -->
+                        <div class="dropdown-menu" id="dropdownMenu">
                             <div class="dropdown-item" data-action="search">
-                                <img src="icons/search.png" alt="Search" width="18" height="18" /> Search Messages
+                                <i data-lucide="search"></i> Search Messages
                             </div>
                             <div class="dropdown-item" data-action="wallpaper">
-                                <img src="icons/background.png" alt="Wallpaper" width="18" height="18" /> Chat Wallpaper
+                                <i data-lucide="image"></i> Chat Wallpaper
                             </div>
                             <div class="dropdown-item" data-action="bubblecolor">
-                                <img src="icons/edit.png" alt="Color" width="18" height="18" /> Bubble Color
+                                <i data-lucide="palette"></i> Bubble Color
                             </div>
                             <div class="dropdown-item" data-action="fontsize">
-                                <img src="icons/edit.png" alt="Font" width="18" height="18" /> Font Size
-                            </div>
-                            <div class="dropdown-item" data-action="fontfamily">
-                                <img src="icons/edit.png" alt="Font" width="18" height="18" /> Font Family
-                            </div>
-                            <div class="dropdown-item" data-action="chatinfo">
-                                <img src="icons/settings.png" alt="Info" width="18" height="18" /> Chat Info
+                                <i data-lucide="type"></i> Font Size
                             </div>
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-item" data-action="profile">
-                                <img src="icons/user.png" alt="Profile" width="18" height="18" /> View Profile
-                            </div>
-                            <div class="dropdown-item" data-action="status">
-                                <img src="icons/edit.png" alt="Status" width="18" height="18" /> Set Status
+                                <i data-lucide="user"></i> View Profile
                             </div>
                             <div class="dropdown-divider"></div>
                             <div class="dropdown-item" data-action="logout" style="color:#ff6b6b;">
-                                <img src="icons/close.png" alt="Logout" width="18" height="18" style="opacity:0.6;" /> Logout
+                                <i data-lucide="log-out"></i> Logout
                             </div>
                         </div>
 
-                        <div id="pinnedDock" style="display:none;">
-                            <div class="pinned-content">
-                                <img src="icons/pin.png" alt="Pinned" width="16" height="16" />
-                                <span>Pinned message</span>
-                                <span class="unpin-btn" id="unpinBtn">✕</span>
-                            </div>
-                            <div id="pinnedMessagePreview"></div>
+                        <!-- Pinned Dock -->
+                        <div id="pinnedDock" class="glass-dark border-b border-[rgba(255,255,255,0.04)] px-3 py-1.5 flex items-center gap-2 text-[#666] text-xs hidden">
+                            <i data-lucide="pin" class="w-3 h-3"></i>
+                            <span>Pinned message</span>
+                            <span class="ml-auto cursor-pointer hover:text-white" id="unpinBtn">✕</span>
                         </div>
 
-                        <div class="chat-messages" id="chatMessages"></div>
+                        <!-- Messages -->
+                        <div class="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-hide" id="chatMessages"></div>
 
-                        <div id="selectionToolbar" style="display:none;">
-                            <span id="selectedCount">0 selected</span>
-                            <button class="toolbar-btn" id="deleteSelectedBtn" title="Delete">
-                                <img src="icons/delete.png" alt="Delete" width="20" height="20" />
-                            </button>
-                            <button class="toolbar-btn" id="pinSelectedBtn" title="Pin">
-                                <img src="icons/pin.png" alt="Pin" width="20" height="20" />
-                            </button>
-                            <button class="toolbar-btn" id="forwardSelectedBtn" title="Forward">
-                                <img src="icons/send.png" alt="Forward" width="20" height="20" />
-                            </button>
-                            <button class="toolbar-btn" id="cancelSelectionBtn" title="Cancel">
-                                <img src="icons/close.png" alt="Cancel" width="20" height="20" />
-                            </button>
+                        <!-- Selection Toolbar -->
+                        <div id="selectionToolbar" class="glass-dark border-t border-[rgba(255,255,255,0.04)] px-3 py-2 flex items-center gap-3 hidden">
+                            <span class="text-white text-sm flex-1" id="selectedCount">0 selected</span>
+                            <button class="glass p-1.5 rounded-lg text-[#666] transition-all hover:text-white" id="deleteSelectedBtn"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            <button class="glass p-1.5 rounded-lg text-[#666] transition-all hover:text-white" id="pinSelectedBtn"><i data-lucide="pin" class="w-4 h-4"></i></button>
+                            <button class="glass p-1.5 rounded-lg text-[#666] transition-all hover:text-white" id="cancelSelectionBtn"><i data-lucide="x" class="w-4 h-4"></i></button>
                         </div>
 
-                        <div class="chat-input-bar" id="chatInputBar">
-                            <div class="chat-input-row">
-                                <div class="message-input-wrapper">
-                                    <div class="input-left-icons">
-                                        <button class="icon-btn smile-btn" id="smileBtn" title="Stickers &amp; GIFs">
-                                            <img src="icons/note.png" alt="Fun" width="20" height="20" />
-                                        </button>
-                                        <button class="icon-btn" id="clipBtn" title="Attach files">
-                                            <img src="icons/clip.png" alt="Attach" width="20" height="20" />
-                                        </button>
-                                    </div>
-                                    <input id="messageInput" placeholder="Type a message..." />
-                                    <div class="input-right-icons">
-                                        <button class="icon-btn mic-btn" id="micBtn" title="Voice message">
-                                            <img src="icons/mic.png" alt="Mic" width="20" height="20" />
-                                        </button>
-                                        <button class="send-btn-inline" id="sendBtn">
-                                            <img src="icons/send.png" alt="Send" width="18" height="18" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="fun-panel" id="funPanel" style="display:none;">
-                                <div class="panel-tabs">
+                        <!-- Chat Input Bar -->
+                        <div class="relative flex flex-col glass-dark border-t border-[rgba(255,255,255,0.04)] flex-shrink-0 min-h-[125px]">
+                            <!-- Fun Panel (Above Input) -->
+                            <div class="fun-panel" id="funPanel">
+                                <div class="flex gap-1 mb-2">
                                     <button class="panel-tab active" data-tab="stickers">Stickers</button>
                                     <button class="panel-tab" data-tab="gifs">GIFs</button>
                                     <button class="panel-tab" data-tab="polls">Polls</button>
                                     <button class="panel-tab" data-tab="games">Games</button>
                                 </div>
                                 <div class="panel-content active" id="panel-stickers">
-                                    <div class="sticker-pack" id="stickerGrid"></div>
-                                    <button class="btn-secondary" onclick="window.uploadSticker()" style="margin-top:6px;width:100%;font-size:0.7rem;padding:4px;">➕ Add Stickers</button>
+                                    <div class="sticker-grid" id="stickerGrid"></div>
+                                    <button class="text-[#666] text-xs w-full mt-1 py-1 rounded-lg glass hover:text-white transition-all" onclick="window.uploadSticker()">➕ Add Stickers</button>
                                 </div>
-                                <div class="panel-content" id="panel-gifs">
+                                <div class="panel-content hidden" id="panel-gifs">
                                     <div class="gif-grid" id="gifGrid"></div>
-                                    <p style="color:var(--text-muted);font-size:0.6rem;text-align:center;margin-top:4px;">Click a GIF to send</p>
+                                    <p class="text-[#555] text-xs text-center mt-1">Click a GIF to send</p>
                                 </div>
-                                <div class="panel-content" id="panel-polls">
-                                    <div style="padding:8px;text-align:center;color:var(--text-secondary);font-size:0.85rem;">
-                                        <p>Create a poll in your chat</p>
-                                        <button class="btn-primary" id="pollBtn" style="margin-top:8px;padding:6px 20px;font-size:0.8rem;">Create Poll</button>
+                                <div class="panel-content hidden" id="panel-polls">
+                                    <div class="text-center py-3">
+                                        <p class="text-[#888] text-sm">Create a poll in your chat</p>
+                                        <button class="btn-primary mt-2 px-6 py-1.5 rounded-xl bg-[#36454F] text-white text-sm transition-all hover:bg-[#41424C]" id="pollBtn">Create Poll</button>
                                     </div>
                                 </div>
-                                <div class="panel-content" id="panel-games">
-                                    <div style="padding:8px;text-align:center;color:var(--text-secondary);font-size:0.85rem;">
-                                        <p>Play mini games in your chat</p>
-                                        <button class="btn-primary" id="gameBtn" style="margin-top:8px;padding:6px 20px;font-size:0.8rem;">Play Game</button>
+                                <div class="panel-content hidden" id="panel-games">
+                                    <div class="text-center py-3">
+                                        <p class="text-[#888] text-sm">Play mini games in your chat</p>
+                                        <button class="btn-primary mt-2 px-6 py-1.5 rounded-xl bg-[#36454F] text-white text-sm transition-all hover:bg-[#41424C]" id="gameBtn">Play Game</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Input Row -->
+                            <div class="flex items-center gap-2 px-3 py-3">
+                                <div class="message-input-wrapper flex-1">
+                                    <div class="flex items-center gap-0.5 pl-1.5">
+                                        <button class="icon-btn smile-btn" id="smileBtn" title="Stickers & GIFs">
+                                            <i data-lucide="smile" class="w-5 h-5"></i>
+                                        </button>
+                                        <button class="icon-btn" id="clipBtn" title="Attach files">
+                                            <i data-lucide="paperclip" class="w-5 h-5"></i>
+                                        </button>
+                                    </div>
+                                    <input id="messageInput" placeholder="Type a message..." class="flex-1 bg-transparent border-none text-white text-sm outline-none px-2 py-2.5 min-h-[40px]" />
+                                    <div class="flex items-center gap-0.5 pr-1.5">
+                                        <button class="icon-btn mic-btn" id="micBtn" title="Voice message">
+                                            <i data-lucide="mic" class="w-5 h-5"></i>
+                                        </button>
+                                        <button class="send-btn-inline" id="sendBtn">
+                                            <i data-lucide="send" class="w-4 h-4"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -285,353 +891,281 @@
             </div>
         </div>
 
-        <div id="deleteModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content delete-modal glass-card">
-                <button class="modal-close" id="deleteModalClose">
-                    <img src="icons/close.png" alt="Close" width="24" height="24" />
-                </button>
-                <h3>Delete Messages</h3>
-                <p>Choose how to delete the selected messages:</p>
-                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
-                    <button class="btn-secondary" id="deleteForMeBtn">Delete for me</button>
-                    <button class="btn-primary" id="deleteForEveryoneBtn">Delete for everyone</button>
+        <!-- Modals -->
+        <!-- Delete Modal -->
+        <div id="deleteModal" class="modal-overlay">
+            <div class="modal-content">
+                <button class="modal-close" id="deleteModalClose"><i data-lucide="x"></i></button>
+                <h3 class="text-white font-medium text-lg mb-2">Delete Messages</h3>
+                <p class="text-[#888] text-sm mb-4">Choose how to delete the selected messages:</p>
+                <div class="flex gap-3 flex-wrap">
+                    <button class="btn-secondary px-4 py-2 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white text-sm" id="deleteForMeBtn">Delete for me</button>
+                    <button class="btn-primary px-4 py-2 rounded-xl bg-[#36454F] text-white text-sm transition-all hover:bg-[#41424C]" id="deleteForEveryoneBtn">Delete for everyone</button>
                 </div>
             </div>
         </div>
 
-        <div id="settingsModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content settings-modal glass-card">
-                <button class="modal-close" id="settingsClose">
-                    <img src="icons/close.png" alt="Close" width="28" height="28" />
-                </button>
-                <h2>Settings</h2>
-                <div class="settings-tabs">
-                    <button class="settings-tab active" data-tab="profile">Profile</button>
-                    <button class="settings-tab" data-tab="chat">Chat</button>
-                    <button class="settings-tab" data-tab="security">Security</button>
-                    <button class="settings-tab" data-tab="themes">Themes</button>
-                    <button class="settings-tab" data-tab="general">General</button>
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal-overlay">
+            <div class="modal-content max-w-[520px]">
+                <button class="modal-close" id="settingsClose"><i data-lucide="x"></i></button>
+                <h2 class="text-white font-medium text-xl mb-4">Settings</h2>
+                <div class="flex gap-1 bg-[rgba(20,20,20,0.3)] rounded-xl p-1 mb-4 flex-wrap">
+                    <button class="settings-tab flex-1 py-1.5 text-xs font-medium text-[#666] rounded-lg transition-all active" data-tab="profile">Profile</button>
+                    <button class="settings-tab flex-1 py-1.5 text-xs font-medium text-[#666] rounded-lg transition-all" data-tab="chat">Chat</button>
+                    <button class="settings-tab flex-1 py-1.5 text-xs font-medium text-[#666] rounded-lg transition-all" data-tab="security">Security</button>
+                    <button class="settings-tab flex-1 py-1.5 text-xs font-medium text-[#666] rounded-lg transition-all" data-tab="themes">Themes</button>
+                    <button class="settings-tab flex-1 py-1.5 text-xs font-medium text-[#666] rounded-lg transition-all" data-tab="general">General</button>
                 </div>
-                
+
                 <div class="settings-panel active" id="profileSettings">
-                    <div class="settings-group">
-                        <label>Profile Picture</label>
-                        <div class="avatar-upload">
-                            <img id="settingsAvatar" src="icons/user.png" alt="" />
-                            <input type="file" id="avatarUpload" accept="image/*" />
-                            <button class="btn-secondary" onclick="document.getElementById('avatarUpload').click()">Change</button>
+                    <div class="flex flex-col gap-3">
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Profile Picture</label>
+                            <div class="flex items-center gap-3">
+                                <img id="settingsAvatar" src="icons/user.png" class="w-12 h-12 rounded-full bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)]" />
+                                <input type="file" id="avatarUpload" accept="image/*" class="hidden" />
+                                <button class="btn-secondary px-3 py-1.5 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white text-xs" onclick="document.getElementById('avatarUpload').click()">Change</button>
+                            </div>
                         </div>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Display Name</label>
+                            <input type="text" id="settingsDisplayName" placeholder="How friends see you" class="w-full px-3 py-2 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F]" />
+                        </div>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Username</label>
+                            <input type="text" id="settingsUsername" placeholder="Your unique handle" class="w-full px-3 py-2 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F]" />
+                        </div>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Password</label>
+                            <input type="password" id="settingsPassword" placeholder="New password" class="w-full px-3 py-2 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F]" />
+                        </div>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Bio</label>
+                            <textarea id="settingsBio" rows="2" placeholder="Tell us about yourself" class="w-full px-3 py-2 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F] resize-none"></textarea>
+                        </div>
+                        <button class="btn-primary w-full py-2 rounded-xl bg-[#36454F] text-white text-sm transition-all hover:bg-[#41424C]" id="saveSettings">Save Changes</button>
                     </div>
-                    <div class="settings-group">
-                        <label>Display Name</label>
-                        <input type="text" id="settingsDisplayName" placeholder="How friends see you" />
-                    </div>
-                    <div class="settings-group">
-                        <label>Username</label>
-                        <input type="text" id="settingsUsername" placeholder="Your unique handle" />
-                    </div>
-                    <div class="settings-group">
-                        <label>Password</label>
-                        <input type="password" id="settingsPassword" placeholder="New password" />
-                    </div>
-                    <div class="settings-group">
-                        <label>Bio</label>
-                        <textarea id="settingsBio" placeholder="Tell us about yourself" rows="3"></textarea>
-                    </div>
-                    <div class="settings-group">
-                        <label>Custom Status</label>
-                        <input type="text" id="settingsStatus" placeholder="What's on your mind?" />
-                    </div>
-                    <button class="btn-primary" id="saveSettings">Save Changes</button>
                 </div>
 
-                <div class="settings-panel" id="chatSettings">
-                    <div class="settings-group">
-                        <label>Bubble Style</label>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                            <button class="btn-secondary bubble-style" data-style="rounded">Rounded</button>
-                            <button class="btn-secondary bubble-style" data-style="square">Square</button>
-                            <button class="btn-secondary bubble-style" data-style="modern">Modern</button>
-                            <button class="btn-secondary bubble-style" data-style="soft">Soft</button>
-                            <button class="btn-secondary bubble-style" data-style="sharp">Sharp</button>
-                            <button class="btn-secondary bubble-style" data-style="pill">Pill</button>
+                <div class="settings-panel hidden" id="chatSettings">
+                    <div class="flex flex-col gap-3">
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Bubble Style</label>
+                            <div class="flex flex-wrap gap-1">
+                                <button class="bubble-style px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-style="rounded">Rounded</button>
+                                <button class="bubble-style px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-style="square">Square</button>
+                                <button class="bubble-style px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-style="modern">Modern</button>
+                                <button class="bubble-style px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-style="soft">Soft</button>
+                                <button class="bubble-style px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-style="pill">Pill</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="settings-group">
-                        <label>Bubble Color</label>
-                        <input type="color" id="bubbleColorPicker" value="#36454F" />
-                        <button class="btn-secondary" id="applyBubbleColor">Apply Color</button>
-                    </div>
-                    <div class="settings-group">
-                        <label>Font Size</label>
-                        <select id="fontSizeSelect">
-                            <option value="small">Small</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="large">Large</option>
-                            <option value="xl">Extra Large</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Font Family</label>
-                        <select id="fontFamilySelect">
-                            <option value="inter">Inter</option>
-                            <option value="sf">SF Pro</option>
-                            <option value="roboto">Roboto</option>
-                            <option value="poppins">Poppins</option>
-                            <option value="helvetica">Helvetica</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Chat Spacing</label>
-                        <select id="chatSpacingSelect">
-                            <option value="compact">Compact</option>
-                            <option value="comfortable" selected>Comfortable</option>
-                            <option value="spacious">Spacious</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Timestamp Format</label>
-                        <select id="timestampFormatSelect">
-                            <option value="12h">12 Hour</option>
-                            <option value="24h">24 Hour</option>
-                            <option value="relative">Relative</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Message Animations</label>
-                        <select id="messageAnimationSelect">
-                            <option value="slide">Slide</option>
-                            <option value="fade">Fade</option>
-                            <option value="pop">Pop</option>
-                            <option value="bounce">Bounce</option>
-                            <option value="none">None</option>
-                        </select>
-                    </div>
-                    <div class="settings-group">
-                        <label>Chat Background</label>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                            <button class="btn-secondary" id="bgDefault">Default</button>
-                            <button class="btn-secondary" id="bgCustom">Custom Image</button>
-                            <input type="file" id="bgUpload" accept="image/*" style="display:none;" />
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Bubble Color</label>
+                            <div class="flex items-center gap-2">
+                                <input type="color" id="bubbleColorPicker" value="#36454F" class="w-10 h-10 rounded-lg bg-transparent border border-[rgba(255,255,255,0.04)] cursor-pointer" />
+                                <button class="btn-secondary px-3 py-1.5 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white text-xs" id="applyBubbleColor">Apply</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Font Size</label>
+                            <select id="fontSizeSelect" class="w-full px-3 py-2 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F]">
+                                <option value="small">Small</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="large">Large</option>
+                                <option value="xl">Extra Large</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Chat Background</label>
+                            <div class="flex gap-2">
+                                <button class="btn-secondary px-3 py-1.5 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white text-xs" id="bgDefault">Default</button>
+                                <button class="btn-secondary px-3 py-1.5 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white text-xs" id="bgCustom">Custom Image</button>
+                                <input type="file" id="bgUpload" accept="image/*" class="hidden" />
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="settings-panel" id="securitySettings">
-                    <div class="settings-group">
-                        <label>End-to-End Encryption</label>
-                        <div class="toggle-group">
-                            <label class="toggle">
-                                <input type="checkbox" id="e2eeToggle" checked />
-                                <span class="toggle-slider"></span>
+                <div class="settings-panel hidden" id="securitySettings">
+                    <div class="flex flex-col gap-3">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label class="text-[#888] text-xs font-medium block">E2E Encryption</label>
+                                <p class="text-[#555] text-xs">Messages are encrypted</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="e2eeToggle" checked class="sr-only peer" />
+                                <div class="w-10 h-5 bg-[rgba(40,40,40,0.3)] rounded-full peer peer-checked:bg-[#36454F] transition-all border border-[rgba(255,255,255,0.04)]">
+                                    <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-[#666] rounded-full transition-all peer-checked:translate-x-5 peer-checked:bg-white"></div>
+                                </div>
                             </label>
-                            <span id="e2eeStatus">Enabled</span>
                         </div>
-                        <p class="setting-desc">Messages are encrypted and can only be read by you and the recipient.</p>
-                    </div>
-                    <div class="settings-group">
-                        <label>Read Receipts</label>
-                        <div class="toggle-group">
-                            <label class="toggle">
-                                <input type="checkbox" id="readReceiptsToggle" checked />
-                                <span class="toggle-slider"></span>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label class="text-[#888] text-xs font-medium block">Read Receipts</label>
+                                <p class="text-[#555] text-xs">Show when read</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="readReceiptsToggle" checked class="sr-only peer" />
+                                <div class="w-10 h-5 bg-[rgba(40,40,40,0.3)] rounded-full peer peer-checked:bg-[#36454F] transition-all border border-[rgba(255,255,255,0.04)]">
+                                    <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-[#666] rounded-full transition-all peer-checked:translate-x-5 peer-checked:bg-white"></div>
+                                </div>
                             </label>
-                            <span id="readReceiptsStatus">Enabled</span>
                         </div>
-                        <p class="setting-desc">Show when messages have been read.</p>
-                    </div>
-                    <div class="settings-group">
-                        <label>Two-Factor Authentication</label>
-                        <div class="toggle-group">
-                            <label class="toggle">
-                                <input type="checkbox" id="twofaToggle" />
-                                <span class="toggle-slider"></span>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Auto-Lock Timer</label>
+                            <select id="autoLockTimer" class="w-full px-3 py-2 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F]">
+                                <option value="never">Never</option>
+                                <option value="1">1 minute</option>
+                                <option value="5">5 minutes</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="60">1 hour</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Developer Mode</label>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="devToggle" class="sr-only peer" />
+                                <div class="w-10 h-5 bg-[rgba(40,40,40,0.3)] rounded-full peer peer-checked:bg-[#36454F] transition-all border border-[rgba(255,255,255,0.04)]">
+                                    <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-[#666] rounded-full transition-all peer-checked:translate-x-5 peer-checked:bg-white"></div>
+                                </div>
                             </label>
-                            <span id="twofaStatus">Disabled</span>
                         </div>
-                        <p class="setting-desc">Add an extra layer of security to your account.</p>
-                    </div>
-                    <div class="settings-group">
-                        <label>Privacy Mode</label>
-                        <div class="toggle-group">
-                            <label class="toggle">
-                                <input type="checkbox" id="privacyToggle" />
-                                <span class="toggle-slider"></span>
-                            </label>
-                            <span id="privacyStatus">Disabled</span>
-                        </div>
-                        <p class="setting-desc">Hide your online status and read receipts.</p>
-                    </div>
-                    <div class="settings-group">
-                        <label>Developer Mode</label>
-                        <div class="toggle-group">
-                            <label class="toggle">
-                                <input type="checkbox" id="devToggle" />
-                                <span class="toggle-slider"></span>
-                            </label>
-                            <span id="devStatus">Disabled</span>
-                        </div>
-                        <p class="setting-desc">Enable developer features and debug tools.</p>
-                    </div>
-                    <div class="settings-group">
-                        <label>Auto-Lock Timer</label>
-                        <select id="autoLockTimer">
-                            <option value="never">Never</option>
-                            <option value="1">1 minute</option>
-                            <option value="5">5 minutes</option>
-                            <option value="15">15 minutes</option>
-                            <option value="30">30 minutes</option>
-                            <option value="60">1 hour</option>
-                        </select>
-                        <p class="setting-desc">Lock the app after inactivity.</p>
                     </div>
                 </div>
 
-                <div class="settings-panel" id="themesSettings">
-                    <div class="settings-group">
-                        <label>App Theme</label>
-                        <p class="setting-desc">Choose a theme for the entire app.</p>
-                        <div class="theme-grid">
-                            <button class="theme-card active" data-theme="dark" style="background:#0a0a0a; color:#f0f0f0;">
-                                <div class="theme-icon">🌙</div>
-                                <div class="theme-name">Dark</div>
+                <div class="settings-panel hidden" id="themesSettings">
+                    <div class="flex flex-col gap-3">
+                        <label class="text-[#888] text-xs font-medium block">App Theme</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button class="theme-card p-2 rounded-xl glass border-2 border-transparent text-center transition-all hover:border-[#36454F] active" data-theme="dark">
+                                <div class="text-xl">🌙</div>
+                                <div class="text-white text-xs font-medium">Dark</div>
                             </button>
-                            <button class="theme-card" data-theme="light" style="background:#f5f5f5; color:#1a1a1a;">
-                                <div class="theme-icon">☀️</div>
-                                <div class="theme-name">Light</div>
+                            <button class="theme-card p-2 rounded-xl glass border-2 border-transparent text-center transition-all hover:border-[#36454F]" data-theme="light">
+                                <div class="text-xl">☀️</div>
+                                <div class="text-white text-xs font-medium">Light</div>
                             </button>
-                            <button class="theme-card" data-theme="midnight" style="background:#0a0e1a; color:#7b9ac9;">
-                                <div class="theme-icon">🌃</div>
-                                <div class="theme-name">Midnight</div>
-                            </button>
-                            <button class="theme-card" data-theme="forest" style="background:#0d1a0d; color:#7bc97b;">
-                                <div class="theme-icon">🌲</div>
-                                <div class="theme-name">Forest</div>
-                            </button>
-                            <button class="theme-card" data-theme="ocean" style="background:#0a0d1a; color:#7b9ac9;">
-                                <div class="theme-icon">🌊</div>
-                                <div class="theme-name">Ocean</div>
+                            <button class="theme-card p-2 rounded-xl glass border-2 border-transparent text-center transition-all hover:border-[#36454F]" data-theme="midnight">
+                                <div class="text-xl">🌃</div>
+                                <div class="text-white text-xs font-medium">Midnight</div>
                             </button>
                         </div>
-                    </div>
-                    <div class="settings-group" id="customThemeOptions" style="display:none;">
-                        <label>Custom Theme Colors</label>
-                        <div class="color-grid">
-                            <div class="color-item">
-                                <label>Primary</label>
-                                <input type="color" id="primaryColor" value="#36454F" />
+                        <div id="customThemeOptions" class="hidden">
+                            <label class="text-[#888] text-xs font-medium block mb-1">Custom Colors</label>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="text-[#555] text-xs">Primary</label>
+                                    <input type="color" id="primaryColor" value="#36454F" class="w-full h-8 rounded-lg bg-transparent border border-[rgba(255,255,255,0.04)] cursor-pointer" />
+                                </div>
+                                <div>
+                                    <label class="text-[#555] text-xs">Background</label>
+                                    <input type="color" id="secondaryColor" value="#121212" class="w-full h-8 rounded-lg bg-transparent border border-[rgba(255,255,255,0.04)] cursor-pointer" />
+                                </div>
+                                <div>
+                                    <label class="text-[#555] text-xs">Text</label>
+                                    <input type="color" id="textColor" value="#FFFFFF" class="w-full h-8 rounded-lg bg-transparent border border-[rgba(255,255,255,0.04)] cursor-pointer" />
+                                </div>
+                                <div>
+                                    <label class="text-[#555] text-xs">Accent</label>
+                                    <input type="color" id="accentColor" value="#36454F" class="w-full h-8 rounded-lg bg-transparent border border-[rgba(255,255,255,0.04)] cursor-pointer" />
+                                </div>
                             </div>
-                            <div class="color-item">
-                                <label>Background</label>
-                                <input type="color" id="secondaryColor" value="#121212" />
-                            </div>
-                            <div class="color-item">
-                                <label>Text</label>
-                                <input type="color" id="textColor" value="#FFFFFF" />
-                            </div>
-                            <div class="color-item">
-                                <label>Accent</label>
-                                <input type="color" id="accentColor" value="#36454F" />
-                            </div>
+                            <button class="btn-primary w-full mt-2 py-1.5 rounded-xl bg-[#36454F] text-white text-sm transition-all hover:bg-[#41424C]" id="applyCustomTheme">Apply Custom</button>
                         </div>
-                        <button class="btn-primary" id="applyCustomTheme" style="margin-top:10px;">Apply Custom Theme</button>
                     </div>
                 </div>
 
-                <div class="settings-panel" id="generalSettings">
-                    <div class="settings-group">
-                        <label>Device Layout</label>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                            <button class="btn-secondary device-layout-btn" data-device="phone">Phone</button>
-                            <button class="btn-secondary device-layout-btn" data-device="tablet">Tablet</button>
-                            <button class="btn-secondary device-layout-btn" data-device="pc">PC</button>
-                            <button class="btn-secondary" id="autoDetectLayoutBtn">Auto Detect</button>
+                <div class="settings-panel hidden" id="generalSettings">
+                    <div class="flex flex-col gap-3">
+                        <div>
+                            <label class="text-[#888] text-xs font-medium block mb-1">Device Layout</label>
+                            <div class="flex flex-wrap gap-1">
+                                <button class="device-layout-btn px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-device="phone">Phone</button>
+                                <button class="device-layout-btn px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-device="tablet">Tablet</button>
+                                <button class="device-layout-btn px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" data-device="pc">PC</button>
+                                <button class="btn-secondary px-3 py-1 rounded-lg glass text-xs text-[#888] border border-transparent hover:border-[#36454F] transition-all" id="autoDetectLayoutBtn">Auto</button>
+                            </div>
                         </div>
-                        <p class="setting-desc">Change the layout to match your device.</p>
-                    </div>
-                    <div class="settings-divider"></div>
-                    <div class="settings-group">
-                        <label>Account</label>
-                        <button class="btn-secondary" id="logoutBtn" style="color:#ff6b6b; border-color:#ff6b6b;">Logout</button>
-                        <p class="setting-desc">Sign out of your account.</p>
-                    </div>
-                    <div class="settings-group">
-                        <label>Data</label>
-                        <button class="btn-secondary" id="clearDataBtn" style="color:#ff6b6b; border-color:#ff6b6b;">Clear Local Data</button>
-                        <p class="setting-desc">Clear all locally stored data (messages, settings, etc.)</p>
+                        <div class="border-t border-[rgba(255,255,255,0.04)] pt-3">
+                            <button class="w-full py-2 rounded-xl border border-red-500/30 text-red-400 text-sm transition-all hover:bg-red-500/10" id="logoutBtn">Logout</button>
+                        </div>
+                        <div>
+                            <button class="w-full py-2 rounded-xl border border-red-500/30 text-red-400 text-sm transition-all hover:bg-red-500/10" id="clearDataBtn">Clear Local Data</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="profileModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content profile-modal glass-card">
-                <button class="modal-close" id="modalClose">
-                    <img src="icons/close.png" alt="Close" width="28" height="28" />
-                </button>
-                <div class="profile-card" id="profileCard">
-                    <div class="profile-header">
-                        <div class="profile-avatar">
-                            <img id="profileAvatar" src="icons/user.png" alt="" />
-                        </div>
-                        <div class="profile-name-container">
-                            <div class="profile-name" id="profileDisplayName">Display Name</div>
-                            <div class="profile-tags" id="profileTags"></div>
-                            <div class="profile-badges" id="profileBadges"></div>
-                            <div class="custom-status" id="profileStatus">Available</div>
-                        </div>
+        <!-- Profile Modal -->
+        <div id="profileModal" class="modal-overlay">
+            <div class="modal-content max-w-[400px]">
+                <button class="modal-close" id="modalClose"><i data-lucide="x"></i></button>
+                <div class="flex items-center gap-4 mb-4">
+                    <img id="profileAvatar" src="icons/user.png" class="w-16 h-16 rounded-full bg-[rgba(40,40,40,0.3)] border-2 border-[#36454F] shadow-[0_0_30px_rgba(54,69,79,0.15)]" />
+                    <div>
+                        <div class="text-white font-medium text-lg" id="profileDisplayName">Display Name</div>
+                        <div class="flex flex-wrap gap-1 mt-1" id="profileTags"></div>
+                        <div class="flex flex-wrap gap-1 mt-1" id="profileBadges"></div>
+                        <div class="text-[#666] text-xs mt-1" id="profileStatus">Available</div>
                     </div>
-                    <div class="profile-section">
-                        <div class="profile-label">Info</div>
-                        <div class="profile-username" id="profileUsername">@username</div>
-                        <div class="profile-password" id="profilePassword" style="display:none;">Password: ********</div>
-                        <div class="profile-userid" id="profileUserID">ID: loading...</div>
-                        <div class="profile-qr" id="profileQR"></div>
-                    </div>
-                    <div class="profile-section">
-                        <div class="profile-label">About</div>
-                        <div class="profile-bio" id="profileBio">No bio yet</div>
-                        <div class="profile-joined" id="profileJoined">Joined: Today</div>
-                        <div class="profile-age" id="profileAge">Age: 0 days</div>
-                    </div>
-                    <div class="profile-footer">
-                        <div class="dev-note">- VVN. VEIL-VAULT-NET.<br>Your security matters.</div>
-                    </div>
+                </div>
+                <div class="border-t border-[rgba(255,255,255,0.04)] pt-3">
+                    <div class="text-[#666] text-xs font-medium uppercase tracking-[1px] mb-2">Info</div>
+                    <div class="text-[#888] text-sm" id="profileUsername">@username</div>
+                    <div class="text-[#555] text-xs font-mono mt-1" id="profilePassword" style="display:none;">Password: ********</div>
+                    <div class="text-[#555] text-xs font-mono mt-1" id="profileUserID">ID: loading...</div>
+                </div>
+                <div class="border-t border-[rgba(255,255,255,0.04)] pt-3 mt-3">
+                    <div class="text-[#666] text-xs font-medium uppercase tracking-[1px] mb-2">About</div>
+                    <div class="text-[#888] text-sm" id="profileBio">No bio yet</div>
+                    <div class="text-[#555] text-xs mt-1" id="profileJoined">Joined: Today</div>
+                    <div class="text-[#555] text-xs" id="profileAge">Age: 0 days</div>
+                </div>
+                <div class="border-t border-[rgba(255,255,255,0.04)] pt-3 mt-3">
+                    <div class="text-[#36454F] text-xs text-center italic opacity-70">- VVN. VEIL-VAULT-NET. Your security matters.</div>
                 </div>
             </div>
         </div>
 
-        <div id="fileModal" class="modal">
-            <div class="modal-overlay"></div>
-            <div class="modal-content file-modal glass-card">
-                <button class="modal-close" id="fileModalClose">
-                    <img src="icons/close.png" alt="Close" width="28" height="28" />
-                </button>
-                <h3>Attach Files</h3>
-                <div class="file-preview" id="filePreview">
-                    <div id="filePreviewContainer"></div>
+        <!-- File Modal -->
+        <div id="fileModal" class="modal-overlay">
+            <div class="modal-content max-w-[420px]">
+                <button class="modal-close" id="fileModalClose"><i data-lucide="x"></i></button>
+                <h3 class="text-white font-medium text-lg mb-3">Attach Files</h3>
+                <div id="filePreview" class="glass p-2 rounded-xl max-h-[200px] overflow-y-auto mb-3">
+                    <div id="filePreviewContainer" class="flex flex-wrap gap-1"></div>
                 </div>
-                <div class="file-input-group">
-                    <button class="btn-secondary" id="fileSelectBtn">Select Files</button>
-                    <input type="file" id="fileInput" accept="image/*,video/*,audio/*,application/*" multiple style="display:none;" />
-                    <button class="btn-secondary" id="fileClearBtn" style="display:none;">Clear All</button>
+                <div class="flex gap-2 mb-3">
+                    <button class="btn-secondary flex-1 px-3 py-1.5 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white text-sm" id="fileSelectBtn">Select Files</button>
+                    <input type="file" id="fileInput" accept="image/*,video/*,audio/*,application/*" multiple class="hidden" />
+                    <button class="btn-secondary px-3 py-1.5 rounded-xl glass border border-transparent hover:border-[#36454F] transition-all text-[#888] hover:text-white text-sm hidden" id="fileClearBtn">Clear</button>
                 </div>
-                <div class="settings-group">
-                    <label>Caption (Optional)</label>
-                    <input type="text" id="fileCaption" placeholder="Add a title or description..." />
+                <div class="mb-3">
+                    <label class="text-[#888] text-xs font-medium block mb-1">Caption (Optional)</label>
+                    <input type="text" id="fileCaption" placeholder="Add a title or description..." class="w-full px-3 py-2 rounded-xl bg-[rgba(40,40,40,0.3)] border border-[rgba(255,255,255,0.04)] text-white text-sm outline-none transition-all focus:border-[#36454F]" />
                 </div>
-                <button class="btn-primary" id="fileSendBtn">Send All</button>
+                <button class="btn-primary w-full py-2 rounded-xl bg-[#36454F] text-white text-sm transition-all hover:bg-[#41424C]" id="fileSendBtn">Send All</button>
             </div>
         </div>
+
     </div>
+
+    <script>
+        // Initialize Lucide icons
+        document.addEventListener('DOMContentLoaded', function() {
+            lucide.createIcons();
+        });
+    </script>
 
     <script src="config.js"></script>
     <script src="crypto.js"></script>
     <script src="database.js"></script>
     <script src="device-layouts.js"></script>
     <script src="app.js"></script>
+
 </body>
-                                </html>
+    </html>
