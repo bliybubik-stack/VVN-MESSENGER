@@ -31,7 +31,9 @@
         typingTimeout: null,
         isTyping: false,
         firstSyncDone: false,
-        vantaEffect: null
+        vantaEffect: null,
+        atroposInstances: [],
+        currentTab: 'chats'
     };
 
     const CONFIG = window.CONFIG || {
@@ -67,18 +69,16 @@
         searchInput: document.getElementById('searchInput'),
         searchResults: document.getElementById('searchResults'),
         chatList: document.getElementById('chatList'),
-        chatArea: document.getElementById('chatArea'),
+        chatView: document.getElementById('chatView'),
+        chatListView: document.getElementById('chatListView'),
         chatPlaceholder: document.getElementById('chatPlaceholder'),
-        chatActive: document.getElementById('chatActive'),
         chatHeader: document.getElementById('chatHeader'),
         chatPartnerName: document.getElementById('chatPartnerName'),
         chatPartnerStatus: document.getElementById('chatPartnerStatus'),
         chatMessages: document.getElementById('chatMessages'),
-        chatInputBar: document.getElementById('chatInputBar'),
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
         backBtn: document.getElementById('backBtn'),
-        profileBtn: document.getElementById('profileBtn'),
         settingsBtn: document.getElementById('settingsBtn'),
         syncDot: document.getElementById('syncDot'),
         syncStatus: document.getElementById('syncStatus'),
@@ -164,8 +164,9 @@
         gifGrid: document.getElementById('gifGrid'),
         pollBtn: document.getElementById('pollBtn'),
         gameBtn: document.getElementById('gameBtn'),
-        funBtn: document.getElementById('funBtn'),
-        smileBtn: document.getElementById('smileBtn')
+        smileBtn: document.getElementById('smileBtn'),
+        navItems: document.querySelectorAll('.nav-item'),
+        chatAvatar: document.getElementById('chatAvatar')
     };
 
     let selectionMode = false;
@@ -388,10 +389,6 @@
             if (state.currentUser) {
                 renderMessenger();
                 if (state.currentChatPartner) openChat(state.currentChatPartner);
-                if (window.TelegramUI) {
-                    TelegramUI.renderChatList();
-                    TelegramUI.updateBadge();
-                }
             }
             return true;
         } else {
@@ -423,6 +420,57 @@
         lucide.createIcons();
     }
 
+    function switchTab(tab) {
+        state.currentTab = tab;
+        DOM.navItems.forEach(item => {
+            item.classList.toggle('active', item.dataset.tab === tab);
+        });
+        
+        // Show/hide views based on tab
+        if (tab === 'chats') {
+            DOM.chatListView.style.display = 'flex';
+            DOM.chatView.classList.add('hidden');
+            renderChatList();
+        } else if (tab === 'contacts') {
+            DOM.chatListView.style.display = 'flex';
+            DOM.chatView.classList.add('hidden');
+            renderContacts();
+        } else if (tab === 'settings') {
+            DOM.chatListView.style.display = 'none';
+            DOM.chatView.classList.add('hidden');
+            openSettings();
+        } else if (tab === 'profile') {
+            DOM.chatListView.style.display = 'none';
+            DOM.chatView.classList.add('hidden');
+            if (state.currentUser) showProfile(state.currentUser.username);
+        }
+    }
+
+    function renderContacts() {
+        if (!DOM.chatList || !state.currentUser) return;
+        const users = state.localCache.users.filter(u => u.username !== state.currentUser.username);
+        let html = '';
+        if (users.length === 0) {
+            html = '<div class="text-[#555] text-sm text-center py-8">No contacts yet</div>';
+        } else {
+            users.forEach(u => {
+                const tags = getUserTags(u.username);
+                const tagHtml = tags.map(t => '<span class="text-[8px] px-1.5 py-0.5 rounded ' + t.class + '">' + t.label + '</span>').join('');
+                html += '<div class="chat-item" data-username="' + u.username + '">';
+                html += '<div class="avatar">' + u.username.charAt(0).toUpperCase() + '</div>';
+                html += '<div class="chat-info"><div class="name">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
+                html += '<div class="preview">@' + u.username + '</div></div>';
+                html += '</div>';
+            });
+        }
+        DOM.chatList.innerHTML = html;
+        document.querySelectorAll('.chat-item[data-username]').forEach(el => {
+            el.addEventListener('click', function() {
+                openChat(this.dataset.username);
+            });
+        });
+    }
+
     function toggleDropdown() {
         if (!DOM.dropdownMenu) return;
         if (DOM.dropdownMenu.style.display === 'block') {
@@ -450,7 +498,7 @@
             case 'search': searchMessages(); break;
             case 'wallpaper': setChatWallpaper(); break;
             case 'bubblecolor': setBubbleColor(); break;
-            case 'fontsize': { const size = prompt('Choose font size (small, medium, large, xl):', chatSettings.fontSize || 'medium'); if (size) setFontSize(size); } break;
+            case 'fontsize': { const size = prompt('Choose font size (small, medium, large):', chatSettings.fontSize || 'medium'); if (size) setFontSize(size); } break;
             default: break;
         }
         closeDropdown();
@@ -541,10 +589,6 @@
         scrollToBottom();
         DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-            TelegramUI.renderChatList();
-        }
     };
 
     window.sendGIF = function(data) {
@@ -565,10 +609,6 @@
         scrollToBottom();
         DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-            TelegramUI.renderChatList();
-        }
     };
 
     function createPoll() {
@@ -600,10 +640,6 @@
         scrollToBottom();
         DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-            TelegramUI.renderChatList();
-        }
     }
 
     function playGame() {
@@ -620,7 +656,7 @@
 
     function playTicTacToe() {
         const modal = document.createElement('div');
-        modal.className = 'modal-overlay active fixed inset-0 z-[100] flex items-center justify-center';
+        modal.className = 'modal-overlay active';
         let board = Array(9).fill('');
         let currentPlayer = 'X';
         let gameOver = false;
@@ -690,10 +726,6 @@
                         renderMessages(messages[chatKey]);
                         renderChatList();
                         scrollToBottom();
-                        if (window.TelegramUI) {
-                            TelegramUI.loadMessages(state.currentChatPartner);
-                            TelegramUI.renderChatList();
-                        }
                     }
                 }
             });
@@ -723,10 +755,6 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         scrollToBottom();
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-            TelegramUI.renderChatList();
-        }
     }
 
     function playTrivia() {
@@ -750,10 +778,6 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         scrollToBottom();
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-            TelegramUI.renderChatList();
-        }
     }
 
     function votePoll(messageId, optionIndex) {
@@ -776,9 +800,6 @@
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         pushToRemote();
         renderMessages(messages);
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-        }
     }
 
     function setChatWallpaper() {
@@ -819,7 +840,7 @@
             chatSettings.bubbleColor = color;
             localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
             document.documentElement.style.setProperty('--bubble-color', color);
-            document.querySelectorAll('.message-outgoing').forEach(el => {
+            document.querySelectorAll('.message-bubble.outgoing').forEach(el => {
                 el.style.background = color;
             });
             alert('Bubble color updated!');
@@ -831,9 +852,9 @@
     function setFontSize(size) {
         chatSettings.fontSize = size;
         localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
-        const sizes = { small: 'text-xs', medium: 'text-sm', large: 'text-base', xl: 'text-lg' };
+        const sizes = { small: 'text-xs', medium: 'text-sm', large: 'text-base' };
         document.querySelectorAll('.message-bubble').forEach(el => {
-            el.classList.remove('text-xs', 'text-sm', 'text-base', 'text-lg');
+            el.classList.remove('text-xs', 'text-sm', 'text-base');
             if (sizes[size]) el.classList.add(sizes[size]);
         });
         if (DOM.fontSizeSelect) DOM.fontSizeSelect.value = size;
@@ -873,9 +894,6 @@
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         pushToRemote();
         renderMessages(messages);
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-        }
     }
 
     async function sendMessage() {
@@ -924,11 +942,6 @@
         updateActivity();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-            TelegramUI.renderChatList();
-            TelegramUI.updateBadge();
-        }
     }
 
     function startVoiceRecording() {
@@ -960,10 +973,6 @@
                         renderMessages(messages[chatKey]);
                         renderChatList();
                         scrollToBottom();
-                        if (window.TelegramUI) {
-                            TelegramUI.loadMessages(state.currentChatPartner);
-                            TelegramUI.renderChatList();
-                        }
                     };
                     reader.readAsDataURL(audioBlob);
                     if (DOM.micBtn) DOM.micBtn.style.background = '';
@@ -1009,14 +1018,14 @@
         for (const u of found) {
             const tags = getUserTags(u.username);
             const tagHtml = tags.map(t => '<span class="text-[8px] px-1.5 py-0.5 rounded ' + t.class + '">' + t.label + '</span>').join('');
-            html += '<div class="search-result-item flex items-center gap-2 p-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-all" data-username="' + u.username + '">';
+            html += '<div class="flex items-center gap-2 p-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded-lg transition-all" data-username="' + u.username + '">';
             html += '<div class="w-7 h-7 rounded-full bg-[rgba(40,40,40,0.3)] flex items-center justify-center text-xs text-[#888]">' + u.username.charAt(0).toUpperCase() + '</div>';
             html += '<div><div class="text-white text-xs">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
             html += '<div class="text-[#555] text-[10px]">@' + u.username + '</div></div></div>';
         }
         DOM.searchResults.innerHTML = html;
         DOM.searchResults.style.display = 'block';
-        document.querySelectorAll('.search-result-item').forEach(el => {
+        document.querySelectorAll('.search-results > div').forEach(el => {
             el.addEventListener('click', function() { openChat(this.dataset.username); DOM.searchResults.style.display = 'none'; if (DOM.searchInput) DOM.searchInput.value = ''; updateActivity(); });
         });
     }
@@ -1213,10 +1222,6 @@
         if (DOM.deleteModal) DOM.deleteModal.classList.remove('active');
         renderMessages(remaining);
         renderChatList();
-        if (window.TelegramUI) {
-            TelegramUI.loadMessages(state.currentChatPartner);
-            TelegramUI.renderChatList();
-        }
     }
 
     function pinSelectedMessages() {
@@ -1260,13 +1265,12 @@
         chatSettings.bubbleStyle = style;
         localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
         document.querySelectorAll('.message-bubble').forEach(msg => {
-            const outgoing = msg.classList.contains('message-outgoing');
-            msg.className = 'message-bubble max-w-[75%] p-2.5 rounded-lg text-sm ' + (outgoing ? 'message-outgoing' : 'message-incoming');
+            const outgoing = msg.classList.contains('outgoing');
+            const incoming = msg.classList.contains('incoming');
+            msg.className = 'message-bubble max-w-[80%] p-2 text-sm ' + (outgoing ? 'outgoing' : 'incoming');
             if (style === 'rounded') { msg.classList.add('rounded-lg'); }
             else if (style === 'square') { msg.classList.add('rounded-none'); }
             else if (style === 'modern') { msg.classList.add('rounded-2xl', 'rounded-bl-none'); if (outgoing) msg.classList.add('rounded-br-none'); }
-            else if (style === 'soft') { msg.classList.add('rounded-2xl'); }
-            else if (style === 'pill') { msg.classList.add('rounded-full'); }
         });
         document.querySelectorAll('.bubble-style').forEach(btn => {
             btn.classList.remove('border-[#36454F]');
@@ -1341,7 +1345,7 @@
                 pendingFiles.push({ data: data, type: fileType, name: file.name, size: (file.size / 1024).toFixed(1) + ' KB' });
                 if (DOM.filePreviewContainer) {
                     const item = document.createElement('div');
-                    item.className = 'file-preview-item relative inline-block m-0.5 rounded-lg overflow-hidden border border-[rgba(255,255,255,0.04)]';
+                    item.className = 'relative inline-block m-0.5 rounded-lg overflow-hidden border border-[rgba(255,255,255,0.04)]';
                     const index = pendingFiles.length - 1;
                     let preview = '';
                     if (fileType === 'image') preview = '<img src="' + data + '" class="w-20 h-20 object-cover" />';
@@ -1388,19 +1392,6 @@
 
     function updateMobileView() {
         state.isMobile = window.innerWidth < 768;
-        const sidebar = document.querySelector('.sidebar');
-        if (state.isMobile) {
-            if (state.currentChatPartner) {
-                if (sidebar) sidebar.classList.add('hidden');
-                if (DOM.chatArea) DOM.chatArea.classList.add('active-mobile');
-            } else {
-                if (sidebar) sidebar.classList.remove('hidden');
-                if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
-            }
-        } else {
-            if (sidebar) sidebar.classList.remove('hidden');
-            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
-        }
     }
 
     function renderChatList() {
@@ -1443,19 +1434,33 @@
                 const isPinned = pinnedContacts.includes(partner);
                 const displayName = getDisplayName(partner);
                 const isRainbow = pUser && pUser.rainbow;
-                html += '<div class="chat-item ' + (partner === state.currentChatPartner ? 'active' : '') + '" data-partner="' + partner + '">';
-                html += '<div class="chat-avatar">' + partner.charAt(0).toUpperCase() + '</div>';
-                html += '<div class="flex-1 min-w-0">';
-                html += '<div class="text-white text-sm font-medium flex items-center gap-1"><span' + (isRainbow ? ' class="rainbow-text"' : '') + '>' + displayName + '</span> ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
-                html += '<div class="text-[#555] text-xs truncate">' + preview + '</div>';
+                const unreadCount = Math.floor(Math.random() * 5);
+                
+                html += '<div class="chat-item" data-partner="' + partner + '">';
+                html += '<div class="avatar">' + partner.charAt(0).toUpperCase();
+                if (pUser && pUser.online) {
+                    html += '<span class="online-dot"></span>';
+                }
                 html += '</div>';
-                html += '<div class="text-[#555] text-[10px] flex-shrink-0">' + time + '</div>';
+                html += '<div class="chat-info">';
+                html += '<div class="name"><span' + (isRainbow ? ' class="rainbow-text"' : '') + '>' + displayName + '</span> ' + tagHtml + (isPinned ? ' 📌' : '') + '</div>';
+                html += '<div class="preview">' + preview + '</div>';
+                html += '</div>';
+                html += '<div class="chat-meta">';
+                html += '<span class="time">' + time + '</span>';
+                if (unreadCount > 0) {
+                    html += '<span class="unread">' + unreadCount + '</span>';
+                }
+                html += '</div>';
                 html += '</div>';
             }
         }
         DOM.chatList.innerHTML = html;
         document.querySelectorAll('.chat-item').forEach(el => {
-            el.addEventListener('click', function() { openChat(this.dataset.partner); updateActivity(); });
+            el.addEventListener('click', function() { 
+                openChat(this.dataset.partner); 
+                updateActivity(); 
+            });
         });
     }
 
@@ -1472,14 +1477,12 @@
             const div = document.createElement('div');
             const isOutgoing = msg.sender === state.currentUser.username;
             const bubbleStyle = chatSettings.bubbleStyle || 'rounded';
-            div.className = 'message-bubble max-w-[75%] p-2.5 text-sm ' + (isOutgoing ? 'message-outgoing' : 'message-incoming');
+            div.className = 'message-bubble max-w-[80%] p-2 text-sm ' + (isOutgoing ? 'outgoing' : 'incoming');
             if (bubbleStyle === 'rounded') { div.classList.add('rounded-lg'); }
             else if (bubbleStyle === 'square') { div.classList.add('rounded-none'); }
             else if (bubbleStyle === 'modern') { div.classList.add('rounded-2xl', 'rounded-bl-none'); if (isOutgoing) div.classList.add('rounded-br-none'); }
-            else if (bubbleStyle === 'soft') { div.classList.add('rounded-2xl'); }
-            else if (bubbleStyle === 'pill') { div.classList.add('rounded-full'); }
             if (chatSettings.fontSize) {
-                const sizes = { small: 'text-xs', medium: 'text-sm', large: 'text-base', xl: 'text-lg' };
+                const sizes = { small: 'text-xs', medium: 'text-sm', large: 'text-base' };
                 if (sizes[chatSettings.fontSize]) div.classList.add(sizes[chatSettings.fontSize]);
             }
             div.dataset.msgId = msgId;
@@ -1562,12 +1565,10 @@
     }
 
     function showPlaceholder() {
-        if (DOM.chatActive) DOM.chatActive.classList.add('hidden');
-        if (DOM.chatPlaceholder) DOM.chatPlaceholder.classList.remove('hidden');
+        if (DOM.chatView) DOM.chatView.classList.add('hidden');
+        if (DOM.chatListView) DOM.chatListView.classList.remove('hidden');
         if (state.isMobile) {
-            const sidebar = document.querySelector('.sidebar');
-            if (sidebar) sidebar.classList.remove('hidden');
-            if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
+            if (DOM.chatView) DOM.chatView.classList.remove('active-mobile');
         }
     }
 
@@ -1577,8 +1578,11 @@
         state.currentChatPartner = partnerUsername;
         const partner = getUserByUsername(partnerUsername);
         if (!partner) return;
-        if (DOM.chatActive) DOM.chatActive.classList.remove('hidden');
-        if (DOM.chatPlaceholder) DOM.chatPlaceholder.classList.add('hidden');
+        
+        // Hide chat list, show chat view
+        DOM.chatListView.style.display = 'none';
+        DOM.chatView.classList.remove('hidden');
+        
         const displayName = getDisplayName(partnerUsername);
         if (DOM.chatPartnerName) {
             DOM.chatPartnerName.textContent = displayName;
@@ -1609,10 +1613,6 @@
         closeDropdown();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        // Also open in Telegram UI
-        if (window.TelegramUI) {
-            TelegramUI.openChat(partnerUsername);
-        }
     }
 
     function showTypingIndicator() {
@@ -1685,18 +1685,16 @@
         state.currentUser = user;
         if (DOM.sidebarUsername) DOM.sidebarUsername.textContent = user.displayName || user.username;
         renderChatList();
-        if (state.currentChatPartner) openChat(state.currentChatPartner);
-        else showPlaceholder();
+        if (state.currentChatPartner) {
+            DOM.chatListView.style.display = 'none';
+            DOM.chatView.classList.remove('hidden');
+            openChat(state.currentChatPartner);
+        } else {
+            DOM.chatListView.style.display = 'flex';
+            DOM.chatView.classList.add('hidden');
+        }
         updateMobileView();
         lucide.createIcons();
-
-        // Initialize Telegram UI
-        if (window.TelegramUI) {
-            setTimeout(() => {
-                TelegramUI.init();
-                TelegramUI.updateBadge();
-            }, 100);
-        }
     }
 
     function logout() {
@@ -1815,6 +1813,40 @@
         updateLoading(80);
         if (state.settings.theme) applyTheme(state.settings.theme);
 
+        if (typeof Atropos !== 'undefined') {
+            document.querySelectorAll('.atropos-card').forEach(el => {
+                const atropos = Atropos({
+                    el: el,
+                    activeOffset: 40,
+                    shadowScale: 1.05,
+                    onEnter: function() {},
+                    onLeave: function() {},
+                    onRotate: function(x, y) {}
+                });
+                state.atroposInstances.push(atropos);
+            });
+        }
+
+        // Bottom nav click handlers
+        DOM.navItems.forEach(item => {
+            item.addEventListener('click', function() {
+                switchTab(this.dataset.tab);
+            });
+        });
+
+        // Back button
+        if (DOM.backBtn) {
+            DOM.backBtn.addEventListener('click', function() {
+                DOM.chatView.classList.add('hidden');
+                DOM.chatListView.style.display = 'flex';
+                state.currentChatPartner = null;
+                renderChatList();
+                if (state.currentTab !== 'chats') {
+                    switchTab('chats');
+                }
+            });
+        }
+
         updateLoading(90);
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
@@ -1843,6 +1875,12 @@
                 el.style.setProperty('--mouse-y', y + '%');
             });
         });
+
+        // Recreate Lucide icons after any DOM changes
+        const observer = new MutationObserver(function() {
+            lucide.createIcons();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
     }
 
     // Event Listeners
@@ -1858,7 +1896,6 @@
             });
         });
 
-        // Login
         if (DOM.loginForm) {
             DOM.loginForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -1872,7 +1909,6 @@
             });
         }
 
-        // Register
         if (DOM.registerForm) {
             DOM.registerForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
@@ -1891,7 +1927,6 @@
             });
         }
 
-        // Send message
         if (DOM.sendBtn) DOM.sendBtn.addEventListener('click', sendMessage);
         if (DOM.messageInput) {
             DOM.messageInput.addEventListener('keydown', function(e) {
@@ -1902,7 +1937,6 @@
             DOM.messageInput.addEventListener('blur', function() { hideTypingIndicator(); });
         }
 
-        // Voice
         if (DOM.micBtn) {
             DOM.micBtn.addEventListener('mousedown', startVoiceRecording);
             DOM.micBtn.addEventListener('mouseup', stopVoiceRecording);
@@ -1911,7 +1945,6 @@
             DOM.micBtn.addEventListener('touchend', function(e) { e.preventDefault(); stopVoiceRecording(); });
         }
 
-        // Search
         if (DOM.searchInput) {
             DOM.searchInput.addEventListener('input', function() { searchUsers(this.value); });
         }
@@ -1919,27 +1952,11 @@
             if (!e.target.closest('.search-wrap') && DOM.searchResults) DOM.searchResults.style.display = 'none';
         });
 
-        // Back
-        if (DOM.backBtn) {
-            DOM.backBtn.addEventListener('click', function() {
-                if (state.isMobile) {
-                    const sidebar = document.querySelector('.sidebar');
-                    if (sidebar) sidebar.classList.remove('hidden');
-                    if (DOM.chatArea) DOM.chatArea.classList.remove('active-mobile');
-                    state.currentChatPartner = null;
-                    showPlaceholder();
-                    renderChatList();
-                }
-            });
-        }
-
-        // Settings
-        if (DOM.settingsBtn) DOM.settingsBtn.addEventListener('click', openSettings);
+        if (DOM.settingsBtn) DOM.settingsBtn.addEventListener('click', function() { switchTab('settings'); });
         if (DOM.settingsClose) {
             DOM.settingsClose.addEventListener('click', function() { if (DOM.settingsModal) DOM.settingsModal.classList.remove('active'); });
         }
 
-        // Settings tabs
         document.querySelectorAll('.settings-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.settings-tab').forEach(t => t.classList.remove('active'));
@@ -1950,10 +1967,8 @@
             });
         });
 
-        // Save settings
         if (DOM.saveSettings) DOM.saveSettings.addEventListener('click', saveSettings);
 
-        // Toggles
         if (DOM.e2eeToggle) {
             DOM.e2eeToggle.addEventListener('change', function() {
                 state.settings.e2ee = this.checked;
@@ -1992,7 +2007,6 @@
             });
         }
 
-        // Theme cards
         document.querySelectorAll('.theme-card').forEach(card => {
             card.addEventListener('click', function() {
                 const theme = this.dataset.theme;
@@ -2002,7 +2016,6 @@
         });
         if (DOM.applyCustomTheme) DOM.applyCustomTheme.addEventListener('click', applyCustomTheme);
 
-        // Avatar upload
         if (DOM.avatarUpload) {
             DOM.avatarUpload.addEventListener('change', function(e) {
                 const file = e.target.files[0];
@@ -2026,7 +2039,6 @@
             });
         }
 
-        // Modal closes
         if (DOM.modalClose) {
             DOM.modalClose.addEventListener('click', function() { if (DOM.profileModal) DOM.profileModal.classList.remove('active'); });
         }
@@ -2036,13 +2048,11 @@
             });
         }
 
-        // Manual sync
         if (DOM.manualSyncBtn) DOM.manualSyncBtn.addEventListener('click', function() {
             state.firstSyncDone = false;
             syncWithRemote();
         });
 
-        // Device selection
         document.querySelectorAll('.device-option').forEach(btn => {
             btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
         });
@@ -2060,12 +2070,10 @@
             btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
         });
 
-        // Logout
         if (DOM.logoutBtn) {
             DOM.logoutBtn.addEventListener('click', function() { if (confirm('Are you sure you want to logout?')) { logout(); } });
         }
 
-        // Clear data
         if (DOM.clearDataBtn) {
             DOM.clearDataBtn.addEventListener('click', function() {
                 if (confirm('Are you sure you want to clear all local data? This cannot be undone.')) {
@@ -2077,7 +2085,6 @@
             });
         }
 
-        // Dropdown
         if (DOM.chatDropdownBtn) {
             DOM.chatDropdownBtn.addEventListener('click', function(e) { e.stopPropagation(); toggleDropdown(); });
         }
@@ -2092,7 +2099,6 @@
             if (!e.target.closest('.dropdown-trigger') && !e.target.closest('.dropdown-menu')) closeDropdown();
         });
 
-        // Selection
         document.addEventListener('click', function(e) {
             const msgEl = e.target.closest('.message-bubble');
             if (msgEl && selectionMode) {
@@ -2107,7 +2113,6 @@
         if (DOM.deleteForEveryoneBtn) DOM.deleteForEveryoneBtn.addEventListener('click', function() { deleteMessages(true); });
         if (DOM.deleteModalClose) DOM.deleteModalClose.addEventListener('click', function() { DOM.deleteModal.classList.remove('active'); });
 
-        // Pinned
         if (DOM.unpinBtn) {
             DOM.unpinBtn.addEventListener('click', function() {
                 const chatKey = getChatKey(state.currentUser?.username, state.currentChatPartner);
@@ -2115,17 +2120,14 @@
             });
         }
 
-        // Bubble styles
         document.querySelectorAll('.bubble-style').forEach(btn => {
             btn.addEventListener('click', function() { changeBubbleStyle(this.dataset.style); });
         });
 
-        // Chat background
         if (DOM.bgDefault) DOM.bgDefault.addEventListener('click', function() { changeChatBackground('default'); });
         if (DOM.bgCustom) DOM.bgCustom.addEventListener('click', function() { changeChatBackground('custom'); });
         if (DOM.bgUpload) DOM.bgUpload.addEventListener('change', handleBackgroundUpload);
 
-        // File
         if (DOM.clipBtn) DOM.clipBtn.addEventListener('click', openFileModal);
         if (DOM.fileModalClose) DOM.fileModalClose.addEventListener('click', function() { DOM.fileModal.classList.remove('active'); });
         if (DOM.fileSelectBtn) DOM.fileSelectBtn.addEventListener('click', handleFileSelect);
@@ -2133,7 +2135,6 @@
         if (DOM.fileClearBtn) DOM.fileClearBtn.addEventListener('click', clearAllFiles);
         if (DOM.fileSendBtn) DOM.fileSendBtn.addEventListener('click', sendMessage);
 
-        // Bubble color
         if (DOM.applyBubbleColor) {
             DOM.applyBubbleColor.addEventListener('click', function() {
                 if (DOM.bubbleColorPicker) {
@@ -2141,7 +2142,7 @@
                     chatSettings.bubbleColor = color;
                     localStorage.setItem('vvn_chat_settings', JSON.stringify(chatSettings));
                     document.documentElement.style.setProperty('--bubble-color', color);
-                    document.querySelectorAll('.message-outgoing').forEach(el => {
+                    document.querySelectorAll('.message-bubble.outgoing').forEach(el => {
                         el.style.background = color;
                     });
                     alert('Bubble color updated!');
@@ -2149,12 +2150,10 @@
             });
         }
 
-        // Font size
         if (DOM.fontSizeSelect) {
             DOM.fontSizeSelect.addEventListener('change', function() { setFontSize(this.value); });
         }
 
-        // Fun panel
         if (DOM.smileBtn) {
             DOM.smileBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -2162,18 +2161,15 @@
             });
         }
 
-        // Panel tabs
         document.querySelectorAll('.panel-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 switchPanelTab(this.dataset.tab);
             });
         });
 
-        // Poll & Game buttons
         if (DOM.pollBtn) DOM.pollBtn.addEventListener('click', function() { createPoll(); });
         if (DOM.gameBtn) DOM.gameBtn.addEventListener('click', function() { playGame(); });
 
-        // Close fun panel on outside click
         document.addEventListener('click', function(e) {
             if (DOM.funPanel && DOM.smileBtn && !e.target.closest('.fun-panel') && !e.target.closest('.smile-btn')) {
                 DOM.funPanel.style.display = 'none';
@@ -2181,24 +2177,20 @@
             }
         });
 
-        // Modal overlays
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function(e) {
                 if (e.target === this) this.classList.remove('active');
             });
         });
 
-        // Activity tracking
         document.addEventListener('click', updateActivity);
         document.addEventListener('keydown', updateActivity);
 
-        // Resize
         window.addEventListener('resize', function() {
             updateMobileView();
             if (typeof applyDeviceLayout === 'function') applyDeviceLayout(state.deviceType);
         });
 
-        // Start
         init();
 
         const style = document.createElement('style');
