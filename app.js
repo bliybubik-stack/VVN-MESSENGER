@@ -31,8 +31,7 @@
         typingTimeout: null,
         isTyping: false,
         firstSyncDone: false,
-        vantaEffect: null,
-        atroposInstances: []
+        vantaEffect: null
     };
 
     const CONFIG = window.CONFIG || {
@@ -75,9 +74,11 @@
         chatPartnerName: document.getElementById('chatPartnerName'),
         chatPartnerStatus: document.getElementById('chatPartnerStatus'),
         chatMessages: document.getElementById('chatMessages'),
+        chatInputBar: document.getElementById('chatInputBar'),
         messageInput: document.getElementById('messageInput'),
         sendBtn: document.getElementById('sendBtn'),
         backBtn: document.getElementById('backBtn'),
+        profileBtn: document.getElementById('profileBtn'),
         settingsBtn: document.getElementById('settingsBtn'),
         syncDot: document.getElementById('syncDot'),
         syncStatus: document.getElementById('syncStatus'),
@@ -387,6 +388,10 @@
             if (state.currentUser) {
                 renderMessenger();
                 if (state.currentChatPartner) openChat(state.currentChatPartner);
+                if (window.TelegramUI) {
+                    TelegramUI.renderChatList();
+                    TelegramUI.updateBadge();
+                }
             }
             return true;
         } else {
@@ -536,6 +541,10 @@
         scrollToBottom();
         DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+            TelegramUI.renderChatList();
+        }
     };
 
     window.sendGIF = function(data) {
@@ -556,6 +565,10 @@
         scrollToBottom();
         DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+            TelegramUI.renderChatList();
+        }
     };
 
     function createPoll() {
@@ -587,6 +600,10 @@
         scrollToBottom();
         DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+            TelegramUI.renderChatList();
+        }
     }
 
     function playGame() {
@@ -673,6 +690,10 @@
                         renderMessages(messages[chatKey]);
                         renderChatList();
                         scrollToBottom();
+                        if (window.TelegramUI) {
+                            TelegramUI.loadMessages(state.currentChatPartner);
+                            TelegramUI.renderChatList();
+                        }
                     }
                 }
             });
@@ -702,6 +723,10 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         scrollToBottom();
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+            TelegramUI.renderChatList();
+        }
     }
 
     function playTrivia() {
@@ -725,6 +750,10 @@
         renderMessages(messages[chatKey]);
         renderChatList();
         scrollToBottom();
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+            TelegramUI.renderChatList();
+        }
     }
 
     function votePoll(messageId, optionIndex) {
@@ -747,6 +776,9 @@
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         pushToRemote();
         renderMessages(messages);
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+        }
     }
 
     function setChatWallpaper() {
@@ -841,6 +873,9 @@
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         pushToRemote();
         renderMessages(messages);
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+        }
     }
 
     async function sendMessage() {
@@ -889,6 +924,11 @@
         updateActivity();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+            TelegramUI.renderChatList();
+            TelegramUI.updateBadge();
+        }
     }
 
     function startVoiceRecording() {
@@ -920,6 +960,10 @@
                         renderMessages(messages[chatKey]);
                         renderChatList();
                         scrollToBottom();
+                        if (window.TelegramUI) {
+                            TelegramUI.loadMessages(state.currentChatPartner);
+                            TelegramUI.renderChatList();
+                        }
                     };
                     reader.readAsDataURL(audioBlob);
                     if (DOM.micBtn) DOM.micBtn.style.background = '';
@@ -1169,6 +1213,10 @@
         if (DOM.deleteModal) DOM.deleteModal.classList.remove('active');
         renderMessages(remaining);
         renderChatList();
+        if (window.TelegramUI) {
+            TelegramUI.loadMessages(state.currentChatPartner);
+            TelegramUI.renderChatList();
+        }
     }
 
     function pinSelectedMessages() {
@@ -1561,6 +1609,10 @@
         closeDropdown();
         if (DOM.funPanel) DOM.funPanel.style.display = 'none';
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
+        // Also open in Telegram UI
+        if (window.TelegramUI) {
+            TelegramUI.openChat(partnerUsername);
+        }
     }
 
     function showTypingIndicator() {
@@ -1637,6 +1689,14 @@
         else showPlaceholder();
         updateMobileView();
         lucide.createIcons();
+
+        // Initialize Telegram UI
+        if (window.TelegramUI) {
+            setTimeout(() => {
+                TelegramUI.init();
+                TelegramUI.updateBadge();
+            }, 100);
+        }
     }
 
     function logout() {
@@ -1690,7 +1750,6 @@
             Notification.requestPermission();
         }
 
-        // Init Vanta
         initVanta();
 
         const savedDevice = localStorage.getItem('vvn_device');
@@ -1756,21 +1815,6 @@
         updateLoading(80);
         if (state.settings.theme) applyTheme(state.settings.theme);
 
-        // Init Atropos
-        if (typeof Atropos !== 'undefined') {
-            document.querySelectorAll('.atropos-card').forEach(el => {
-                const atropos = Atropos({
-                    el: el,
-                    activeOffset: 40,
-                    shadowScale: 1.05,
-                    onEnter: function() {},
-                    onLeave: function() {},
-                    onRotate: function(x, y) {}
-                });
-                state.atroposInstances.push(atropos);
-            });
-        }
-
         updateLoading(90);
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
@@ -1790,7 +1834,6 @@
         updateLoading(100);
         lucide.createIcons();
 
-        // Shine effect mouse tracking
         document.addEventListener('mousemove', function(e) {
             document.querySelectorAll('.shine-effect, .shine-hover').forEach(el => {
                 const rect = el.getBoundingClientRect();
@@ -2158,7 +2201,6 @@
         // Start
         init();
 
-        // Add animation-delay utility
         const style = document.createElement('style');
         style.textContent = `
             .animation-delay-200 { animation-delay: 0.2s; }
