@@ -422,19 +422,10 @@
 
     function switchTab(tab) {
         state.currentTab = tab;
-        DOM.navItems.forEach(item => {
-            item.classList.toggle('active', item.dataset.tab === tab);
-        });
-        
-        // Show/hide views based on tab
         if (tab === 'chats') {
             DOM.chatListView.style.display = 'flex';
             DOM.chatView.classList.add('hidden');
             renderChatList();
-        } else if (tab === 'contacts') {
-            DOM.chatListView.style.display = 'flex';
-            DOM.chatView.classList.add('hidden');
-            renderContacts();
         } else if (tab === 'settings') {
             DOM.chatListView.style.display = 'none';
             DOM.chatView.classList.add('hidden');
@@ -444,31 +435,6 @@
             DOM.chatView.classList.add('hidden');
             if (state.currentUser) showProfile(state.currentUser.username);
         }
-    }
-
-    function renderContacts() {
-        if (!DOM.chatList || !state.currentUser) return;
-        const users = state.localCache.users.filter(u => u.username !== state.currentUser.username);
-        let html = '';
-        if (users.length === 0) {
-            html = '<div class="text-[#555] text-sm text-center py-8">No contacts yet</div>';
-        } else {
-            users.forEach(u => {
-                const tags = getUserTags(u.username);
-                const tagHtml = tags.map(t => '<span class="text-[8px] px-1.5 py-0.5 rounded ' + t.class + '">' + t.label + '</span>').join('');
-                html += '<div class="chat-item" data-username="' + u.username + '">';
-                html += '<div class="avatar">' + u.username.charAt(0).toUpperCase() + '</div>';
-                html += '<div class="chat-info"><div class="name">' + (u.displayName || u.username) + ' ' + tagHtml + '</div>';
-                html += '<div class="preview">@' + u.username + '</div></div>';
-                html += '</div>';
-            });
-        }
-        DOM.chatList.innerHTML = html;
-        document.querySelectorAll('.chat-item[data-username]').forEach(el => {
-            el.addEventListener('click', function() {
-                openChat(this.dataset.username);
-            });
-        });
     }
 
     function toggleDropdown() {
@@ -509,9 +475,7 @@
         if (DOM.funPanel.style.display === 'block') {
             DOM.funPanel.style.display = 'none';
             if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-            gsap.to(DOM.funPanel, { opacity: 0, y: -10, duration: 0.2, onComplete: function() {
-                DOM.funPanel.style.display = 'none';
-            }});
+            gsap.to(DOM.funPanel, { opacity: 0, y: -10, duration: 0.2 });
         } else {
             DOM.funPanel.style.display = 'block';
             if (DOM.smileBtn) DOM.smileBtn.classList.add('active');
@@ -1471,11 +1435,13 @@
             DOM.chatMessages.innerHTML = '<div class="text-[#555] text-center py-8">No messages yet</div>';
             return;
         }
+        let lastSender = null;
         for (let i = 0; i < msgs.length; i++) {
             const msg = msgs[i];
             const msgId = msg.timestamp + '-' + i;
             const div = document.createElement('div');
             const isOutgoing = msg.sender === state.currentUser.username;
+            const showSender = !isOutgoing && (i === 0 || msgs[i-1].sender !== msg.sender);
             const bubbleStyle = chatSettings.bubbleStyle || 'rounded';
             div.className = 'message-bubble max-w-[80%] p-2 text-sm ' + (isOutgoing ? 'outgoing' : 'incoming');
             if (bubbleStyle === 'rounded') { div.classList.add('rounded-lg'); }
@@ -1489,7 +1455,12 @@
             if (chatSettings.bubbleColor && isOutgoing) {
                 div.style.background = chatSettings.bubbleColor;
             }
+            
             let content = '';
+            if (!isOutgoing && showSender) {
+                content += '<div class="sender-name">' + getDisplayName(msg.sender) + '</div>';
+            }
+            
             if (msg.poll) {
                 content += '<div class="poll-container">';
                 content += '<div class="text-white font-medium text-sm mb-1">📊 ' + msg.poll.question + '</div>';
@@ -1526,7 +1497,7 @@
                 }
                 if (msg.file.caption) content += '<div class="text-[#888] text-xs mt-1">' + msg.file.caption + '</div>';
             } else {
-                content = msg.text || '';
+                content += msg.text || '';
             }
             if (msg.reactions && msg.reactions.length > 0) {
                 content += '<div class="reactions flex gap-1 mt-1 flex-wrap">';
@@ -1564,14 +1535,6 @@
         setTimeout(() => { if (DOM.chatMessages) DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight; }, 50);
     }
 
-    function showPlaceholder() {
-        if (DOM.chatView) DOM.chatView.classList.add('hidden');
-        if (DOM.chatListView) DOM.chatListView.classList.remove('hidden');
-        if (state.isMobile) {
-            if (DOM.chatView) DOM.chatView.classList.remove('active-mobile');
-        }
-    }
-
     function openChat(partnerUsername) {
         if (!state.currentUser) return;
         if (blockedUsers.includes(partnerUsername)) { alert('This user is blocked. Unblock them to chat.'); return; }
@@ -1579,9 +1542,11 @@
         const partner = getUserByUsername(partnerUsername);
         if (!partner) return;
         
-        // Hide chat list, show chat view
         DOM.chatListView.style.display = 'none';
         DOM.chatView.classList.remove('hidden');
+        DOM.chatView.style.animation = 'none';
+        DOM.chatView.offsetHeight;
+        DOM.chatView.style.animation = 'chatEnter 0.3s ease';
         
         const displayName = getDisplayName(partnerUsername);
         if (DOM.chatPartnerName) {
@@ -1827,23 +1792,15 @@
             });
         }
 
-        // Bottom nav click handlers
-        DOM.navItems.forEach(item => {
-            item.addEventListener('click', function() {
-                switchTab(this.dataset.tab);
-            });
-        });
-
-        // Back button
         if (DOM.backBtn) {
             DOM.backBtn.addEventListener('click', function() {
-                DOM.chatView.classList.add('hidden');
-                DOM.chatListView.style.display = 'flex';
-                state.currentChatPartner = null;
-                renderChatList();
-                if (state.currentTab !== 'chats') {
-                    switchTab('chats');
-                }
+                DOM.chatView.style.animation = 'chatExit 0.3s ease';
+                setTimeout(() => {
+                    DOM.chatView.classList.add('hidden');
+                    DOM.chatListView.style.display = 'flex';
+                    state.currentChatPartner = null;
+                    renderChatList();
+                }, 300);
             });
         }
 
@@ -1876,16 +1833,13 @@
             });
         });
 
-        // Recreate Lucide icons after any DOM changes
         const observer = new MutationObserver(function() {
             lucide.createIcons();
         });
         observer.observe(document.body, { childList: true, subtree: true });
     }
 
-    // Event Listeners
     document.addEventListener('DOMContentLoaded', function() {
-        // Auth tabs
         document.querySelectorAll('.auth-tab').forEach(tab => {
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
@@ -2207,6 +2161,20 @@
             @keyframes rainbowMove {
                 0% { background-position: 0% 50%; }
                 100% { background-position: 300% 50%; }
+            }
+            .chat-enter {
+                animation: chatEnter 0.3s ease;
+            }
+            @keyframes chatEnter {
+                from { opacity: 0; transform: translateX(30px); }
+                to { opacity: 1; transform: translateX(0); }
+            }
+            .chat-exit {
+                animation: chatExit 0.3s ease;
+            }
+            @keyframes chatExit {
+                from { opacity: 1; transform: translateX(0); }
+                to { opacity: 0; transform: translateX(-30px); }
             }
         `;
         document.head.appendChild(style);
