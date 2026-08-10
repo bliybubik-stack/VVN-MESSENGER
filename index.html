@@ -58,7 +58,7 @@
             pointer-events: none;
         }
 
-        /* Glassmorphism Base */
+        /* Glassmorphism */
         .glass {
             background: rgba(255, 255, 255, 0.04);
             backdrop-filter: blur(24px);
@@ -112,17 +112,9 @@
             background: linear-gradient(180deg, rgba(255,255,255,0.15), transparent, rgba(255,255,255,0.04));
         }
 
-        .atropos-card {
-            border-radius: 16px;
-            overflow: hidden;
-        }
-
-        .atropos-card .atropos-shadow {
-            background: rgba(45, 27, 105, 0.1) !important;
-        }
-
+        /* Discord-style scrollbar */
         .scrollbar-hide::-webkit-scrollbar {
-            width: 3px;
+            width: 4px;
         }
         .scrollbar-hide::-webkit-scrollbar-track {
             background: transparent;
@@ -130,6 +122,9 @@
         .scrollbar-hide::-webkit-scrollbar-thumb {
             background: rgba(255,255,255,0.1);
             border-radius: 4px;
+        }
+        .scrollbar-hide::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.2);
         }
 
         /* Tags */
@@ -143,76 +138,7 @@
         .tag-member { background: rgba(255,255,255,0.06); color: #999; }
         .tag-guest { background: rgba(255,255,255,0.03); color: #666; }
 
-        /* Bottom Navigation */
-        .bottom-nav {
-            background: rgba(10, 10, 10, 0.7);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
-            border-top: 1px solid rgba(255,255,255,0.04);
-            padding: 6px 0 env(safe-area-inset-bottom, 8px) 0;
-            flex-shrink: 0;
-            z-index: 50;
-            position: relative;
-        }
-
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 1px;
-            padding: 4px 0;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: #666;
-        }
-
-        .nav-item svg {
-            width: 24px;
-            height: 24px;
-            stroke-width: 1.6;
-            transition: all 0.3s ease;
-        }
-
-        .nav-item span {
-            font-size: 9px;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            letter-spacing: 0.3px;
-        }
-
-        .nav-item.active {
-            color: #fff;
-        }
-
-        .nav-item.active svg {
-            stroke-width: 2;
-        }
-
-        .nav-item .nav-badge {
-            position: absolute;
-            top: 0;
-            right: 50%;
-            transform: translateX(calc(50% + 18px));
-            background: #ff4444;
-            color: #fff;
-            font-size: 9px;
-            font-weight: 600;
-            padding: 0 5px;
-            border-radius: 10px;
-            min-width: 18px;
-            height: 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid #0A0A0A;
-        }
-
-        /* Chat Item */
+        /* Discord-style Chat List */
         .chat-item {
             display: flex;
             align-items: center;
@@ -220,27 +146,30 @@
             padding: 8px 16px;
             cursor: pointer;
             transition: all 0.2s ease;
-            border-radius: 12px;
-            margin: 1px 8px;
+            border-radius: 8px;
+            margin: 2px 8px;
             position: relative;
-            background: transparent;
+        }
+
+        .chat-item:hover {
+            background: rgba(255,255,255,0.04);
         }
 
         .chat-item:active {
-            background: rgba(255,255,255,0.04);
+            background: rgba(255,255,255,0.06);
             transform: scale(0.98);
         }
 
         .chat-item .avatar {
-            width: 48px;
-            height: 48px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
             background: rgba(255,255,255,0.06);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 1rem;
             flex-shrink: 0;
             color: #aaa;
             position: relative;
@@ -313,12 +242,7 @@
             justify-content: center;
         }
 
-        .chat-item .chat-meta .pinned-icon {
-            color: #666;
-            font-size: 0.65rem;
-        }
-
-        /* Message Bubbles */
+        /* Discord-style Messages */
         .message-bubble {
             max-width: 80%;
             padding: 8px 14px;
@@ -329,25 +253,28 @@
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255,255,255,0.04);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             transition: all 0.3s ease;
+            position: relative;
         }
 
         .message-bubble.outgoing {
-            background: rgba(54, 69, 79, 0.6);
+            background: rgba(54, 69, 79, 0.3);
             border-bottom-right-radius: 4px;
             align-self: flex-end;
+            border: 1px solid rgba(255,255,255,0.06);
         }
 
         .message-bubble.incoming {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.03);
             border-bottom-left-radius: 4px;
             align-self: flex-start;
+            border: 1px solid rgba(255,255,255,0.03);
         }
 
         .message-bubble .time {
             font-size: 0.55rem;
-            color: rgba(255,255,255,0.4);
+            color: rgba(255,255,255,0.3);
             margin-top: 2px;
             text-align: right;
         }
@@ -356,13 +283,24 @@
             color: #666;
         }
 
-        /* Message Input */
+        .message-bubble .sender-name {
+            font-weight: 600;
+            font-size: 0.8rem;
+            margin-bottom: 2px;
+            color: #888;
+        }
+
+        .message-bubble.outgoing .sender-name {
+            color: #999;
+        }
+
+        /* Discord-style Input */
         .message-input-wrapper {
             display: flex;
             align-items: center;
             gap: 8px;
-            background: rgba(40, 40, 40, 0.3);
-            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(40, 40, 40, 0.2);
+            border: 1px solid rgba(255,255,255,0.04);
             border-radius: 24px;
             padding: 4px 12px;
             transition: all 0.3s ease;
@@ -372,8 +310,7 @@
         }
 
         .message-input-wrapper:focus-within {
-            border-color: rgba(54, 69, 79, 0.4);
-            box-shadow: 0 0 0 3px rgba(54, 69, 79, 0.1);
+            border-color: rgba(54, 69, 79, 0.3);
         }
 
         .message-input-wrapper input {
@@ -466,6 +403,12 @@
 
         .fun-panel.active {
             display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .panel-tab {
@@ -654,37 +597,6 @@
         .status-dot.yellow { background: #ffc107; }
         .status-dot.red { background: #ff4444; }
 
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 3px;
-        }
-        ::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-        }
-
-        /* Utility */
-        .fade-in {
-            animation: fadeIn 0.3s ease;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .pulse-dot {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
         /* Loader */
         .loader {
             width: 48px;
@@ -716,10 +628,66 @@
             transition: width 0.3s;
         }
 
-        /* Chat View Header */
-        .chat-header {
-            padding: 8px 16px;
-            background: rgba(10, 10, 10, 0.5);
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-in-right {
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .slide-out-left {
+            animation: slideOutLeft 0.3s ease;
+        }
+
+        @keyframes slideOutLeft {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(-30px); }
+        }
+
+        /* Chat View Transition */
+        .chat-view-enter {
+            animation: chatEnter 0.3s ease;
+        }
+
+        @keyframes chatEnter {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .chat-view-exit {
+            animation: chatExit 0.3s ease;
+        }
+
+        @keyframes chatExit {
+            from { opacity: 1; transform: translateX(0); }
+            to { opacity: 0; transform: translateX(-30px); }
+        }
+
+        .message-enter {
+            animation: messageEnter 0.2s ease;
+        }
+
+        @keyframes messageEnter {
+            from { opacity: 0; transform: scale(0.95) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        /* Discord-style Header */
+        .discord-header {
+            padding: 12px 16px;
+            background: rgba(10, 10, 10, 0.4);
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid rgba(255,255,255,0.04);
@@ -730,7 +698,7 @@
             min-height: 56px;
         }
 
-        .chat-header .back-btn {
+        .discord-header .back-btn {
             background: transparent;
             border: none;
             color: #888;
@@ -742,24 +710,24 @@
             justify-content: center;
         }
 
-        .chat-header .back-btn:hover {
+        .discord-header .back-btn:hover {
             color: #fff;
         }
 
-        .chat-header .back-btn svg {
+        .discord-header .back-btn svg {
             width: 24px;
             height: 24px;
             stroke-width: 1.6;
         }
 
-        .chat-header .user-info {
+        .discord-header .user-info {
             flex: 1;
             min-width: 0;
             cursor: pointer;
         }
 
-        .chat-header .user-info .name {
-            font-weight: 500;
+        .discord-header .user-info .name {
+            font-weight: 600;
             font-size: 0.95rem;
             color: #fff;
             display: flex;
@@ -767,12 +735,12 @@
             gap: 4px;
         }
 
-        .chat-header .user-info .status {
+        .discord-header .user-info .status {
             font-size: 0.7rem;
             color: #888;
         }
 
-        .chat-header .avatar {
+        .discord-header .avatar {
             width: 36px;
             height: 36px;
             border-radius: 50%;
@@ -789,9 +757,9 @@
         /* Mobile specific */
         @media (max-width: 768px) {
             .chat-item .avatar {
-                width: 44px;
-                height: 44px;
-                font-size: 1rem;
+                width: 40px;
+                height: 40px;
+                font-size: 0.9rem;
             }
 
             .chat-item {
@@ -804,22 +772,13 @@
                 font-size: 0.85rem;
                 padding: 6px 12px;
             }
-
-            .nav-item svg {
-                width: 22px;
-                height: 22px;
-            }
-
-            .nav-item span {
-                font-size: 8px;
-            }
         }
 
         @media (max-width: 480px) {
             .chat-item .avatar {
-                width: 40px;
-                height: 40px;
-                font-size: 0.9rem;
+                width: 36px;
+                height: 36px;
+                font-size: 0.8rem;
             }
 
             .chat-item .chat-info .name {
@@ -852,11 +811,11 @@
                 height: 16px;
             }
 
-            .chat-header .user-info .name {
+            .discord-header .user-info .name {
                 font-size: 0.85rem;
             }
 
-            .chat-header .avatar {
+            .discord-header .avatar {
                 width: 32px;
                 height: 32px;
                 font-size: 0.8rem;
@@ -1010,8 +969,8 @@
                 <!-- Chat View -->
                 <div id="chatView" class="absolute inset-0 flex flex-col bg-[#0A0A0A] hidden z-10">
 
-                    <!-- Chat Header -->
-                    <div class="chat-header">
+                    <!-- Discord-style Header -->
+                    <div class="discord-header">
                         <button class="back-btn" id="backBtn">
                             <i data-lucide="arrow-left" class="w-6 h-6"></i>
                         </button>
@@ -1043,7 +1002,7 @@
                     </div>
 
                     <!-- Messages -->
-                    <div class="flex-1 overflow-y-auto p-3 space-y-1.5 scrollbar-hide" id="chatMessages"></div>
+                    <div class="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide" id="chatMessages"></div>
 
                     <!-- Selection Toolbar -->
                     <div id="selectionToolbar" class="glass-dark border-t border-[rgba(255,255,255,0.04)] px-3 py-2 flex items-center gap-3 hidden flex-shrink-0">
@@ -1105,28 +1064,6 @@
                             </button>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Bottom Navigation -->
-            <div class="bottom-nav">
-                <div class="flex items-center justify-around">
-                    <button class="nav-item active" data-tab="chats">
-                        <i data-lucide="message-square"></i>
-                        <span>Chats</span>
-                    </button>
-                    <button class="nav-item" data-tab="contacts">
-                        <i data-lucide="users"></i>
-                        <span>Contacts</span>
-                    </button>
-                    <button class="nav-item" data-tab="settings">
-                        <i data-lucide="settings"></i>
-                        <span>Settings</span>
-                    </button>
-                    <button class="nav-item" data-tab="profile">
-                        <i data-lucide="user"></i>
-                        <span>Profile</span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -1383,7 +1320,6 @@
     </div>
 
     <script>
-        // Initialize Lucide icons
         document.addEventListener('DOMContentLoaded', function() {
             lucide.createIcons();
         });
