@@ -58,14 +58,10 @@
         regUsername: document.getElementById('regUsername'),
         regDisplayName: document.getElementById('regDisplayName'),
         regPassword: document.getElementById('regPassword'),
-        sidebarUsername: document.getElementById('sidebarUsername'),
-        searchInput: document.getElementById('searchInput'),
-        searchResults: document.getElementById('searchResults'),
         chatList: document.getElementById('chatList'),
         chatArea: document.getElementById('chatArea'),
         chatPlaceholder: document.getElementById('chatPlaceholder'),
         chatActive: document.getElementById('chatActive'),
-        chatHeader: document.getElementById('chatHeader'),
         chatPartnerName: document.getElementById('chatPartnerName'),
         chatPartnerStatus: document.getElementById('chatPartnerStatus'),
         chatMessages: document.getElementById('chatMessages'),
@@ -116,29 +112,16 @@
         pinSelectedBtn: document.getElementById('pinSelectedBtn'),
         forwardSelectedBtn: document.getElementById('forwardSelectedBtn'),
         cancelSelectionBtn: document.getElementById('cancelSelectionBtn'),
-        pinnedDock: document.getElementById('pinnedDock'),
-        pinnedMessagePreview: document.getElementById('pinnedMessagePreview'),
-        unpinBtn: document.getElementById('unpinBtn'),
         deleteModal: document.getElementById('deleteModal'),
         deleteModalClose: document.getElementById('deleteModalClose'),
         deleteForMeBtn: document.getElementById('deleteForMeBtn'),
         deleteForEveryoneBtn: document.getElementById('deleteForEveryoneBtn'),
-        bgDefault: document.getElementById('bgDefault'),
-        bgCustom: document.getElementById('bgCustom'),
-        bgUpload: document.getElementById('bgUpload'),
-        bubbleColorPicker: document.getElementById('bubbleColorPicker'),
-        applyBubbleColor: document.getElementById('applyBubbleColor'),
-        fontSizeSelect: document.getElementById('fontSizeSelect'),
-        logoutBtn: document.getElementById('logoutBtn'),
-        clearDataBtn: document.getElementById('clearDataBtn'),
-        autoDetectLayoutBtn: document.getElementById('autoDetectLayoutBtn'),
         funPanel: document.getElementById('funPanel'),
         stickerGrid: document.getElementById('stickerGrid'),
         gifGrid: document.getElementById('gifGrid'),
         pollBtn: document.getElementById('pollBtn'),
         gameBtn: document.getElementById('gameBtn'),
-        smileBtn: document.getElementById('smileBtn'),
-        serverList: document.getElementById('serverList')
+        smileBtn: document.getElementById('smileBtn')
     };
 
     let selectionMode = false;
@@ -252,17 +235,15 @@
         if (DOM.loaderFill) DOM.loaderFill.style.width = p + '%';
         if (p >= 100 && !state.loadingComplete) {
             state.loadingComplete = true;
-            // Use setTimeout to ensure the UI updates
             setTimeout(function() {
                 if (DOM.loadingOverlay) {
                     DOM.loadingOverlay.style.opacity = '0';
                     setTimeout(function() {
                         DOM.loadingOverlay.style.display = 'none';
-                        // Initialize Lucide icons after loading
                         if (typeof lucide !== 'undefined') {
                             lucide.createIcons();
                         }
-                    }, 400);
+                    }, 300);
                 }
             }, 300);
         }
@@ -277,10 +258,15 @@
             const resp = await fetch('https://api.jsonbin.io/v3/b/' + CONFIG.BIN_ID, {
                 headers: { 'X-Master-Key': CONFIG.MASTER_KEY, 'X-Bin-Meta': 'false' }
             });
-            if (!resp.ok) { return null; }
+            if (!resp.ok) { 
+                console.warn('Fetch failed:', resp.status);
+                return null; 
+            }
             const data = await resp.json();
+            console.log('Fetched data:', data);
             return data;
         } catch (e) {
+            console.warn('Fetch error:', e);
             return null;
         }
     }
@@ -300,38 +286,38 @@
     }
 
     async function syncWithRemote() {
-        if (state.firstSyncDone) { return true; }
+        if (state.firstSyncDone) { 
+            console.log('Sync already done');
+            return true; 
+        }
+        console.log('Syncing with remote...');
         const remote = await fetchFromBin();
         if (remote) {
             const remoteUsers = remote.users || [];
             const remoteChats = remote.chats || {};
             const remoteMessages = remote.messages || {};
-            const localMessages = state.localCache.messages || {};
-            for (const [key, msgs] of Object.entries(remoteMessages)) {
-                if (!localMessages[key]) { localMessages[key] = msgs; }
-                else if (msgs.length > localMessages[key].length) {
-                    const newMsgs = msgs.slice(localMessages[key].length);
-                    for (const msg of newMsgs) {
-                        if (msg.sender !== state.currentUser?.username) {
-                            const partner = key.split('_').find(u => u !== state.currentUser?.username);
-                            if (partner && state.currentUser) {
-                                sendNotification(partner, msg.text || '📎 File', formatTime(msg.timestamp));
-                            }
-                        }
-                    }
-                    localMessages[key] = msgs;
-                }
-            }
+            
+            // Merge local and remote users
             const localUsers = state.localCache.users || [];
             const mergedUsers = [...localUsers];
             for (const rUser of remoteUsers) {
-                if (!mergedUsers.find(u => u.username === rUser.username)) mergedUsers.push(rUser);
+                if (!mergedUsers.find(u => u.username === rUser.username)) {
+                    mergedUsers.push(rUser);
+                }
             }
+            
+            // Merge chats and messages
+            const mergedChats = { ...remoteChats, ...state.localCache.chats };
+            const mergedMessages = { ...remoteMessages, ...state.localCache.messages };
+            
             state.localCache.users = mergedUsers;
-            state.localCache.chats = { ...remoteChats, ...state.localCache.chats };
-            state.localCache.messages = localMessages;
+            state.localCache.chats = mergedChats;
+            state.localCache.messages = mergedMessages;
+            
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
             state.firstSyncDone = true;
+            console.log('Synced users:', state.localCache.users.length);
+            
             if (state.currentUser) {
                 renderChatList();
                 if (state.currentChatPartner) renderMessagesForPartner(state.currentChatPartner);
@@ -348,10 +334,15 @@
     }
 
     function showDeviceSelection() {
-        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'flex';
-        if (DOM.authScreen) DOM.authScreen.style.display = 'none';
-        if (DOM.messenger) DOM.messenger.style.display = 'none';
-        // Force hide loading overlay if still visible
+        if (DOM.deviceScreen) {
+            DOM.deviceScreen.style.display = 'flex';
+        }
+        if (DOM.authScreen) {
+            DOM.authScreen.style.display = 'none';
+        }
+        if (DOM.messenger) {
+            DOM.messenger.style.display = 'none';
+        }
         if (DOM.loadingOverlay) {
             DOM.loadingOverlay.style.display = 'none';
         }
@@ -363,9 +354,15 @@
     function selectDevice(deviceType) {
         state.deviceType = deviceType;
         localStorage.setItem('vvn_device', deviceType);
-        if (typeof applyDeviceLayout === 'function') applyDeviceLayout(deviceType);
-        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
-        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+        if (typeof applyDeviceLayout === 'function') {
+            applyDeviceLayout(deviceType);
+        }
+        if (DOM.deviceScreen) {
+            DOM.deviceScreen.style.display = 'none';
+        }
+        if (DOM.authScreen) {
+            DOM.authScreen.style.display = 'flex';
+        }
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -378,14 +375,16 @@
         if (isMobile) {
             if (channelList) channelList.classList.remove('active');
             if (state.currentChatPartner) {
-                document.querySelector('.discord-chat').style.width = '100%';
+                const chat = document.querySelector('.discord-chat');
+                if (chat) chat.style.width = '100%';
             }
         } else {
             if (channelList) {
                 channelList.classList.remove('active');
                 channelList.style.width = deviceType === 'tablet' ? '200px' : '220px';
             }
-            document.querySelector('.discord-chat').style.width = '';
+            const chat = document.querySelector('.discord-chat');
+            if (chat) chat.style.width = '';
         }
     }
 
@@ -483,6 +482,7 @@
     };
 
     window.sendSticker = function(data) {
+        if (!state.currentUser || !state.currentChatPartner) return;
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
@@ -503,6 +503,7 @@
     };
 
     window.sendGIF = function(data) {
+        if (!state.currentUser || !state.currentChatPartner) return;
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
@@ -872,31 +873,8 @@
     }
 
     function searchUsers(query) {
-        if (!query.trim() || !DOM.searchResults) {
-            DOM.searchResults.style.display = 'none';
-            return;
-        }
-        const users = state.localCache.users;
-        const q = query.toLowerCase();
-        const found = users.filter(u => u.username !== state.currentUser.username && !blockedUsers.includes(u.username) &&
-            (u.username.toLowerCase().includes(q) || (u.displayName && u.displayName.toLowerCase().includes(q))));
-        if (found.length === 0) {
-            DOM.searchResults.innerHTML = '<div class="text-[#555] text-xs p-2">No users found</div>';
-            DOM.searchResults.style.display = 'block';
-            return;
-        }
-        let html = '';
-        for (const u of found) {
-            html += '<div class="flex items-center gap-2 p-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded transition-colors" data-username="' + u.username + '">';
-            html += '<div class="w-7 h-7 rounded-full bg-[rgba(255,255,255,0.06)] flex items-center justify-center text-xs text-[#888]">' + u.username.charAt(0).toUpperCase() + '</div>';
-            html += '<div><div class="text-white text-xs">' + (u.displayName || u.username) + '</div>';
-            html += '<div class="text-[#555] text-[10px]">@' + u.username + '</div></div></div>';
-        }
-        DOM.searchResults.innerHTML = html;
-        DOM.searchResults.style.display = 'block';
-        document.querySelectorAll('.search-result-item').forEach(el => {
-            el.addEventListener('click', function() { openChat(this.dataset.username); DOM.searchResults.style.display = 'none'; if (DOM.searchInput) DOM.searchInput.value = ''; updateActivity(); });
-        });
+        // Simple search in chat list - we keep it simple
+        console.log('Searching:', query);
     }
 
     function showProfile(username) {
@@ -1116,7 +1094,8 @@
         if (state.isMobile) {
             if (state.currentChatPartner) {
                 if (channelList) channelList.classList.remove('active');
-                document.querySelector('.discord-chat').style.width = '100%';
+                const chat = document.querySelector('.discord-chat');
+                if (chat) chat.style.width = '100%';
             } else {
                 if (channelList) channelList.classList.add('active');
             }
@@ -1125,7 +1104,8 @@
                 channelList.classList.remove('active');
                 channelList.style.width = state.deviceType === 'tablet' ? '200px' : '220px';
             }
-            document.querySelector('.discord-chat').style.width = '';
+            const chat = document.querySelector('.discord-chat');
+            if (chat) chat.style.width = '';
         }
     }
 
@@ -1165,12 +1145,14 @@
                 const pUser = getUserByUsername(partner);
                 const displayName = getDisplayName(partner);
                 const isActive = partner === state.currentChatPartner;
+                const time = last ? formatTime(last.timestamp) : '';
                 html += '<div class="discord-channel-item ' + (isActive ? 'active' : '') + '" data-partner="' + partner + '">';
                 html += '<span class="channel-icon">#</span>';
-                html += '<span>' + displayName + '</span>';
+                html += '<span class="flex-1 truncate">' + displayName + '</span>';
                 if (pUser && pUser.online) {
                     html += '<span class="channel-badge text-green-400 text-[10px]">●</span>';
                 }
+                html += '<span class="channel-badge text-[#555] text-[10px]">' + time + '</span>';
                 html += '</div>';
             }
         }
@@ -1299,8 +1281,11 @@
 
         if (state.isMobile) {
             document.getElementById('channelList').classList.remove('active');
-            document.querySelector('.discord-chat').style.width = '100%';
-            document.querySelector('.discord-chat').style.display = 'flex';
+            const chat = document.querySelector('.discord-chat');
+            if (chat) {
+                chat.style.width = '100%';
+                chat.style.display = 'flex';
+            }
         }
 
         if (DOM.chatActive) DOM.chatActive.classList.remove('hidden');
@@ -1405,33 +1390,9 @@
 
     function updateActivity() { lastActivity = Date.now(); resetAutoLock(); }
 
-    function initVanta() {
-        try {
-            if (typeof VANTA !== 'undefined' && !state.vantaEffect) {
-                state.vantaEffect = VANTA.WAVES({
-                    el: '#vanta-bg',
-                    mouseControls: true,
-                    touchControls: true,
-                    gyroControls: false,
-                    minHeight: 200.00,
-                    minWidth: 200.00,
-                    scale: 1.00,
-                    scaleMobile: 1.00,
-                    color: 0x0A0A0A,
-                    waveColor: 0x1A1A1A,
-                    waveSpeed: 0.3,
-                    zoom: 0.8
-                });
-            }
-        } catch (e) {
-            console.warn('Vanta.js not loaded, continuing without background effect');
-        }
-    }
-
     async function init() {
         console.log('🚀 Initializing VVN...');
 
-        // Set a timeout to force hide loading even if everything fails
         state.loadingTimeout = setTimeout(function() {
             if (!state.loadingComplete) {
                 console.warn('Loading timeout - forcing hide');
@@ -1439,17 +1400,13 @@
                     DOM.loadingOverlay.style.display = 'none';
                 }
                 state.loadingComplete = true;
-                // Show device selection as fallback
                 showDeviceSelection();
             }
-        }, 8000);
+        }, 10000);
 
         if (DOM.loadingOverlay) DOM.loadingOverlay.style.display = 'flex';
         updateLoading(5);
         loadSavedSettings();
-
-        // Try to init Vanta but don't wait for it
-        setTimeout(initVanta, 100);
 
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
@@ -1467,6 +1424,7 @@
             adjustDiscordLayout(detected);
         }
 
+        // First try to load from cache
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
@@ -1478,42 +1436,53 @@
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-            if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
-                state.localCache.users.push({
-                    username: 'VaultNet',
-                    displayName: 'VaultNet',
-                    password: 'admin123',
-                    bio: 'Creator of VVN',
-                    online: true,
-                    created: Date.now(),
-                    avatar: '',
-                    rainbow: false
-                });
-            }
+        }
+
+        // Ensure VaultNet exists
+        if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
+            state.localCache.users.push({
+                username: 'VaultNet',
+                displayName: 'VaultNet',
+                password: 'admin123',
+                bio: 'Creator of VVN',
+                online: true,
+                created: Date.now(),
+                avatar: '',
+                rainbow: false
+            });
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
+
         updateLoading(50);
 
+        // Try to sync with remote
         try {
             const remote = await fetchFromBin();
             if (remote) {
-                state.localCache = { users: remote.users || [], chats: remote.chats || {}, messages: remote.messages || {} };
-                if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
-                    state.localCache.users.push({
-                        username: 'VaultNet',
-                        displayName: 'VaultNet',
-                        password: 'admin123',
-                        bio: 'Creator of VVN',
-                        online: true,
-                        created: Date.now(),
-                        avatar: '',
-                        rainbow: false
-                    });
+                const remoteUsers = remote.users || [];
+                const remoteChats = remote.chats || {};
+                const remoteMessages = remote.messages || {};
+                
+                // Merge remote users with local
+                const localUsers = state.localCache.users || [];
+                const mergedUsers = [...localUsers];
+                for (const rUser of remoteUsers) {
+                    if (!mergedUsers.find(u => u.username === rUser.username)) {
+                        mergedUsers.push(rUser);
+                    }
                 }
+                
+                state.localCache.users = mergedUsers;
+                state.localCache.chats = { ...remoteChats, ...state.localCache.chats };
+                state.localCache.messages = { ...remoteMessages, ...state.localCache.messages };
+                
                 localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+                state.firstSyncDone = true;
                 console.log('✅ Loaded from JSONBin:', state.localCache.users.length, 'users');
             }
-        } catch (e) { console.warn('Background sync failed, using cache'); }
+        } catch (e) { 
+            console.warn('Background sync failed, using cache'); 
+        }
 
         updateLoading(80);
 
@@ -1527,7 +1496,6 @@
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
                 updateLoading(100);
-                // Clear the timeout since loading completed
                 if (state.loadingTimeout) {
                     clearTimeout(state.loadingTimeout);
                     state.loadingTimeout = null;
@@ -1541,7 +1509,6 @@
         updateLoading(100);
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        // Clear the timeout
         if (state.loadingTimeout) {
             clearTimeout(state.loadingTimeout);
             state.loadingTimeout = null;
@@ -1612,17 +1579,13 @@
             DOM.micBtn.addEventListener('touchend', function(e) { e.preventDefault(); stopVoiceRecording(); });
         }
 
-        // Search
-        if (DOM.searchInput) {
-            DOM.searchInput.addEventListener('input', function() { searchUsers(this.value); });
-        }
-
         // Back button (mobile)
         if (DOM.backBtn) {
             DOM.backBtn.addEventListener('click', function() {
                 if (state.isMobile) {
                     document.getElementById('channelList').classList.add('active');
-                    document.querySelector('.discord-chat').style.width = '';
+                    const chat = document.querySelector('.discord-chat');
+                    if (chat) chat.style.width = '';
                     state.currentChatPartner = null;
                     showPlaceholder();
                     renderChatList();
