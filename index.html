@@ -138,7 +138,7 @@
         .tag-member { background: rgba(255,255,255,0.06); color: #999; }
         .tag-guest { background: rgba(255,255,255,0.03); color: #666; }
 
-        /* Discord-style Chat List */
+        /* Discord-style Chat Item */
         .chat-item {
             display: flex;
             align-items: center;
@@ -245,7 +245,7 @@
         /* Discord-style Messages */
         .message-bubble {
             max-width: 80%;
-            padding: 8px 14px;
+            padding: 6px 12px;
             border-radius: 16px;
             font-size: 0.9rem;
             line-height: 1.4;
@@ -656,8 +656,7 @@
             to { opacity: 0; transform: translateX(-30px); }
         }
 
-        /* Chat View Transition */
-        .chat-view-enter {
+        .chat-enter {
             animation: chatEnter 0.3s ease;
         }
 
@@ -666,7 +665,7 @@
             to { opacity: 1; transform: translateX(0); }
         }
 
-        .chat-view-exit {
+        .chat-exit {
             animation: chatExit 0.3s ease;
         }
 
@@ -846,7 +845,7 @@
         </div>
 
         <!-- Device Selection -->
-        <div id="deviceScreen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#0A0A0A] hidden">
+        <div id="deviceScreen" class="fixed inset-0 z-[200] flex items-center justify-center bg-[#0A0A0A]">
             <div class="w-full max-w-md px-4">
                 <div class="text-center mb-8">
                     <img src="icons/logo.png" alt="VVN" class="w-20 h-20 mx-auto mb-4 rounded-2xl glass p-2" />
@@ -857,17 +856,17 @@
                     <h2 class="text-white font-medium text-lg mb-1">Select Your Device</h2>
                     <p class="text-[#666] text-sm mb-5">Choose your device type for optimal layout</p>
                     <div class="grid grid-cols-3 gap-3 mb-4">
-                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent" data-device="phone">
+                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent active:border-[#36454F] active:bg-[rgba(54,69,79,0.15)]" data-device="phone">
                             <i data-lucide="smartphone" class="w-10 h-10 mx-auto mb-2 text-[#888]"></i>
                             <span class="block text-white text-sm font-medium">Phone</span>
                             <small class="text-[#555] text-xs">Mobile optimized</small>
                         </button>
-                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent" data-device="tablet">
+                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent active:border-[#36454F] active:bg-[rgba(54,69,79,0.15)]" data-device="tablet">
                             <i data-lucide="tablet" class="w-10 h-10 mx-auto mb-2 text-[#888]"></i>
                             <span class="block text-white text-sm font-medium">Tablet</span>
                             <small class="text-[#555] text-xs">Tablet optimized</small>
                         </button>
-                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent" data-device="pc">
+                        <button class="device-option glass p-4 rounded-xl text-center transition-all hover:scale-105 hover:border-[#36454F] cursor-pointer border border-transparent active:border-[#36454F] active:bg-[rgba(54,69,79,0.15)]" data-device="pc">
                             <i data-lucide="monitor" class="w-10 h-10 mx-auto mb-2 text-[#888]"></i>
                             <span class="block text-white text-sm font-medium">PC</span>
                             <small class="text-[#555] text-xs">Full desktop</small>
