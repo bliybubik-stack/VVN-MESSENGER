@@ -25,8 +25,7 @@
         typingTimeout: null,
         isTyping: false,
         firstSyncDone: false,
-        vantaEffect: null,
-        loadingTimeout: null
+        vantaEffect: null
     };
 
     const CONFIG = window.CONFIG || {
@@ -46,6 +45,7 @@
     const DOM = {
         loadingOverlay: document.getElementById('loadingOverlay'),
         loaderFill: document.getElementById('loaderFill'),
+        loaderLogs: document.getElementById('loaderLogs'),
         deviceScreen: document.getElementById('deviceScreen'),
         authScreen: document.getElementById('authScreen'),
         messenger: document.getElementById('messenger'),
@@ -58,6 +58,7 @@
         regUsername: document.getElementById('regUsername'),
         regDisplayName: document.getElementById('regDisplayName'),
         regPassword: document.getElementById('regPassword'),
+        searchInput: document.getElementById('searchInput'),
         chatList: document.getElementById('chatList'),
         chatArea: document.getElementById('chatArea'),
         chatPlaceholder: document.getElementById('chatPlaceholder'),
@@ -116,6 +117,15 @@
         deleteModalClose: document.getElementById('deleteModalClose'),
         deleteForMeBtn: document.getElementById('deleteForMeBtn'),
         deleteForEveryoneBtn: document.getElementById('deleteForEveryoneBtn'),
+        bgDefault: document.getElementById('bgDefault'),
+        bgCustom: document.getElementById('bgCustom'),
+        bgUpload: document.getElementById('bgUpload'),
+        bubbleColorPicker: document.getElementById('bubbleColorPicker'),
+        applyBubbleColor: document.getElementById('applyBubbleColor'),
+        fontSizeSelect: document.getElementById('fontSizeSelect'),
+        logoutBtn: document.getElementById('logoutBtn'),
+        clearDataBtn: document.getElementById('clearDataBtn'),
+        autoDetectLayoutBtn: document.getElementById('autoDetectLayoutBtn'),
         funPanel: document.getElementById('funPanel'),
         stickerGrid: document.getElementById('stickerGrid'),
         gifGrid: document.getElementById('gifGrid'),
@@ -153,6 +163,16 @@
         'https://media.giphy.com/media/3o6ZtqY0XUyP5qXqQo/giphy.gif'
     ];
 
+    function addLog(message) {
+        if (!DOM.loaderLogs) return;
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        line.textContent = '> ' + message;
+        DOM.loaderLogs.appendChild(line);
+        DOM.loaderLogs.scrollTop = DOM.loaderLogs.scrollHeight;
+        console.log('[VVN]', message);
+    }
+
     function formatTime(ts) {
         const d = new Date(ts);
         if (chatSettings.timestampFormat === 'relative') {
@@ -172,13 +192,6 @@
     function formatDate(ts) {
         const d = new Date(ts);
         return d.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-    }
-
-    function getAge(ts) {
-        const days = Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24));
-        if (days < 1) return 'Today';
-        if (days === 1) return '1 day';
-        return days + ' days';
     }
 
     function getUserTags(username) {
@@ -230,9 +243,10 @@
         }
     }
 
-    function updateLoading(progress) {
+    function updateLoading(progress, logMessage) {
         const p = Math.min(progress, 100);
         if (DOM.loaderFill) DOM.loaderFill.style.width = p + '%';
+        if (logMessage) addLog(logMessage);
         if (p >= 100 && !state.loadingComplete) {
             state.loadingComplete = true;
             setTimeout(function() {
@@ -243,30 +257,27 @@
                         if (typeof lucide !== 'undefined') {
                             lucide.createIcons();
                         }
-                    }, 300);
+                    }, 400);
                 }
-            }, 300);
+            }, 500);
         }
-    }
-
-    function setStatus(text, color) {
-        console.log('Status:', text, color);
     }
 
     async function fetchFromBin() {
         try {
+            addLog('Fetching data from JSONBin...');
             const resp = await fetch('https://api.jsonbin.io/v3/b/' + CONFIG.BIN_ID, {
                 headers: { 'X-Master-Key': CONFIG.MASTER_KEY, 'X-Bin-Meta': 'false' }
             });
             if (!resp.ok) { 
-                console.warn('Fetch failed:', resp.status);
+                addLog('Failed to fetch from JSONBin (status: ' + resp.status + ')');
                 return null; 
             }
             const data = await resp.json();
-            console.log('Fetched data:', data);
+            addLog('✓ Data fetched successfully');
             return data;
         } catch (e) {
-            console.warn('Fetch error:', e);
+            addLog('Error fetching: ' + e.message);
             return null;
         }
     }
@@ -287,36 +298,46 @@
 
     async function syncWithRemote() {
         if (state.firstSyncDone) { 
-            console.log('Sync already done');
             return true; 
         }
-        console.log('Syncing with remote...');
+        addLog('Syncing with remote...');
         const remote = await fetchFromBin();
         if (remote) {
             const remoteUsers = remote.users || [];
             const remoteChats = remote.chats || {};
             const remoteMessages = remote.messages || {};
             
-            // Merge local and remote users
-            const localUsers = state.localCache.users || [];
-            const mergedUsers = [...localUsers];
-            for (const rUser of remoteUsers) {
-                if (!mergedUsers.find(u => u.username === rUser.username)) {
-                    mergedUsers.push(rUser);
+            addLog('Processing ' + remoteUsers.length + ' users, ' + Object.keys(remoteChats).length + ' chats');
+            
+            const localMessages = state.localCache.messages || {};
+            for (const [key, msgs] of Object.entries(remoteMessages)) {
+                if (!localMessages[key]) { localMessages[key] = msgs; }
+                else if (msgs.length > localMessages[key].length) {
+                    const newMsgs = msgs.slice(localMessages[key].length);
+                    for (const msg of newMsgs) {
+                        if (msg.sender !== state.currentUser?.username) {
+                            const partner = key.split('_').find(u => u !== state.currentUser?.username);
+                            if (partner && state.currentUser) {
+                                sendNotification(partner, msg.text || '📎 File', formatTime(msg.timestamp));
+                            }
+                        }
+                    }
+                    localMessages[key] = msgs;
                 }
             }
             
-            // Merge chats and messages
-            const mergedChats = { ...remoteChats, ...state.localCache.chats };
-            const mergedMessages = { ...remoteMessages, ...state.localCache.messages };
+            const localUsers = state.localCache.users || [];
+            const mergedUsers = [...localUsers];
+            for (const rUser of remoteUsers) {
+                if (!mergedUsers.find(u => u.username === rUser.username)) mergedUsers.push(rUser);
+            }
             
             state.localCache.users = mergedUsers;
-            state.localCache.chats = mergedChats;
-            state.localCache.messages = mergedMessages;
-            
+            state.localCache.chats = { ...remoteChats, ...state.localCache.chats };
+            state.localCache.messages = localMessages;
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
             state.firstSyncDone = true;
-            console.log('Synced users:', state.localCache.users.length);
+            addLog('✓ Sync complete: ' + state.localCache.users.length + ' users loaded');
             
             if (state.currentUser) {
                 renderChatList();
@@ -325,6 +346,7 @@
             return true;
         }
         state.firstSyncDone = true;
+        addLog('Sync failed, using cached data');
         return true;
     }
 
@@ -334,18 +356,9 @@
     }
 
     function showDeviceSelection() {
-        if (DOM.deviceScreen) {
-            DOM.deviceScreen.style.display = 'flex';
-        }
-        if (DOM.authScreen) {
-            DOM.authScreen.style.display = 'none';
-        }
-        if (DOM.messenger) {
-            DOM.messenger.style.display = 'none';
-        }
-        if (DOM.loadingOverlay) {
-            DOM.loadingOverlay.style.display = 'none';
-        }
+        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'flex';
+        if (DOM.authScreen) DOM.authScreen.style.display = 'none';
+        if (DOM.messenger) DOM.messenger.style.display = 'none';
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -354,15 +367,9 @@
     function selectDevice(deviceType) {
         state.deviceType = deviceType;
         localStorage.setItem('vvn_device', deviceType);
-        if (typeof applyDeviceLayout === 'function') {
-            applyDeviceLayout(deviceType);
-        }
-        if (DOM.deviceScreen) {
-            DOM.deviceScreen.style.display = 'none';
-        }
-        if (DOM.authScreen) {
-            DOM.authScreen.style.display = 'flex';
-        }
+        if (typeof applyDeviceLayout === 'function') applyDeviceLayout(deviceType);
+        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
+        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         }
@@ -375,16 +382,14 @@
         if (isMobile) {
             if (channelList) channelList.classList.remove('active');
             if (state.currentChatPartner) {
-                const chat = document.querySelector('.discord-chat');
-                if (chat) chat.style.width = '100%';
+                document.querySelector('.discord-chat').style.width = '100%';
             }
         } else {
             if (channelList) {
                 channelList.classList.remove('active');
                 channelList.style.width = deviceType === 'tablet' ? '200px' : '220px';
             }
-            const chat = document.querySelector('.discord-chat');
-            if (chat) chat.style.width = '';
+            document.querySelector('.discord-chat').style.width = '';
         }
     }
 
@@ -482,7 +487,6 @@
     };
 
     window.sendSticker = function(data) {
-        if (!state.currentUser || !state.currentChatPartner) return;
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
@@ -503,7 +507,6 @@
     };
 
     window.sendGIF = function(data) {
-        if (!state.currentUser || !state.currentChatPartner) return;
         const chatKey = getChatKey(state.currentUser.username, state.currentChatPartner);
         const messages = state.localCache.messages;
         if (!messages[chatKey]) messages[chatKey] = [];
@@ -873,8 +876,31 @@
     }
 
     function searchUsers(query) {
-        // Simple search in chat list - we keep it simple
-        console.log('Searching:', query);
+        if (!query.trim() || !DOM.searchResults) {
+            DOM.searchResults.style.display = 'none';
+            return;
+        }
+        const users = state.localCache.users;
+        const q = query.toLowerCase();
+        const found = users.filter(u => u.username !== state.currentUser.username && !blockedUsers.includes(u.username) &&
+            (u.username.toLowerCase().includes(q) || (u.displayName && u.displayName.toLowerCase().includes(q))));
+        if (found.length === 0) {
+            DOM.searchResults.innerHTML = '<div class="text-[#555] text-xs p-2">No users found</div>';
+            DOM.searchResults.style.display = 'block';
+            return;
+        }
+        let html = '';
+        for (const u of found) {
+            html += '<div class="flex items-center gap-2 p-2 cursor-pointer hover:bg-[rgba(255,255,255,0.04)] rounded transition-colors" data-username="' + u.username + '">';
+            html += '<div class="w-7 h-7 rounded-full bg-[rgba(255,255,255,0.06)] flex items-center justify-center text-xs text-[#888]">' + u.username.charAt(0).toUpperCase() + '</div>';
+            html += '<div><div class="text-white text-xs">' + (u.displayName || u.username) + '</div>';
+            html += '<div class="text-[#555] text-[10px]">@' + u.username + '</div></div></div>';
+        }
+        DOM.searchResults.innerHTML = html;
+        DOM.searchResults.style.display = 'block';
+        document.querySelectorAll('.search-result-item').forEach(el => {
+            el.addEventListener('click', function() { openChat(this.dataset.username); DOM.searchResults.style.display = 'none'; if (DOM.searchInput) DOM.searchInput.value = ''; updateActivity(); });
+        });
     }
 
     function showProfile(username) {
@@ -1094,8 +1120,7 @@
         if (state.isMobile) {
             if (state.currentChatPartner) {
                 if (channelList) channelList.classList.remove('active');
-                const chat = document.querySelector('.discord-chat');
-                if (chat) chat.style.width = '100%';
+                document.querySelector('.discord-chat').style.width = '100%';
             } else {
                 if (channelList) channelList.classList.add('active');
             }
@@ -1104,8 +1129,7 @@
                 channelList.classList.remove('active');
                 channelList.style.width = state.deviceType === 'tablet' ? '200px' : '220px';
             }
-            const chat = document.querySelector('.discord-chat');
-            if (chat) chat.style.width = '';
+            document.querySelector('.discord-chat').style.width = '';
         }
     }
 
@@ -1145,14 +1169,12 @@
                 const pUser = getUserByUsername(partner);
                 const displayName = getDisplayName(partner);
                 const isActive = partner === state.currentChatPartner;
-                const time = last ? formatTime(last.timestamp) : '';
                 html += '<div class="discord-channel-item ' + (isActive ? 'active' : '') + '" data-partner="' + partner + '">';
                 html += '<span class="channel-icon">#</span>';
-                html += '<span class="flex-1 truncate">' + displayName + '</span>';
+                html += '<span>' + displayName + '</span>';
                 if (pUser && pUser.online) {
                     html += '<span class="channel-badge text-green-400 text-[10px]">●</span>';
                 }
-                html += '<span class="channel-badge text-[#555] text-[10px]">' + time + '</span>';
                 html += '</div>';
             }
         }
@@ -1281,11 +1303,8 @@
 
         if (state.isMobile) {
             document.getElementById('channelList').classList.remove('active');
-            const chat = document.querySelector('.discord-chat');
-            if (chat) {
-                chat.style.width = '100%';
-                chat.style.display = 'flex';
-            }
+            document.querySelector('.discord-chat').style.width = '100%';
+            document.querySelector('.discord-chat').style.display = 'flex';
         }
 
         if (DOM.chatActive) DOM.chatActive.classList.remove('hidden');
@@ -1390,28 +1409,44 @@
 
     function updateActivity() { lastActivity = Date.now(); resetAutoLock(); }
 
-    async function init() {
-        console.log('🚀 Initializing VVN...');
-
-        state.loadingTimeout = setTimeout(function() {
-            if (!state.loadingComplete) {
-                console.warn('Loading timeout - forcing hide');
-                if (DOM.loadingOverlay) {
-                    DOM.loadingOverlay.style.display = 'none';
-                }
-                state.loadingComplete = true;
-                showDeviceSelection();
+    function initVanta() {
+        try {
+            if (typeof VANTA !== 'undefined' && !state.vantaEffect) {
+                state.vantaEffect = VANTA.WAVES({
+                    el: '#vanta-bg',
+                    mouseControls: true,
+                    touchControls: true,
+                    gyroControls: false,
+                    minHeight: 200.00,
+                    minWidth: 200.00,
+                    scale: 1.00,
+                    scaleMobile: 1.00,
+                    color: 0x0A0A0A,
+                    waveColor: 0x1A1A1A,
+                    waveSpeed: 0.3,
+                    zoom: 0.8
+                });
+                addLog('✓ Vanta background initialized');
             }
-        }, 10000);
+        } catch (e) {
+            addLog('Vanta background not available');
+        }
+    }
 
-        if (DOM.loadingOverlay) DOM.loadingOverlay.style.display = 'flex';
-        updateLoading(5);
+    async function init() {
+        addLog('Initializing VVN Messenger...');
+        updateLoading(5, 'Loading settings...');
         loadSavedSettings();
+        addLog('✓ Settings loaded');
+
+        updateLoading(15, 'Initializing background...');
+        setTimeout(initVanta, 100);
 
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
 
+        updateLoading(25, 'Detecting device...');
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && typeof applyDeviceLayout === 'function') {
             state.deviceType = savedDevice;
@@ -1423,95 +1458,85 @@
             applyDeviceLayout(detected);
             adjustDiscordLayout(detected);
         }
+        addLog('✓ Device: ' + state.deviceType);
 
-        // First try to load from cache
+        updateLoading(40, 'Loading local cache...');
         const cached = localStorage.getItem('vvn_cache');
         if (cached) {
             try {
                 state.localCache = JSON.parse(cached);
-                console.log('📦 Loaded from cache:', state.localCache.users.length, 'users');
-                updateLoading(40);
+                addLog('✓ Loaded ' + state.localCache.users.length + ' users from cache');
+                updateLoading(50);
             } catch (e) {
                 state.localCache = { users: [], chats: {}, messages: {} };
+                addLog('Cache corrupted, using defaults');
             }
         } else {
             state.localCache = { users: [], chats: {}, messages: {} };
-        }
-
-        // Ensure VaultNet exists
-        if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
-            state.localCache.users.push({
-                username: 'VaultNet',
-                displayName: 'VaultNet',
-                password: 'admin123',
-                bio: 'Creator of VVN',
-                online: true,
-                created: Date.now(),
-                avatar: '',
-                rainbow: false
-            });
+            if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
+                state.localCache.users.push({
+                    username: 'VaultNet',
+                    displayName: 'VaultNet',
+                    password: 'admin123',
+                    bio: 'Creator of VVN',
+                    online: true,
+                    created: Date.now(),
+                    avatar: '',
+                    rainbow: false
+                });
+                addLog('✓ Created default owner account');
+            }
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         }
 
-        updateLoading(50);
-
-        // Try to sync with remote
+        updateLoading(60, 'Syncing with cloud...');
         try {
             const remote = await fetchFromBin();
             if (remote) {
-                const remoteUsers = remote.users || [];
-                const remoteChats = remote.chats || {};
-                const remoteMessages = remote.messages || {};
-                
-                // Merge remote users with local
-                const localUsers = state.localCache.users || [];
-                const mergedUsers = [...localUsers];
-                for (const rUser of remoteUsers) {
-                    if (!mergedUsers.find(u => u.username === rUser.username)) {
-                        mergedUsers.push(rUser);
-                    }
+                state.localCache = { users: remote.users || [], chats: remote.chats || {}, messages: remote.messages || {} };
+                if (!state.localCache.users.find(u => u.username === 'VaultNet')) {
+                    state.localCache.users.push({
+                        username: 'VaultNet',
+                        displayName: 'VaultNet',
+                        password: 'admin123',
+                        bio: 'Creator of VVN',
+                        online: true,
+                        created: Date.now(),
+                        avatar: '',
+                        rainbow: false
+                    });
                 }
-                
-                state.localCache.users = mergedUsers;
-                state.localCache.chats = { ...remoteChats, ...state.localCache.chats };
-                state.localCache.messages = { ...remoteMessages, ...state.localCache.messages };
-                
                 localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
-                state.firstSyncDone = true;
-                console.log('✅ Loaded from JSONBin:', state.localCache.users.length, 'users');
+                addLog('✓ Loaded ' + state.localCache.users.length + ' users from cloud');
             }
-        } catch (e) { 
-            console.warn('Background sync failed, using cache'); 
+        } catch (e) {
+            addLog('Cloud sync failed, using cached data');
         }
+        state.firstSyncDone = true;
 
-        updateLoading(80);
-
-        updateLoading(90);
+        updateLoading(80, 'Loading user session...');
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(u => u.username === session.username);
             if (user) {
                 state.currentUser = user;
+                addLog('✓ Welcome back, ' + (user.displayName || user.username));
                 renderMessenger();
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
-                updateLoading(100);
-                if (state.loadingTimeout) {
-                    clearTimeout(state.loadingTimeout);
-                    state.loadingTimeout = null;
-                }
+                updateLoading(100, '✓ Ready!');
                 return;
             } else {
                 localStorage.removeItem('vvn_session');
+                addLog('Session user not found');
             }
         }
-        showDeviceSelection();
-        updateLoading(100);
-        if (typeof lucide !== 'undefined') lucide.createIcons();
 
-        if (state.loadingTimeout) {
-            clearTimeout(state.loadingTimeout);
-            state.loadingTimeout = null;
+        updateLoading(90, 'Showing login screen...');
+        showDeviceSelection();
+        updateLoading(100, '✓ Ready!');
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
         }
     }
 
@@ -1579,13 +1604,17 @@
             DOM.micBtn.addEventListener('touchend', function(e) { e.preventDefault(); stopVoiceRecording(); });
         }
 
+        // Search
+        if (DOM.searchInput) {
+            DOM.searchInput.addEventListener('input', function() { searchUsers(this.value); });
+        }
+
         // Back button (mobile)
         if (DOM.backBtn) {
             DOM.backBtn.addEventListener('click', function() {
                 if (state.isMobile) {
                     document.getElementById('channelList').classList.add('active');
-                    const chat = document.querySelector('.discord-chat');
-                    if (chat) chat.style.width = '';
+                    document.querySelector('.discord-chat').style.width = '';
                     state.currentChatPartner = null;
                     showPlaceholder();
                     renderChatList();
