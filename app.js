@@ -33,7 +33,8 @@
         firstSyncDone: false,
         vantaEffect: null,
         atroposInstances: [],
-        currentTab: 'chats'
+        currentTab: 'chats',
+        deviceSelected: false
     };
 
     const CONFIG = window.CONFIG || {
@@ -166,7 +167,8 @@
         gameBtn: document.getElementById('gameBtn'),
         smileBtn: document.getElementById('smileBtn'),
         navItems: document.querySelectorAll('.nav-item'),
-        chatAvatar: document.getElementById('chatAvatar')
+        chatAvatar: document.getElementById('chatAvatar'),
+        deviceOptions: document.querySelectorAll('.device-option')
     };
 
     let selectionMode = false;
@@ -406,17 +408,47 @@
     }
 
     function showDeviceSelection() {
-        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'flex';
+        if (DOM.deviceScreen) {
+            DOM.deviceScreen.style.display = 'flex';
+        }
         if (DOM.authScreen) DOM.authScreen.style.display = 'none';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
+        state.deviceSelected = false;
     }
 
     function selectDevice(deviceType) {
         state.deviceType = deviceType;
+        state.deviceSelected = true;
         localStorage.setItem('vvn_device', deviceType);
-        if (typeof applyDeviceLayout === 'function') applyDeviceLayout(deviceType);
-        if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
-        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
+        
+        // Apply device layout
+        if (typeof applyDeviceLayout === 'function') {
+            applyDeviceLayout(deviceType);
+        }
+        
+        // Hide device screen, show auth or messenger
+        if (DOM.deviceScreen) {
+            DOM.deviceScreen.style.display = 'none';
+        }
+        
+        // Check if user is logged in
+        const session = JSON.parse(localStorage.getItem('vvn_session'));
+        if (session) {
+            const user = state.localCache.users.find(u => u.username === session.username);
+            if (user) {
+                state.currentUser = user;
+                renderMessenger();
+                return;
+            } else {
+                localStorage.removeItem('vvn_session');
+            }
+        }
+        
+        // Show auth screen
+        if (DOM.authScreen) {
+            DOM.authScreen.style.display = 'flex';
+        }
+        
         lucide.createIcons();
     }
 
@@ -1668,8 +1700,6 @@
         state.currentChatPartner = null;
         if (state.syncInterval) clearInterval(state.syncInterval);
         if (autoLockTimeout) clearTimeout(autoLockTimeout);
-        if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
-        if (DOM.messenger) DOM.messenger.style.display = 'none';
         showDeviceSelection();
     }
 
@@ -1715,14 +1745,10 @@
 
         initVanta();
 
+        // Check for saved device
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && typeof applyDeviceLayout === 'function') {
             state.deviceType = savedDevice;
-            applyDeviceLayout(savedDevice);
-        } else if (typeof detectDevice === 'function') {
-            const detected = detectDevice();
-            state.deviceType = detected;
-            applyDeviceLayout(detected);
         }
 
         const cached = localStorage.getItem('vvn_cache');
@@ -1804,13 +1830,36 @@
             });
         }
 
+        // Device selection handlers
+        DOM.deviceOptions.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const device = this.dataset.device;
+                selectDevice(device);
+            });
+        });
+
+        if (DOM.autoDetectBtn) {
+            DOM.autoDetectBtn.addEventListener('click', function() {
+                if (typeof detectDevice === 'function') {
+                    const detected = detectDevice();
+                    selectDevice(detected);
+                }
+            });
+        }
+
         updateLoading(90);
         const session = JSON.parse(localStorage.getItem('vvn_session'));
         if (session) {
             const user = state.localCache.users.find(u => u.username === session.username);
             if (user) {
                 state.currentUser = user;
-                renderMessenger();
+                // Check if device was selected
+                if (!state.deviceSelected && !savedDevice) {
+                    // Show device selection first
+                    showDeviceSelection();
+                } else {
+                    renderMessenger();
+                }
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
                 updateLoading(100);
@@ -2007,14 +2056,6 @@
             syncWithRemote();
         });
 
-        document.querySelectorAll('.device-option').forEach(btn => {
-            btn.addEventListener('click', function() { selectDevice(this.dataset.device); });
-        });
-        if (DOM.autoDetectBtn) {
-            DOM.autoDetectBtn.addEventListener('click', function() {
-                if (typeof detectDevice === 'function') { const detected = detectDevice(); selectDevice(detected); }
-            });
-        }
         if (DOM.autoDetectLayoutBtn) {
             DOM.autoDetectLayoutBtn.addEventListener('click', function() {
                 if (typeof detectDevice === 'function') { const detected = detectDevice(); selectDevice(detected); }
