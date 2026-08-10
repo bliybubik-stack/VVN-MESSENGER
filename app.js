@@ -78,6 +78,7 @@
         profileBio: document.getElementById('profileBio'),
         profileJoined: document.getElementById('profileJoined'),
         profileTags: document.getElementById('profileTags'),
+        profileLogoutBtn: document.getElementById('profileLogoutBtn'),
         modalClose: document.getElementById('modalClose'),
         settingsModal: document.getElementById('settingsModal'),
         settingsClose: document.getElementById('settingsClose'),
@@ -131,7 +132,14 @@
         gifGrid: document.getElementById('gifGrid'),
         pollBtn: document.getElementById('pollBtn'),
         gameBtn: document.getElementById('gameBtn'),
-        smileBtn: document.getElementById('smileBtn')
+        smileBtn: document.getElementById('smileBtn'),
+        bottomProfileCard: document.getElementById('bottomProfileCard'),
+        bottomAvatar: document.getElementById('bottomAvatar'),
+        bottomAvatarText: document.getElementById('bottomAvatarText'),
+        bottomUsername: document.getElementById('bottomUsername'),
+        bottomStatus: document.getElementById('bottomStatus'),
+        profileSettingsBtn: document.getElementById('profileSettingsBtn'),
+        bottomLogoutBtn: document.getElementById('bottomLogoutBtn')
     };
 
     let selectionMode = false;
@@ -257,9 +265,24 @@
                         if (typeof lucide !== 'undefined') {
                             lucide.createIcons();
                         }
+                        updateBottomProfile();
                     }, 400);
                 }
             }, 500);
+        }
+    }
+
+    function updateBottomProfile() {
+        if (!state.currentUser) return;
+        const user = state.currentUser;
+        if (DOM.bottomUsername) {
+            DOM.bottomUsername.textContent = user.displayName || user.username;
+        }
+        if (DOM.bottomAvatarText) {
+            DOM.bottomAvatarText.textContent = (user.displayName || user.username).charAt(0).toUpperCase();
+        }
+        if (DOM.bottomStatus) {
+            DOM.bottomStatus.textContent = user.online ? 'Online' : 'Offline';
         }
     }
 
@@ -269,9 +292,9 @@
             const resp = await fetch('https://api.jsonbin.io/v3/b/' + CONFIG.BIN_ID, {
                 headers: { 'X-Master-Key': CONFIG.MASTER_KEY, 'X-Bin-Meta': 'false' }
             });
-            if (!resp.ok) { 
+            if (!resp.ok) {
                 addLog('Failed to fetch from JSONBin (status: ' + resp.status + ')');
-                return null; 
+                return null;
             }
             const data = await resp.json();
             addLog('✓ Data fetched successfully');
@@ -297,8 +320,8 @@
     }
 
     async function syncWithRemote() {
-        if (state.firstSyncDone) { 
-            return true; 
+        if (state.firstSyncDone) {
+            return true;
         }
         addLog('Syncing with remote...');
         const remote = await fetchFromBin();
@@ -306,9 +329,9 @@
             const remoteUsers = remote.users || [];
             const remoteChats = remote.chats || {};
             const remoteMessages = remote.messages || {};
-            
+
             addLog('Processing ' + remoteUsers.length + ' users, ' + Object.keys(remoteChats).length + ' chats');
-            
+
             const localMessages = state.localCache.messages || {};
             for (const [key, msgs] of Object.entries(remoteMessages)) {
                 if (!localMessages[key]) { localMessages[key] = msgs; }
@@ -325,23 +348,24 @@
                     localMessages[key] = msgs;
                 }
             }
-            
+
             const localUsers = state.localCache.users || [];
             const mergedUsers = [...localUsers];
             for (const rUser of remoteUsers) {
                 if (!mergedUsers.find(u => u.username === rUser.username)) mergedUsers.push(rUser);
             }
-            
+
             state.localCache.users = mergedUsers;
             state.localCache.chats = { ...remoteChats, ...state.localCache.chats };
             state.localCache.messages = localMessages;
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
             state.firstSyncDone = true;
             addLog('✓ Sync complete: ' + state.localCache.users.length + ' users loaded');
-            
+
             if (state.currentUser) {
                 renderChatList();
                 if (state.currentChatPartner) renderMessagesForPartner(state.currentChatPartner);
+                updateBottomProfile();
             }
             return true;
         }
@@ -797,7 +821,7 @@
             if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
             if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
             if (DOM.fileCaption) DOM.fileCaption.value = '';
-            if (DOM.fileModal) DOM.fileModal.classList.add('hidden');
+            if (DOM.fileModal) DOM.fileModal.classList.remove('active');
         } else {
             messages[chatKey].push({
                 sender: state.currentUser.username,
@@ -915,7 +939,7 @@
         if (DOM.profileBio) DOM.profileBio.textContent = user.bio || 'No bio yet';
         if (DOM.profileJoined) DOM.profileJoined.textContent = 'Joined: ' + formatDate(user.created || Date.now());
         if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
-        if (DOM.profileModal) DOM.profileModal.classList.remove('hidden');
+        if (DOM.profileModal) DOM.profileModal.classList.add('active');
         closeDropdown();
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -928,7 +952,7 @@
         if (DOM.settingsPassword) DOM.settingsPassword.value = '';
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
         if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
-        if (DOM.settingsModal) DOM.settingsModal.classList.remove('hidden');
+        if (DOM.settingsModal) DOM.settingsModal.classList.add('active');
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
@@ -960,7 +984,8 @@
             localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
             await pushToRemote();
             renderChatList();
-            if (DOM.settingsModal) DOM.settingsModal.classList.add('hidden');
+            if (DOM.settingsModal) DOM.settingsModal.classList.remove('active');
+            updateBottomProfile();
             alert('Settings saved!');
         }
     }
@@ -1007,7 +1032,7 @@
 
     function showDeleteModal() {
         if (selectedMessages.size === 0) return;
-        if (DOM.deleteModal) DOM.deleteModal.classList.remove('hidden');
+        if (DOM.deleteModal) DOM.deleteModal.classList.add('active');
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
@@ -1022,7 +1047,7 @@
         localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
         pushToRemote();
         clearSelection();
-        if (DOM.deleteModal) DOM.deleteModal.classList.add('hidden');
+        if (DOM.deleteModal) DOM.deleteModal.classList.remove('active');
         renderMessagesForPartner(state.currentChatPartner);
         renderChatList();
     }
@@ -1045,7 +1070,7 @@
     }
 
     function openFileModal() {
-        if (DOM.fileModal) DOM.fileModal.classList.remove('hidden');
+        if (DOM.fileModal) DOM.fileModal.classList.add('active');
         if (DOM.filePreviewContainer) DOM.filePreviewContainer.innerHTML = '';
         if (DOM.fileCaption) DOM.fileCaption.value = '';
         if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
@@ -1133,23 +1158,48 @@
         }
     }
 
+    function getSavedMessagesKey() {
+        return 'saved_' + state.currentUser.username;
+    }
+
     function renderChatList() {
         if (!state.currentUser || !DOM.chatList) return;
         const chats = state.localCache.chats;
         const messages = state.localCache.messages;
         let chatKeys = Object.keys(chats).filter(k => k.includes(state.currentUser.username));
+
+        // Add Saved Messages as first item
+        const savedKey = getSavedMessagesKey();
+        const savedChats = chatKeys.filter(k => k === savedKey);
+        const regularChats = chatKeys.filter(k => k !== savedKey);
+
         blockedUsers = JSON.parse(localStorage.getItem('vvn_blocked') || '[]');
-        chatKeys = chatKeys.filter(k => {
+        const filteredChats = regularChats.filter(k => {
             const parts = k.split('_');
             const partner = parts[0] === state.currentUser.username ? parts[1] : parts[0];
             return !blockedUsers.includes(partner);
         });
+
         const pinnedContacts = JSON.parse(localStorage.getItem('vvn_pinned_contacts') || '[]');
+
         let html = '';
-        if (chatKeys.length === 0) {
-            html = '<div class="text-[#555] text-xs text-center py-6">No conversations yet</div>';
+
+        // Saved Messages
+        html += '<div class="discord-channel-item ' + (savedKey === state.currentChatPartner ? 'active' : '') + '" data-partner="' + savedKey + '">';
+        html += '<span class="channel-icon saved-messages-icon">📌</span>';
+        html += '<span>Saved Messages</span>';
+        const savedMsgs = messages[savedKey] || [];
+        if (savedMsgs.length > 0) {
+            const last = savedMsgs[savedMsgs.length - 1];
+            html += '<span class="channel-badge text-[#555] text-[10px]">' + (last.text ? last.text.substring(0, 15) : '📎 File') + '</span>';
+        }
+        html += '</div>';
+
+        // Regular chats
+        if (filteredChats.length === 0 && savedChats.length === 0) {
+            html += '<div class="text-[#555] text-xs text-center py-6">No conversations yet</div>';
         } else {
-            const sorted = chatKeys.sort((a, b) => {
+            const sorted = filteredChats.sort((a, b) => {
                 const partsA = a.split('_'); const partsB = b.split('_');
                 const partnerA = partsA[0] === state.currentUser.username ? partsA[1] : partsA[0];
                 const partnerB = partsB[0] === state.currentUser.username ? partsB[1] : partsB[0];
@@ -1180,13 +1230,62 @@
         }
         DOM.chatList.innerHTML = html;
         document.querySelectorAll('.discord-channel-item').forEach(el => {
-            el.addEventListener('click', function() { openChat(this.dataset.partner); updateActivity(); });
+            el.addEventListener('click', function() {
+                const partner = this.dataset.partner;
+                if (partner === getSavedMessagesKey()) {
+                    openSavedMessages();
+                } else {
+                    openChat(partner);
+                }
+                updateActivity();
+            });
         });
+    }
+
+    function openSavedMessages() {
+        if (!state.currentUser) return;
+        const savedKey = getSavedMessagesKey();
+        state.currentChatPartner = savedKey;
+
+        if (state.isMobile) {
+            document.getElementById('channelList').classList.remove('active');
+            document.querySelector('.discord-chat').style.width = '100%';
+            document.querySelector('.discord-chat').style.display = 'flex';
+        }
+
+        if (DOM.chatActive) DOM.chatActive.classList.remove('hidden');
+        if (DOM.chatPlaceholder) DOM.chatPlaceholder.classList.add('hidden');
+
+        if (DOM.chatPartnerName) {
+            DOM.chatPartnerName.textContent = 'Saved Messages';
+        }
+        if (DOM.chatPartnerStatus) {
+            DOM.chatPartnerStatus.textContent = '📌 Your notes';
+        }
+
+        // Create saved messages chat if it doesn't exist
+        const chats = state.localCache.chats;
+        if (!chats[savedKey]) {
+            chats[savedKey] = { participants: [state.currentUser.username, 'saved'], created: Date.now() };
+            state.localCache.chats = chats;
+            localStorage.setItem('vvn_cache', JSON.stringify(state.localCache));
+        }
+
+        renderMessagesForPartner(savedKey);
+        renderChatList();
+        updateMobileView();
+        closeDropdown();
+        if (DOM.funPanel) DOM.funPanel.classList.remove('active');
+        if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
+
+        if (DOM.messageInput) {
+            DOM.messageInput.placeholder = 'Write a note...';
+        }
     }
 
     function renderMessagesForPartner(partnerUsername) {
         if (!state.currentUser || !partnerUsername) return;
-        const chatKey = getChatKey(state.currentUser.username, partnerUsername);
+        const chatKey = partnerUsername === getSavedMessagesKey() ? partnerUsername : getChatKey(state.currentUser.username, partnerUsername);
         const msgs = state.localCache.messages[chatKey] || [];
         if (!DOM.chatMessages) return;
         DOM.chatMessages.innerHTML = '';
@@ -1195,11 +1294,13 @@
             return;
         }
 
+        const isSaved = partnerUsername === getSavedMessagesKey();
+
         for (let i = 0; i < msgs.length; i++) {
             const msg = msgs[i];
             const msgId = msg.timestamp + '-' + i;
-            const isOutgoing = msg.sender === state.currentUser.username;
-            const senderName = isOutgoing ? state.currentUser.displayName || state.currentUser.username : getDisplayName(partnerUsername);
+            const isOutgoing = msg.sender === state.currentUser.username || isSaved;
+            const senderName = isSaved ? 'You' : (isOutgoing ? state.currentUser.displayName || state.currentUser.username : getDisplayName(partnerUsername));
             const showAvatar = i === 0 || msgs[i-1].sender !== msg.sender;
 
             const div = document.createElement('div');
@@ -1341,6 +1442,7 @@
         state.currentUser = user;
         renderMessenger();
         resetAutoLock();
+        updateBottomProfile();
         return true;
     }
 
@@ -1368,6 +1470,7 @@
         state.currentUser = newUser;
         renderMessenger();
         resetAutoLock();
+        updateBottomProfile();
         return true;
     }
 
@@ -1380,9 +1483,17 @@
         if (!user) { logout(); return; }
         state.currentUser = user;
         renderChatList();
-        if (state.currentChatPartner) openChat(state.currentChatPartner);
-        else showPlaceholder();
+        if (state.currentChatPartner) {
+            if (state.currentChatPartner === getSavedMessagesKey()) {
+                openSavedMessages();
+            } else {
+                openChat(state.currentChatPartner);
+            }
+        } else {
+            showPlaceholder();
+        }
         updateMobileView();
+        updateBottomProfile();
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
@@ -1522,6 +1633,7 @@
                 state.currentUser = user;
                 addLog('✓ Welcome back, ' + (user.displayName || user.username));
                 renderMessenger();
+                updateBottomProfile();
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
                 updateLoading(100, '✓ Ready!');
@@ -1625,7 +1737,7 @@
         // Settings
         if (DOM.settingsBtn) DOM.settingsBtn.addEventListener('click', openSettings);
         if (DOM.settingsClose) {
-            DOM.settingsClose.addEventListener('click', function() { if (DOM.settingsModal) DOM.settingsModal.classList.add('hidden'); });
+            DOM.settingsClose.addEventListener('click', function() { if (DOM.settingsModal) DOM.settingsModal.classList.remove('active'); });
         }
 
         // Save settings
@@ -1633,11 +1745,27 @@
 
         // Modal closes
         if (DOM.modalClose) {
-            DOM.modalClose.addEventListener('click', function() { if (DOM.profileModal) DOM.profileModal.classList.add('hidden'); });
+            DOM.modalClose.addEventListener('click', function() { if (DOM.profileModal) DOM.profileModal.classList.remove('active'); });
         }
         if (DOM.profileModal) {
             DOM.profileModal.addEventListener('click', function(e) {
-                if (e.target === this) this.classList.add('hidden');
+                if (e.target === this) this.classList.remove('active');
+            });
+        }
+        if (DOM.profileLogoutBtn) {
+            DOM.profileLogoutBtn.addEventListener('click', function() { if (confirm('Are you sure you want to logout?')) { logout(); } });
+        }
+
+        // Bottom Profile Card
+        if (DOM.profileSettingsBtn) {
+            DOM.profileSettingsBtn.addEventListener('click', openSettings);
+        }
+        if (DOM.bottomLogoutBtn) {
+            DOM.bottomLogoutBtn.addEventListener('click', function() { if (confirm('Are you sure you want to logout?')) { logout(); } });
+        }
+        if (DOM.bottomProfileCard) {
+            DOM.bottomProfileCard.addEventListener('click', function() {
+                if (state.currentUser) showProfile(state.currentUser.username);
             });
         }
 
@@ -1698,11 +1826,11 @@
         if (DOM.cancelSelectionBtn) DOM.cancelSelectionBtn.addEventListener('click', clearSelection);
         if (DOM.deleteForMeBtn) DOM.deleteForMeBtn.addEventListener('click', function() { deleteMessages(false); });
         if (DOM.deleteForEveryoneBtn) DOM.deleteForEveryoneBtn.addEventListener('click', function() { deleteMessages(true); });
-        if (DOM.deleteModalClose) DOM.deleteModalClose.addEventListener('click', function() { DOM.deleteModal.classList.add('hidden'); });
+        if (DOM.deleteModalClose) DOM.deleteModalClose.addEventListener('click', function() { DOM.deleteModal.classList.remove('active'); });
 
         // File
         if (DOM.clipBtn) DOM.clipBtn.addEventListener('click', openFileModal);
-        if (DOM.fileModalClose) DOM.fileModalClose.addEventListener('click', function() { DOM.fileModal.classList.add('hidden'); });
+        if (DOM.fileModalClose) DOM.fileModalClose.addEventListener('click', function() { DOM.fileModal.classList.remove('active'); });
         if (DOM.fileSelectBtn) DOM.fileSelectBtn.addEventListener('click', handleFileSelect);
         if (DOM.fileInput) DOM.fileInput.addEventListener('change', handleFileInput);
         if (DOM.fileClearBtn) DOM.fileClearBtn.addEventListener('click', clearAllFiles);
@@ -1738,7 +1866,7 @@
         // Modal overlays
         document.querySelectorAll('.modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function(e) {
-                if (e.target === this) this.classList.add('hidden');
+                if (e.target === this) this.classList.remove('active');
             });
         });
 
@@ -1758,6 +1886,6 @@
         console.log('🚀 VVN Messenger started!');
         console.log('👤 Owner: VaultNet');
         console.log('🔐 Password: admin123');
-        console.log('📱 Discord-style interface');
+        console.log('📱 Discord-style interface with Saved Messages');
     });
 })();
