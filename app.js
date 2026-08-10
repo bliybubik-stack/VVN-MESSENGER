@@ -25,7 +25,8 @@
         typingTimeout: null,
         isTyping: false,
         firstSyncDone: false,
-        vantaEffect: null
+        vantaEffect: null,
+        loadingTimeout: null
     };
 
     const CONFIG = window.CONFIG || {
@@ -251,11 +252,16 @@
         if (DOM.loaderFill) DOM.loaderFill.style.width = p + '%';
         if (p >= 100 && !state.loadingComplete) {
             state.loadingComplete = true;
-            setTimeout(() => {
+            // Use setTimeout to ensure the UI updates
+            setTimeout(function() {
                 if (DOM.loadingOverlay) {
                     DOM.loadingOverlay.style.opacity = '0';
-                    setTimeout(() => {
+                    setTimeout(function() {
                         DOM.loadingOverlay.style.display = 'none';
+                        // Initialize Lucide icons after loading
+                        if (typeof lucide !== 'undefined') {
+                            lucide.createIcons();
+                        }
                     }, 400);
                 }
             }, 300);
@@ -263,7 +269,6 @@
     }
 
     function setStatus(text, color) {
-        // Status is now handled by the Discord-style UI
         console.log('Status:', text, color);
     }
 
@@ -346,6 +351,13 @@
         if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'flex';
         if (DOM.authScreen) DOM.authScreen.style.display = 'none';
         if (DOM.messenger) DOM.messenger.style.display = 'none';
+        // Force hide loading overlay if still visible
+        if (DOM.loadingOverlay) {
+            DOM.loadingOverlay.style.display = 'none';
+        }
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
     }
 
     function selectDevice(deviceType) {
@@ -354,8 +366,9 @@
         if (typeof applyDeviceLayout === 'function') applyDeviceLayout(deviceType);
         if (DOM.deviceScreen) DOM.deviceScreen.style.display = 'none';
         if (DOM.authScreen) DOM.authScreen.style.display = 'flex';
-        lucide.createIcons();
-        // Adjust Discord-style layout for device
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
         adjustDiscordLayout(deviceType);
     }
 
@@ -363,14 +376,15 @@
         const isMobile = deviceType === 'phone';
         const channelList = document.getElementById('channelList');
         if (isMobile) {
-            channelList.classList.remove('active');
-            // Mobile: show only chat when in conversation
+            if (channelList) channelList.classList.remove('active');
             if (state.currentChatPartner) {
                 document.querySelector('.discord-chat').style.width = '100%';
             }
         } else {
-            channelList.classList.remove('active');
-            channelList.style.width = deviceType === 'tablet' ? '200px' : '220px';
+            if (channelList) {
+                channelList.classList.remove('active');
+                channelList.style.width = deviceType === 'tablet' ? '200px' : '220px';
+            }
             document.querySelector('.discord-chat').style.width = '';
         }
     }
@@ -485,7 +499,7 @@
         renderChatList();
         DOM.funPanel.classList.remove('active');
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     };
 
     window.sendGIF = function(data) {
@@ -505,7 +519,7 @@
         renderChatList();
         DOM.funPanel.classList.remove('active');
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     };
 
     function createPoll() {
@@ -594,7 +608,7 @@
             </div>
         `;
         document.body.appendChild(modal);
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
         modal.querySelectorAll('.game-cell').forEach(cell => {
             cell.addEventListener('click', function() {
                 if (gameOver) return;
@@ -802,7 +816,7 @@
         updateActivity();
         DOM.funPanel.classList.remove('active');
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function startVoiceRecording() {
@@ -899,7 +913,7 @@
         if (DOM.profileAvatar) DOM.profileAvatar.src = user.avatar || 'icons/user.png';
         if (DOM.profileModal) DOM.profileModal.classList.remove('hidden');
         closeDropdown();
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function openSettings() {
@@ -911,7 +925,7 @@
         if (DOM.settingsBio) DOM.settingsBio.value = user.bio || '';
         if (DOM.settingsAvatar) DOM.settingsAvatar.src = user.avatar || 'icons/user.png';
         if (DOM.settingsModal) DOM.settingsModal.classList.remove('hidden');
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     async function saveSettings() {
@@ -990,7 +1004,7 @@
     function showDeleteModal() {
         if (selectedMessages.size === 0) return;
         if (DOM.deleteModal) DOM.deleteModal.classList.remove('hidden');
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function deleteMessages(forEveryone) {
@@ -1032,7 +1046,7 @@
         if (DOM.fileCaption) DOM.fileCaption.value = '';
         if (DOM.fileClearBtn) DOM.fileClearBtn.style.display = 'none';
         pendingFiles = [];
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function handleFileSelect() { if (DOM.fileInput) DOM.fileInput.click(); }
@@ -1101,14 +1115,16 @@
         const channelList = document.getElementById('channelList');
         if (state.isMobile) {
             if (state.currentChatPartner) {
-                channelList.classList.remove('active');
+                if (channelList) channelList.classList.remove('active');
                 document.querySelector('.discord-chat').style.width = '100%';
             } else {
-                channelList.classList.add('active');
+                if (channelList) channelList.classList.add('active');
             }
         } else {
-            channelList.classList.remove('active');
-            channelList.style.width = state.deviceType === 'tablet' ? '200px' : '220px';
+            if (channelList) {
+                channelList.classList.remove('active');
+                channelList.style.width = state.deviceType === 'tablet' ? '200px' : '220px';
+            }
             document.querySelector('.discord-chat').style.width = '';
         }
     }
@@ -1175,7 +1191,6 @@
             return;
         }
 
-        let lastSender = '';
         for (let i = 0; i < msgs.length; i++) {
             const msg = msgs[i];
             const msgId = msg.timestamp + '-' + i;
@@ -1266,7 +1281,7 @@
                 votePoll(msgId, opt);
             });
         });
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
         setTimeout(() => { DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight; }, 50);
     }
 
@@ -1282,7 +1297,6 @@
         const partner = getUserByUsername(partnerUsername);
         if (!partner) return;
 
-        // Mobile: hide channel list
         if (state.isMobile) {
             document.getElementById('channelList').classList.remove('active');
             document.querySelector('.discord-chat').style.width = '100%';
@@ -1307,7 +1321,6 @@
         if (DOM.funPanel) DOM.funPanel.classList.remove('active');
         if (DOM.smileBtn) DOM.smileBtn.classList.remove('active');
 
-        // Update message input placeholder
         if (DOM.messageInput) {
             DOM.messageInput.placeholder = 'Message @' + partnerUsername;
         }
@@ -1366,7 +1379,7 @@
         if (state.currentChatPartner) openChat(state.currentChatPartner);
         else showPlaceholder();
         updateMobileView();
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function logout() {
@@ -1393,34 +1406,54 @@
     function updateActivity() { lastActivity = Date.now(); resetAutoLock(); }
 
     function initVanta() {
-        if (typeof VANTA !== 'undefined' && !state.vantaEffect) {
-            state.vantaEffect = VANTA.WAVES({
-                el: '#vanta-bg',
-                mouseControls: true,
-                touchControls: true,
-                gyroControls: false,
-                minHeight: 200.00,
-                minWidth: 200.00,
-                scale: 1.00,
-                scaleMobile: 1.00,
-                color: 0x0A0A0A,
-                waveColor: 0x1A1A1A,
-                waveSpeed: 0.3,
-                zoom: 0.8
-            });
+        try {
+            if (typeof VANTA !== 'undefined' && !state.vantaEffect) {
+                state.vantaEffect = VANTA.WAVES({
+                    el: '#vanta-bg',
+                    mouseControls: true,
+                    touchControls: true,
+                    gyroControls: false,
+                    minHeight: 200.00,
+                    minWidth: 200.00,
+                    scale: 1.00,
+                    scaleMobile: 1.00,
+                    color: 0x0A0A0A,
+                    waveColor: 0x1A1A1A,
+                    waveSpeed: 0.3,
+                    zoom: 0.8
+                });
+            }
+        } catch (e) {
+            console.warn('Vanta.js not loaded, continuing without background effect');
         }
     }
 
     async function init() {
         console.log('🚀 Initializing VVN...');
+
+        // Set a timeout to force hide loading even if everything fails
+        state.loadingTimeout = setTimeout(function() {
+            if (!state.loadingComplete) {
+                console.warn('Loading timeout - forcing hide');
+                if (DOM.loadingOverlay) {
+                    DOM.loadingOverlay.style.display = 'none';
+                }
+                state.loadingComplete = true;
+                // Show device selection as fallback
+                showDeviceSelection();
+            }
+        }, 8000);
+
         if (DOM.loadingOverlay) DOM.loadingOverlay.style.display = 'flex';
         updateLoading(5);
         loadSavedSettings();
+
+        // Try to init Vanta but don't wait for it
+        setTimeout(initVanta, 100);
+
         if ('Notification' in window && Notification.permission === 'default') {
             Notification.requestPermission();
         }
-
-        initVanta();
 
         const savedDevice = localStorage.getItem('vvn_device');
         if (savedDevice && typeof applyDeviceLayout === 'function') {
@@ -1494,6 +1527,11 @@
                 if (state.syncInterval) clearInterval(state.syncInterval);
                 state.syncInterval = setInterval(syncWithRemote, CONFIG.SYNC_INTERVAL);
                 updateLoading(100);
+                // Clear the timeout since loading completed
+                if (state.loadingTimeout) {
+                    clearTimeout(state.loadingTimeout);
+                    state.loadingTimeout = null;
+                }
                 return;
             } else {
                 localStorage.removeItem('vvn_session');
@@ -1501,7 +1539,13 @@
         }
         showDeviceSelection();
         updateLoading(100);
-        lucide.createIcons();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Clear the timeout
+        if (state.loadingTimeout) {
+            clearTimeout(state.loadingTimeout);
+            state.loadingTimeout = null;
+        }
     }
 
     // Event Listeners
